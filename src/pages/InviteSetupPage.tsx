@@ -32,6 +32,15 @@ export function InviteSetupPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [launchPath, setLaunchPath] = useState<string | null>(null)
+  const setupPath = `/setup/${token}`
+
+  const fullUrl = (path: string) => {
+    if (typeof window === 'undefined') {
+      return path
+    }
+
+    return new URL(path, window.location.origin).toString()
+  }
 
   const dateRangeError = useMemo(() => {
     if (!form.startDate || !form.endDate) {
@@ -119,13 +128,23 @@ export function InviteSetupPage() {
         {error ? <p className="error">{error}</p> : null}
 
         {launchPath ? (
-          <div className="panel">
+          <div className="setup-result">
             <h2>Setup complete</h2>
-            <p>Share this URL with your employees:</p>
-            <p>
-              <a href={launchPath}>{launchPath}</a>
-            </p>
-            <p className="hint">Use this page on iPad for start flow and open leaderboard link on monitor.</p>
+            <div className="url-list">
+              <article>
+                <span>Setup URL</span>
+                <a href={setupPath}>{fullUrl(setupPath)}</a>
+              </article>
+              <article>
+                <span>iPad challenge URL</span>
+                <a href={launchPath}>{fullUrl(launchPath)}</a>
+              </article>
+              <article>
+                <span>Laptop scoreboard URL</span>
+                <a href={`${launchPath}/leaderboard`}>{fullUrl(`${launchPath}/leaderboard`)}</a>
+              </article>
+            </div>
+            <p className="hint">Use the iPad URL for the challenge station and the laptop URL for the live scoreboard.</p>
           </div>
         ) : (
           <form className="stack" onSubmit={onSubmit}>

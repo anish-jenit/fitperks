@@ -12,6 +12,9 @@ export function LandingPage() {
             Platform admin sends setup invite. POC configures dates and gets a launch URL for iPad challenge and laptop scoreboard.
           </p>
           <div className="hero-actions">
+            <Link className="button primary" to="/setup/INNOSETUP2026">
+              Mock POC Setup
+            </Link>
             <Link className="button primary" to="/admin">
               Admin Login
             </Link>

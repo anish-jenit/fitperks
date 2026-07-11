@@ -28,6 +28,16 @@ type StubFlowState = {
 }
 
 const STUB_FLOW_STORAGE_KEY = 'fitperk.flow.stub.state.v1'
+const POC_INVITE_TOKEN = 'INNOSETUP2026'
+const POC_INVITE: StubInviteState = {
+  token: POC_INVITE_TOKEN,
+  organizationCode: 'INNOBLAZE2026',
+  organizationName: 'InnoBlaze',
+  organizationSlug: 'innoblaze',
+  countryCode: 'us',
+  pocEmail: 'poc@innoblaze.test',
+  displayMessage: 'Welcome to the InnoBlaze commute challenge. Complete your reps and climb the leaderboard.',
+}
 
 function slugify(value: string): string {
   return value
@@ -49,14 +59,18 @@ function titleFromCode(organizationCode: string): string {
 function readStubFlowState(): StubFlowState {
   const raw = localStorage.getItem(STUB_FLOW_STORAGE_KEY)
   if (!raw) {
-    return { invites: [] }
+    return { invites: [POC_INVITE] }
   }
 
   try {
     const parsed = JSON.parse(raw) as StubFlowState
-    return { invites: parsed.invites ?? [] }
+    const invites = parsed.invites ?? []
+    if (!invites.some((invite) => invite.token === POC_INVITE_TOKEN)) {
+      invites.push(POC_INVITE)
+    }
+    return { invites }
   } catch {
-    return { invites: [] }
+    return { invites: [POC_INVITE] }
   }
 }
 

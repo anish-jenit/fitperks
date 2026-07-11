@@ -398,6 +398,36 @@
   margin-top: 1rem;
 }
 
+.setup-result {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.url-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.url-list article {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.8rem;
+  background: var(--panel-soft);
+}
+
+.url-list span {
+  color: var(--ink-strong);
+  font-weight: 700;
+}
+
+.url-list a {
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
 label {
   display: grid;
   gap: 0.45rem;

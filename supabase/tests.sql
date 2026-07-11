@@ -92,3 +92,28 @@ begin
     raise exception 'Expected seeded teams for both organizations';
   end if;
 end $$;
+
+-- 6) POC URLs have matching backing records.
+do $$
+declare
+  v_org_count int;
+  v_invite_count int;
+begin
+  select count(*) into v_org_count
+  from organizations
+  where country_code = 'us'
+    and slug = 'innoblaze'
+    and organization_code = 'INNOBLAZE2026'
+    and status = 'active';
+
+  select count(*) into v_invite_count
+  from organization_invites
+  where token = 'INNOSETUP2026'
+    and organization_id = '33333333-3333-3333-3333-333333333333'
+    and status = 'pending'
+    and expires_at > now();
+
+  if v_org_count <> 1 or v_invite_count <> 1 then
+    raise exception 'POC setup or launch fixture is missing';
+  end if;
+end $$;

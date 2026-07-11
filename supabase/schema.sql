@@ -76,9 +76,11 @@ create table if not exists organization_invites (
   status text not null default 'pending' check (status in ('pending', 'accepted', 'expired')),
   expires_at timestamptz not null,
   accepted_at timestamptz,
-  created_by_user_id uuid not null references auth.users(id) on delete cascade,
+  created_by_user_id uuid references auth.users(id) on delete cascade,
   created_at timestamptz not null default now()
 );
+
+alter table organization_invites alter column created_by_user_id drop not null;
 
 create table if not exists admin_users (
   id uuid primary key default gen_random_uuid(),

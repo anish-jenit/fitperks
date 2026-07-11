@@ -110,6 +110,18 @@ test.beforeEach(async ({ page }) => {
     }
 
     if (path.endsWith('/rpc/get_public_launch_context') && method === 'POST') {
+      const body = request.postDataJSON() as { p_country_code?: string; p_organization_slug?: string }
+      if (body.p_country_code === 'us' && body.p_organization_slug === 'innoblaze') {
+        return json({
+          organization_id: 'org-innoblaze',
+          organization_name: 'InnoBlaze',
+          organization_slug: 'innoblaze',
+          country_code: 'us',
+          organization_code: 'INNOBLAZE2026',
+          display_message: 'Welcome to the InnoBlaze commute challenge.',
+        })
+      }
+
       return json({
         organization_id: 'org-1',
         organization_name: 'Company A',
@@ -118,6 +130,24 @@ test.beforeEach(async ({ page }) => {
         organization_code: 'COMPANYA2026',
         display_message: 'Welcome to Company A Challenge Week',
       })
+    }
+
+    if (path.endsWith('/rpc/get_invite_setup_context') && method === 'POST') {
+      return json({
+        token: 'INNOSETUP2026',
+        organization_id: 'org-innoblaze',
+        organization_name: 'InnoBlaze',
+        organization_slug: 'innoblaze',
+        organization_code: 'INNOBLAZE2026',
+        country_code: 'us',
+        poc_email: 'poc@innoblaze.test',
+        existing_challenge_id: 'challenge-innoblaze',
+        existing_challenge_name: 'InnoBlaze Commute Challenge',
+      })
+    }
+
+    if (path.endsWith('/rpc/complete_invite_setup') && method === 'POST') {
+      return json({ launch_url_path: '/launch/us/innoblaze' })
     }
 
     if (path.endsWith('/rpc/get_individual_leaderboard') && method === 'POST') {
@@ -182,5 +212,23 @@ test('public organization launch URL shows primary start and separate leaderboar
   await expect(page.getByRole('link', { name: 'View Leaderboard' })).toBeVisible()
 
   await page.getByRole('link', { name: 'View Leaderboard' }).click()
+  await expect(page.getByRole('heading', { name: 'Leaderboards' })).toBeVisible()
+})
+
+test('POC setup, launch, and scoreboard URLs resolve', async ({ page }) => {
+  await page.goto('/setup/INNOSETUP2026')
+
+  await expect(page.getByRole('heading', { name: 'Organization Setup' })).toBeVisible()
+  await expect(page.getByLabel('Organization')).toHaveValue('InnoBlaze')
+  await page.getByRole('button', { name: 'Complete Setup' }).click()
+  await expect(page.getByRole('link', { name: /\/setup\/INNOSETUP2026$/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: /\/launch\/us\/innoblaze$/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: /\/launch\/us\/innoblaze\/leaderboard$/ })).toBeVisible()
+
+  await page.goto('/launch/us/innoblaze')
+  await expect(page.getByRole('heading', { name: 'InnoBlaze' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start' })).toBeVisible()
+
+  await page.goto('/launch/us/innoblaze/leaderboard')
   await expect(page.getByRole('heading', { name: 'Leaderboards' })).toBeVisible()
 })
