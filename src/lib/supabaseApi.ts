@@ -146,8 +146,10 @@ export async function updateEventSettings(settings: AppSettings): Promise<AppSet
 export async function joinOrganizationAndRegister(input: ParticipantInput): Promise<ParticipantProfile> {
   await ensureAnonymousParticipantSession()
 
+  const normalizedOrgCode = input.organizationCode.trim().toUpperCase()
+
   const { data, error } = await supabase.rpc('participant_join_with_code', {
-    p_organization_code: input.organizationCode.trim(),
+    p_organization_code: normalizedOrgCode,
     p_nickname: input.name.trim(),
     p_team_name: input.team.trim(),
     p_email: input.email?.trim() || null,
@@ -166,13 +168,13 @@ export async function joinOrganizationAndRegister(input: ParticipantInput): Prom
     nickname: string
   }
 
-  const activeChallenge = await getActiveChallenge(input.organizationCode.trim())
+  const activeChallenge = await getActiveChallenge(normalizedOrgCode)
 
   return {
     id: profile.participant_id,
     organizationId: profile.organization_id,
     organizationName: profile.organization_name,
-    organizationCode: input.organizationCode.trim(),
+    organizationCode: normalizedOrgCode,
     challengeId: activeChallenge?.id,
     name: profile.nickname,
     team: profile.team_name,
@@ -183,11 +185,12 @@ export async function joinOrganizationAndRegister(input: ParticipantInput): Prom
 
 export async function getActiveChallenge(organizationCode?: string): Promise<ChallengeRecord | null> {
   if (useFlowStubs) {
-    return buildStubChallenge(organizationCode ?? 'SAMPLECO2026')
+    return buildStubChallenge(organizationCode?.trim().toUpperCase() ?? 'SAMPLECO2026')
   }
 
+  const normalizedOrgCode = organizationCode?.trim().toUpperCase()
   const rpcName = organizationCode ? 'get_active_challenge_by_code' : 'get_active_challenge_for_org'
-  const args = organizationCode ? { p_organization_code: organizationCode } : {}
+  const args = normalizedOrgCode ? { p_organization_code: normalizedOrgCode } : {}
 
   const { data, error } = await supabase.rpc(rpcName, args)
 

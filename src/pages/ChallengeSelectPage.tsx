@@ -106,7 +106,7 @@ export function ChallengeSelectPage() {
   const [activeChallenge, setActiveChallenge] = useState<ChallengeRecord | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [ctaLabelByChallenge] = useState(() => createRandomCtaLabels())
-  const orgCode = getConfiguredOrganizationCode()
+  const orgCode = getConfiguredOrganizationCode()?.trim().toUpperCase()
 
   useEffect(() => {
     if (!hasSupabaseConfig) {
