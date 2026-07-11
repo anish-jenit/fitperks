@@ -1149,6 +1149,8 @@ begin
 end;
 $$;
 
+drop function if exists public.get_individual_leaderboard(uuid, text);
+
 create or replace function public.get_individual_leaderboard(
   p_challenge_id uuid,
   p_period text default 'overall'
