@@ -36,9 +36,12 @@ exception when duplicate_object then null;
 end $$;
 
 do $$ begin
-  create type qualifying_threshold_type as enum ('squats', 'burpees', 'total_points');
+  create type qualifying_threshold_type as enum ('squats', 'burpees', 'high_knees', 'lunges', 'total_points');
 exception when duplicate_object then null;
 end $$;
+
+alter type qualifying_threshold_type add value if not exists 'high_knees';
+alter type qualifying_threshold_type add value if not exists 'lunges';
 
 do $$ begin
   create type team_qualification_type as enum ('fixed_count', 'percentage');
@@ -127,11 +130,15 @@ create table if not exists challenges (
   status challenge_status not null default 'upcoming',
   squat_points_per_rep int not null default 1,
   burpee_points_per_rep int not null default 2,
+  high_knees_points_per_rep int not null default 1,
+  lunges_points_per_rep int not null default 2,
   daily_streak_bonus int not null default 0,
   team_streak_bonus int not null default 0,
   max_sessions_per_day int not null default 3,
   enabled_squat boolean not null default true,
   enabled_burpee boolean not null default true,
+  enabled_high_knees boolean not null default true,
+  enabled_lunges boolean not null default true,
   qualifying_threshold_type qualifying_threshold_type not null default 'total_points',
   qualifying_threshold_value int not null default 10,
   team_qualification_type team_qualification_type not null default 'fixed_count',
@@ -140,6 +147,11 @@ create table if not exists challenges (
   created_at timestamptz not null default now(),
   check (end_date >= start_date)
 );
+
+alter table challenges add column if not exists high_knees_points_per_rep int not null default 1;
+alter table challenges add column if not exists lunges_points_per_rep int not null default 2;
+alter table challenges add column if not exists enabled_high_knees boolean not null default true;
+alter table challenges add column if not exists enabled_lunges boolean not null default true;
 
 create table if not exists challenge_participants (
   id uuid primary key default gen_random_uuid(),
@@ -157,12 +169,15 @@ create table if not exists workouts (
   participant_id uuid not null references participants(id) on delete cascade,
   team_id uuid not null references teams(id) on delete restrict,
   session_id uuid not null,
-  exercise text not null check (exercise in ('squat', 'burpee')),
+  exercise text not null check (exercise in ('squat', 'burpee', 'high-knees', 'lunges')),
   reps int not null check (reps >= 0),
   qualifying boolean not null default false,
   created_at timestamptz not null default now(),
   unique (organization_id, challenge_id, participant_id, session_id)
 );
+
+alter table workouts drop constraint if exists workouts_exercise_check;
+alter table workouts add constraint workouts_exercise_check check (exercise in ('squat', 'burpee', 'high-knees', 'lunges'));
 
 create table if not exists participant_streaks (
   id uuid primary key default gen_random_uuid(),
@@ -228,6 +243,46 @@ create table if not exists point_transactions (
   created_at timestamptz not null default now()
 );
 
+create table if not exists guest_challenges (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  title text not null,
+  creator_name text not null,
+  creator_key_hash text not null,
+  duration_days int not null check (duration_days between 1 and 7),
+  attempts_per_day int not null check (attempts_per_day between 1 and 5),
+  max_players int not null default 10 check (max_players between 1 and 10),
+  start_date timestamptz not null default now(),
+  end_date timestamptz not null,
+  purge_after timestamptz not null,
+  created_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  check (end_date >= start_date),
+  check (purge_after >= end_date)
+);
+
+create table if not exists guest_challenge_players (
+  id uuid primary key default gen_random_uuid(),
+  challenge_id uuid not null references guest_challenges(id) on delete cascade,
+  guest_name text not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists guest_challenge_attempts (
+  id uuid primary key default gen_random_uuid(),
+  challenge_id uuid not null references guest_challenges(id) on delete cascade,
+  player_id uuid not null references guest_challenge_players(id) on delete cascade,
+  session_id uuid not null,
+  exercise text not null check (exercise in ('squat', 'burpee', 'high-knees', 'lunges')),
+  reps int not null check (reps >= 0),
+  score int not null check (score >= 0),
+  created_at timestamptz not null default now(),
+  unique (challenge_id, player_id, session_id)
+);
+
+alter table guest_challenge_attempts drop constraint if exists guest_challenge_attempts_exercise_check;
+alter table guest_challenge_attempts add constraint guest_challenge_attempts_exercise_check check (exercise in ('squat', 'burpee', 'high-knees', 'lunges'));
+
 create table if not exists audit_logs (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid references organizations(id) on delete set null,
@@ -247,6 +302,11 @@ create index if not exists idx_workouts_org_challenge_created on workouts(organi
 create index if not exists idx_point_tx_org_challenge_created on point_transactions(organization_id, challenge_id, created_at desc);
 create index if not exists idx_challenges_org_status on challenges(organization_id, status);
 create index if not exists idx_organization_invites_token on organization_invites(token);
+create index if not exists idx_guest_challenges_code on guest_challenges(code);
+create index if not exists idx_guest_challenges_creator_active on guest_challenges(creator_key_hash, end_date) where deleted_at is null;
+create index if not exists idx_guest_challenge_players_challenge on guest_challenge_players(challenge_id);
+create unique index if not exists idx_guest_challenge_players_name_unique on guest_challenge_players(challenge_id, lower(guest_name));
+create index if not exists idx_guest_challenge_attempts_challenge_created on guest_challenge_attempts(challenge_id, created_at desc);
 
 create or replace function public.current_organization_id()
 returns uuid
@@ -523,6 +583,8 @@ begin
 end;
 $$;
 
+drop function if exists public.complete_invite_setup(text, text, text, timestamptz, timestamptz, boolean, boolean, text);
+
 create or replace function public.complete_invite_setup(
   p_token text,
   p_organization_name text,
@@ -531,7 +593,9 @@ create or replace function public.complete_invite_setup(
   p_end_date timestamptz,
   p_enabled_squat boolean,
   p_enabled_burpee boolean,
-  p_display_message text default null
+  p_display_message text default null,
+  p_enabled_high_knees boolean default true,
+  p_enabled_lunges boolean default true
 )
 returns jsonb
 language plpgsql
@@ -590,7 +654,9 @@ begin
       timezone,
       status,
       enabled_squat,
-      enabled_burpee
+      enabled_burpee,
+      enabled_high_knees,
+      enabled_lunges
     )
     values (
       v_org.id,
@@ -599,9 +665,11 @@ begin
       p_start_date,
       p_end_date,
       'UTC',
-      case when p_start_date <= now() and p_end_date >= now() then 'active' else 'upcoming' end,
+      (case when p_start_date <= now() and p_end_date >= now() then 'active' else 'upcoming' end)::challenge_status,
       p_enabled_squat,
-      p_enabled_burpee
+      p_enabled_burpee,
+      p_enabled_high_knees,
+      p_enabled_lunges
     )
     returning * into v_challenge;
   else
@@ -612,7 +680,9 @@ begin
         end_date = p_end_date,
         enabled_squat = p_enabled_squat,
         enabled_burpee = p_enabled_burpee,
-        status = case when p_start_date <= now() and p_end_date >= now() then 'active' else 'upcoming' end
+        enabled_high_knees = p_enabled_high_knees,
+        enabled_lunges = p_enabled_lunges,
+        status = (case when p_start_date <= now() and p_end_date >= now() then 'active' else 'upcoming' end)::challenge_status
     where id = v_challenge.id
     returning * into v_challenge;
   end if;
@@ -640,6 +710,7 @@ as $$
 declare
   v_org organizations%rowtype;
   v_challenge challenges%rowtype;
+  v_pending_invite organization_invites%rowtype;
 begin
   select * into v_org
   from organizations
@@ -658,13 +729,23 @@ begin
   order by start_date asc
   limit 1;
 
+  select * into v_pending_invite
+  from organization_invites
+  where organization_id = v_org.id
+    and status = 'pending'
+    and expires_at >= now()
+  order by created_at desc
+  limit 1;
+
   return jsonb_build_object(
     'organization_id', v_org.id,
     'organization_name', v_org.name,
     'organization_slug', v_org.slug,
     'country_code', v_org.country_code,
     'organization_code', v_org.organization_code,
-    'display_message', v_challenge.description
+    'display_message', v_challenge.description,
+    'setup_status', case when v_pending_invite.id is null then 'ready' else 'pending' end,
+    'setup_url_path', case when v_pending_invite.id is null then null else '/setup/' || v_pending_invite.token end
   );
 end;
 $$;
@@ -728,7 +809,7 @@ begin
     raise exception 'Authentication required';
   end if;
 
-  if p_exercise not in ('squat', 'burpee') then
+  if p_exercise not in ('squat', 'burpee', 'high-knees', 'lunges') then
     raise exception 'Invalid exercise';
   end if;
 
@@ -769,6 +850,14 @@ begin
     raise exception 'Burpee exercise disabled';
   end if;
 
+  if p_exercise = 'high-knees' and not v_challenge.enabled_high_knees then
+    raise exception 'High knees exercise disabled';
+  end if;
+
+  if p_exercise = 'lunges' and not v_challenge.enabled_lunges then
+    raise exception 'Lunges exercise disabled';
+  end if;
+
   v_now_org := now() at time zone v_challenge.timezone;
   if v_now_org < (v_challenge.start_date at time zone v_challenge.timezone)
     or v_now_org > (v_challenge.end_date at time zone v_challenge.timezone) then
@@ -804,14 +893,17 @@ begin
     raise exception 'Maximum daily sessions reached';
   end if;
 
-  if p_exercise = 'squat' then
-    v_points := p_reps * v_challenge.squat_points_per_rep;
-  else
-    v_points := p_reps * v_challenge.burpee_points_per_rep;
-  end if;
+  v_points := p_reps * case
+    when p_exercise = 'squat' then v_challenge.squat_points_per_rep
+    when p_exercise = 'burpee' then v_challenge.burpee_points_per_rep
+    when p_exercise = 'high-knees' then v_challenge.high_knees_points_per_rep
+    else v_challenge.lunges_points_per_rep
+  end;
 
   if (v_challenge.qualifying_threshold_type = 'squats' and p_exercise = 'squat' and p_reps >= v_challenge.qualifying_threshold_value)
     or (v_challenge.qualifying_threshold_type = 'burpees' and p_exercise = 'burpee' and p_reps >= v_challenge.qualifying_threshold_value)
+    or (v_challenge.qualifying_threshold_type = 'high_knees' and p_exercise = 'high-knees' and p_reps >= v_challenge.qualifying_threshold_value)
+    or (v_challenge.qualifying_threshold_type = 'lunges' and p_exercise = 'lunges' and p_reps >= v_challenge.qualifying_threshold_value)
     or (v_challenge.qualifying_threshold_type = 'total_points' and v_points >= v_challenge.qualifying_threshold_value) then
     v_is_qualifying := true;
   end if;
@@ -1046,6 +1138,8 @@ returns table (
   team_name text,
   total_squats int,
   total_burpees int,
+  total_high_knees int,
+  total_lunges int,
   score int
 )
 language plpgsql
@@ -1072,7 +1166,9 @@ begin
     select
       w.participant_id,
       coalesce(sum(case when w.exercise = 'squat' then w.reps else 0 end), 0)::int as total_squats,
-      coalesce(sum(case when w.exercise = 'burpee' then w.reps else 0 end), 0)::int as total_burpees
+      coalesce(sum(case when w.exercise = 'burpee' then w.reps else 0 end), 0)::int as total_burpees,
+      coalesce(sum(case when w.exercise = 'high-knees' then w.reps else 0 end), 0)::int as total_high_knees,
+      coalesce(sum(case when w.exercise = 'lunges' then w.reps else 0 end), 0)::int as total_lunges
     from workouts w
     where w.challenge_id = p_challenge_id
       and (p_period <> 'today' or (w.created_at at time zone v_challenge.timezone)::date = v_org_today)
@@ -1095,6 +1191,8 @@ begin
       t.name as team_name,
       coalesce(wa.total_squats, 0)::int as total_squats,
       coalesce(wa.total_burpees, 0)::int as total_burpees,
+      coalesce(wa.total_high_knees, 0)::int as total_high_knees,
+      coalesce(wa.total_lunges, 0)::int as total_lunges,
       coalesce(sum(tx.points), 0)::int as score
     from participants p
     join teams t on t.id = p.team_id
@@ -1102,7 +1200,7 @@ begin
     left join workout_agg wa on wa.participant_id = p.id
     left join tx on tx.participant_id = p.id
     where p.organization_id = v_challenge.organization_id
-    group by p.id, p.nickname, p.display_alias, t.name, os.leaderboard_privacy_mode, wa.total_squats, wa.total_burpees
+    group by p.id, p.nickname, p.display_alias, t.name, os.leaderboard_privacy_mode, wa.total_squats, wa.total_burpees, wa.total_high_knees, wa.total_lunges
   )
   select
     agg.participant_id,
@@ -1110,6 +1208,8 @@ begin
     agg.team_name,
     agg.total_squats,
     agg.total_burpees,
+    agg.total_high_knees,
+    agg.total_lunges,
     agg.score
   from agg
   order by agg.score desc, agg.participant_name asc;
@@ -1242,6 +1342,342 @@ begin
 end;
 $$;
 
+create or replace function public.create_guest_challenge(
+  p_creator_key text,
+  p_creator_name text,
+  p_title text,
+  p_duration_days int,
+  p_attempts_per_day int
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_creator_hash text;
+  v_existing guest_challenges%rowtype;
+  v_challenge guest_challenges%rowtype;
+  v_code text;
+  v_duration_days int;
+  v_attempts_per_day int;
+begin
+  if nullif(trim(p_creator_key), '') is null then
+    raise exception 'Creator key is required';
+  end if;
+
+  if nullif(trim(p_creator_name), '') is null then
+    raise exception 'Guest name is required';
+  end if;
+
+  v_duration_days := least(7, greatest(1, coalesce(p_duration_days, 1)));
+  v_attempts_per_day := least(5, greatest(1, coalesce(p_attempts_per_day, 3)));
+  v_creator_hash := encode(digest(trim(p_creator_key), 'sha256'), 'hex');
+
+  perform purge_expired_guest_challenges();
+
+  select * into v_existing
+  from guest_challenges
+  where creator_key_hash = v_creator_hash
+    and deleted_at is null
+    and end_date >= now()
+  order by created_at desc
+  limit 1;
+
+  if v_existing.id is not null then
+    raise exception 'You already have an active guest challenge. Share that one until it ends.';
+  end if;
+
+  loop
+    v_code := lower(regexp_replace(trim(coalesce(nullif(p_title, ''), 'challenge')), '[^a-zA-Z0-9]+', '-', 'g'));
+    v_code := trim(both '-' from v_code);
+    v_code := coalesce(nullif(v_code, ''), 'challenge') || '-' || substr(encode(gen_random_bytes(4), 'hex'), 1, 6);
+
+    begin
+      insert into guest_challenges (
+        code,
+        title,
+        creator_name,
+        creator_key_hash,
+        duration_days,
+        attempts_per_day,
+        max_players,
+        start_date,
+        end_date,
+        purge_after
+      )
+      values (
+        v_code,
+        trim(coalesce(nullif(p_title, ''), 'FitPerks Challenge')),
+        trim(p_creator_name),
+        v_creator_hash,
+        v_duration_days,
+        v_attempts_per_day,
+        10,
+        now(),
+        now() + make_interval(days => v_duration_days),
+        now() + make_interval(days => v_duration_days + 3)
+      )
+      returning * into v_challenge;
+      exit;
+    exception when unique_violation then
+      null;
+    end;
+  end loop;
+
+  return jsonb_build_object(
+    'id', v_challenge.id,
+    'code', v_challenge.code,
+    'title', v_challenge.title,
+    'creator_name', v_challenge.creator_name,
+    'duration_days', v_challenge.duration_days,
+    'attempts_per_day', v_challenge.attempts_per_day,
+    'max_players', v_challenge.max_players,
+    'start_date', v_challenge.start_date,
+    'end_date', v_challenge.end_date,
+    'purge_after', v_challenge.purge_after,
+    'created_at', v_challenge.created_at
+  );
+end;
+$$;
+
+create or replace function public.get_guest_challenge(p_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_challenge guest_challenges%rowtype;
+begin
+  perform purge_expired_guest_challenges();
+
+  select * into v_challenge
+  from guest_challenges
+  where code = lower(trim(p_code))
+    and deleted_at is null
+  limit 1;
+
+  if v_challenge.id is null then
+    raise exception 'Guest challenge not found';
+  end if;
+
+  return jsonb_build_object(
+    'id', v_challenge.id,
+    'code', v_challenge.code,
+    'title', v_challenge.title,
+    'creator_name', v_challenge.creator_name,
+    'duration_days', v_challenge.duration_days,
+    'attempts_per_day', v_challenge.attempts_per_day,
+    'max_players', v_challenge.max_players,
+    'start_date', v_challenge.start_date,
+    'end_date', v_challenge.end_date,
+    'purge_after', v_challenge.purge_after,
+    'created_at', v_challenge.created_at
+  );
+end;
+$$;
+
+create or replace function public.submit_guest_attempt(
+  p_code text,
+  p_guest_name text,
+  p_session_id uuid,
+  p_exercise text,
+  p_reps int
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_challenge guest_challenges%rowtype;
+  v_player guest_challenge_players%rowtype;
+  v_player_count int;
+  v_attempts_today int;
+  v_score int;
+  v_attempt guest_challenge_attempts%rowtype;
+begin
+  perform purge_expired_guest_challenges();
+
+  if p_exercise not in ('squat', 'burpee', 'high-knees', 'lunges') then
+    raise exception 'Invalid exercise';
+  end if;
+
+  if p_reps < 0 then
+    raise exception 'Invalid rep count';
+  end if;
+
+  select * into v_challenge
+  from guest_challenges
+  where code = lower(trim(p_code))
+    and deleted_at is null
+  limit 1;
+
+  if v_challenge.id is null then
+    raise exception 'Guest challenge not found';
+  end if;
+
+  if now() > v_challenge.end_date then
+    raise exception 'Guest challenge has ended';
+  end if;
+
+  if nullif(trim(p_guest_name), '') is null then
+    raise exception 'Guest name is required';
+  end if;
+
+  select * into v_player
+  from guest_challenge_players
+  where challenge_id = v_challenge.id
+    and lower(guest_name) = lower(trim(p_guest_name))
+  limit 1;
+
+  if v_player.id is null then
+    select count(*) into v_player_count
+    from guest_challenge_players
+    where challenge_id = v_challenge.id;
+
+    if v_player_count >= v_challenge.max_players then
+      raise exception 'This guest challenge is full';
+    end if;
+
+    insert into guest_challenge_players (challenge_id, guest_name)
+    values (v_challenge.id, trim(p_guest_name))
+    returning * into v_player;
+  end if;
+
+  select count(*) into v_attempts_today
+  from guest_challenge_attempts
+  where challenge_id = v_challenge.id
+    and player_id = v_player.id
+    and created_at::date = now()::date;
+
+  if v_attempts_today >= v_challenge.attempts_per_day then
+    raise exception 'Daily attempt limit reached';
+  end if;
+
+  v_score := p_reps * case
+    when p_exercise = 'burpee' then 2
+    when p_exercise = 'lunges' then 2
+    else 1
+  end;
+
+  insert into guest_challenge_attempts (
+    challenge_id,
+    player_id,
+    session_id,
+    exercise,
+    reps,
+    score
+  )
+  values (
+    v_challenge.id,
+    v_player.id,
+    p_session_id,
+    p_exercise,
+    p_reps,
+    v_score
+  )
+  on conflict (challenge_id, player_id, session_id) do update
+  set reps = excluded.reps,
+      score = excluded.score
+  returning * into v_attempt;
+
+  return jsonb_build_object(
+    'attempt_id', v_attempt.id,
+    'player_id', v_player.id,
+    'score', v_attempt.score
+  );
+end;
+$$;
+
+create or replace function public.get_guest_scoreboard(p_code text)
+returns table(
+  rank bigint,
+  guest_name text,
+  daily_best_score int,
+  overall_score int,
+  attempts_today int
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_challenge guest_challenges%rowtype;
+begin
+  perform purge_expired_guest_challenges();
+
+  select * into v_challenge
+  from guest_challenges
+  where code = lower(trim(p_code))
+    and deleted_at is null
+  limit 1;
+
+  if v_challenge.id is null then
+    raise exception 'Guest challenge not found';
+  end if;
+
+  return query
+  with today_attempts as (
+    select
+      p.id as player_id,
+      p.guest_name as player_name,
+      a.score,
+      row_number() over (partition by p.id order by a.score desc, a.created_at asc) as score_rank
+    from guest_challenge_players p
+    join guest_challenge_attempts a on a.player_id = p.id
+    where p.challenge_id = v_challenge.id
+      and a.created_at::date = now()::date
+  ),
+  daily as (
+    select
+      player_id,
+      player_name,
+      coalesce(sum(score) filter (where score_rank <= 3), 0)::int as daily_best_score,
+      count(*)::int as attempts_today
+    from today_attempts
+    group by player_id, player_name
+  ),
+  overall as (
+    select
+      p.id as player_id,
+      p.guest_name as player_name,
+      coalesce(sum(a.score), 0)::int as overall_score
+    from guest_challenge_players p
+    left join guest_challenge_attempts a on a.player_id = p.id
+    where p.challenge_id = v_challenge.id
+    group by p.id, p.guest_name
+  )
+  select
+    dense_rank() over (order by o.overall_score desc, o.player_name asc) as rank,
+    o.player_name as guest_name,
+    coalesce(d.daily_best_score, 0)::int as daily_best_score,
+    o.overall_score,
+    coalesce(d.attempts_today, 0)::int as attempts_today
+  from overall o
+  left join daily d on d.player_id = o.player_id
+  order by rank;
+end;
+$$;
+
+create or replace function public.purge_expired_guest_challenges()
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_deleted int;
+begin
+  delete from guest_challenges
+  where purge_after < now();
+
+  get diagnostics v_deleted = row_count;
+  return v_deleted;
+end;
+$$;
+
 alter table organizations enable row level security;
 alter table organization_settings enable row level security;
 alter table admin_users enable row level security;
@@ -1257,6 +1693,9 @@ alter table team_streaks enable row level security;
 alter table streak_bonus_rules enable row level security;
 alter table streak_bonus_awards enable row level security;
 alter table point_transactions enable row level security;
+alter table guest_challenges enable row level security;
+alter table guest_challenge_players enable row level security;
+alter table guest_challenge_attempts enable row level security;
 alter table audit_logs enable row level security;
 
 drop policy if exists "Organizations tenant read" on organizations;

@@ -98,6 +98,7 @@ do $$
 declare
   v_org_count int;
   v_invite_count int;
+  v_public_context jsonb;
 begin
   select count(*) into v_org_count
   from organizations
@@ -115,5 +116,141 @@ begin
 
   if v_org_count <> 1 or v_invite_count <> 1 then
     raise exception 'POC setup or launch fixture is missing';
+  end if;
+
+  v_public_context := get_public_launch_context('us', 'innoblaze');
+
+  if v_public_context ->> 'setup_status' <> 'pending'
+    or v_public_context ->> 'setup_url_path' <> '/setup/INNOSETUP2026' then
+    raise exception 'POC launch fixture should report pending setup before acceptance';
+  end if;
+end $$;
+
+-- 7) Invite setup completion can write challenge_status enum values.
+do $$
+declare
+  v_result jsonb;
+begin
+  insert into organizations (id, name, slug, organization_code, country_code, allowed_email_domains, status)
+  values (
+    '44444444-4444-4444-4444-444444444444',
+    'POC Test Org',
+    'poc-test-org',
+    'POCTEST2026',
+    'us',
+    '{}',
+    'active'
+  )
+  on conflict (id) do update
+  set name = excluded.name,
+      slug = excluded.slug,
+      organization_code = excluded.organization_code,
+      country_code = excluded.country_code,
+      allowed_email_domains = excluded.allowed_email_domains,
+      status = excluded.status;
+
+  insert into organization_invites (
+    token,
+    organization_id,
+    poc_email,
+    status,
+    expires_at,
+    accepted_at,
+    created_by_user_id
+  )
+  values (
+    'TESTSETUP2026',
+    '44444444-4444-4444-4444-444444444444',
+    'poc@test.example',
+    'pending',
+    now() + interval '1 day',
+    null,
+    null
+  )
+  on conflict (token) do update
+  set organization_id = excluded.organization_id,
+      poc_email = excluded.poc_email,
+      status = excluded.status,
+      expires_at = excluded.expires_at,
+      accepted_at = excluded.accepted_at,
+      created_by_user_id = excluded.created_by_user_id;
+
+  v_result := complete_invite_setup(
+    'TESTSETUP2026',
+    'POC Test Org',
+    'us',
+    now() - interval '1 day',
+    now() + interval '1 day',
+    true,
+    true,
+    'Test invite setup completion'
+  );
+
+  if v_result ->> 'launch_url_path' <> '/launch/us/poc-test-org' then
+    raise exception 'Invite setup completion returned unexpected launch URL';
+  end if;
+end $$;
+
+-- 8) Guest challenge creation is login-free but limited to one active challenge per creator key.
+do $$
+declare
+  v_result jsonb;
+  v_code text;
+  v_duplicate_rejected boolean := false;
+begin
+  delete from guest_challenges
+  where creator_key_hash = encode(digest('guest-test-creator-key', 'sha256'), 'hex');
+
+  v_result := create_guest_challenge(
+    'guest-test-creator-key',
+    'Maya',
+    'Weekend Move Challenge',
+    7,
+    5
+  );
+
+  v_code := v_result ->> 'code';
+
+  if v_result ->> 'creator_name' <> 'Maya'
+    or (v_result ->> 'duration_days')::int <> 7
+    or (v_result ->> 'attempts_per_day')::int <> 5
+    or (v_result ->> 'max_players')::int <> 10 then
+    raise exception 'Guest challenge creation returned unexpected configuration';
+  end if;
+
+  if (get_guest_challenge(v_code) ->> 'code') <> v_code then
+    raise exception 'Guest challenge lookup did not return created challenge';
+  end if;
+
+  perform submit_guest_attempt(
+    v_code,
+    'Maya',
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    'high-knees',
+    20
+  );
+
+  perform submit_guest_attempt(
+    v_code,
+    'Maya',
+    'cccccccc-cccc-cccc-cccc-cccccccccccc',
+    'lunges',
+    10
+  );
+
+  begin
+    perform create_guest_challenge(
+      'guest-test-creator-key',
+      'Maya',
+      'Second Active Challenge',
+      1,
+      1
+    );
+  exception when others then
+    v_duplicate_rejected := true;
+  end;
+
+  if not v_duplicate_rejected then
+    raise exception 'Guest creator should not be able to create a second active challenge';
   end if;
 end $$;

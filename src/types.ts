@@ -1,4 +1,4 @@
-export type ExerciseType = 'squat' | 'burpee'
+export type ExerciseType = 'squat' | 'burpee' | 'high-knees' | 'lunges'
 
 export type ParticipantProfile = {
   id: string
@@ -70,12 +70,16 @@ export type ChallengeRecord = {
   status: 'upcoming' | 'active' | 'completed' | 'archived'
   squat_points_per_rep: number
   burpee_points_per_rep: number
+  high_knees_points_per_rep: number
+  lunges_points_per_rep: number
   daily_streak_bonus: number
   team_streak_bonus: number
   max_sessions_per_day: number
   enabled_squat: boolean
   enabled_burpee: boolean
-  qualifying_threshold_type: 'squats' | 'burpees' | 'total_points'
+  enabled_high_knees: boolean
+  enabled_lunges: boolean
+  qualifying_threshold_type: 'squats' | 'burpees' | 'high_knees' | 'lunges' | 'total_points'
   qualifying_threshold_value: number
   team_qualification_type: 'fixed_count' | 'percentage'
   team_required_unique_members: number
@@ -106,6 +110,8 @@ export type IndividualLeaderboardRow = {
   teamName: string
   totalSquats: number
   totalBurpees: number
+  totalHighKnees: number
+  totalLunges: number
   score: number
 }
 
@@ -121,6 +127,8 @@ export type EventSettingsRow = {
   session_duration_seconds: number
   squat_enabled: boolean
   burpee_enabled: boolean
+  high_knees_enabled: boolean
+  lunges_enabled: boolean
   calibration: unknown
   updated_at: string
 }
@@ -163,4 +171,36 @@ export type PublicLaunchContext = {
   countryCode: string
   organizationCode: string
   displayMessage: string | null
+  setupStatus: 'pending' | 'ready'
+  setupUrlPath: string | null
+}
+
+export type GuestChallengeRecord = {
+  id: string
+  code: string
+  title: string
+  creatorName: string
+  durationDays: number
+  attemptsPerDay: number
+  maxPlayers: number
+  startDate: string
+  endDate: string
+  purgeAfter: string
+  createdAt: string
+}
+
+export type GuestScoreboardRow = {
+  rank: number
+  guestName: string
+  dailyBestScore: number
+  overallScore: number
+  attemptsToday: number
+}
+
+export type GuestChallengeInput = {
+  creatorKey: string
+  creatorName: string
+  title: string
+  durationDays: number
+  attemptsPerDay: number
 }

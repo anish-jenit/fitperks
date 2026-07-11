@@ -128,8 +128,12 @@ export function AdminPage() {
           timezone: draft.timezone,
           enabled_squat: draft.enabled_squat,
           enabled_burpee: draft.enabled_burpee,
+          enabled_high_knees: draft.enabled_high_knees,
+          enabled_lunges: draft.enabled_lunges,
           squat_points_per_rep: draft.squat_points_per_rep,
           burpee_points_per_rep: draft.burpee_points_per_rep,
+          high_knees_points_per_rep: draft.high_knees_points_per_rep,
+          lunges_points_per_rep: draft.lunges_points_per_rep,
           qualifying_threshold_type: draft.qualifying_threshold_type,
           qualifying_threshold_value: draft.qualifying_threshold_value,
           max_sessions_per_day: draft.max_sessions_per_day,
@@ -359,6 +363,42 @@ export function AdminPage() {
                 Enable jumping jacks
               </label>
 
+              <label>
+                <input
+                  type="checkbox"
+                  checked={draft.enabled_high_knees}
+                  onChange={(event) =>
+                    setDraft((current) =>
+                      current
+                        ? {
+                            ...current,
+                            enabled_high_knees: event.target.checked,
+                          }
+                        : current,
+                    )
+                  }
+                />
+                Enable high knees
+              </label>
+
+              <label>
+                <input
+                  type="checkbox"
+                  checked={draft.enabled_lunges}
+                  onChange={(event) =>
+                    setDraft((current) =>
+                      current
+                        ? {
+                            ...current,
+                            enabled_lunges: event.target.checked,
+                          }
+                        : current,
+                    )
+                  }
+                />
+                Enable lunges
+              </label>
+
               <div className="settings-grid">
                 <label>
                   Squat points per rep
@@ -390,6 +430,42 @@ export function AdminPage() {
                           ? {
                               ...current,
                               burpee_points_per_rep: Number(event.target.value),
+                            }
+                          : current,
+                      )
+                    }
+                  />
+                </label>
+                <label>
+                  High knees points per rep
+                  <input
+                    type="number"
+                    min={0}
+                    value={draft.high_knees_points_per_rep}
+                    onChange={(event) =>
+                      setDraft((current) =>
+                        current
+                          ? {
+                              ...current,
+                              high_knees_points_per_rep: Number(event.target.value),
+                            }
+                          : current,
+                      )
+                    }
+                  />
+                </label>
+                <label>
+                  Lunge points per rep
+                  <input
+                    type="number"
+                    min={0}
+                    value={draft.lunges_points_per_rep}
+                    onChange={(event) =>
+                      setDraft((current) =>
+                        current
+                          ? {
+                              ...current,
+                              lunges_points_per_rep: Number(event.target.value),
                             }
                           : current,
                       )
@@ -472,7 +548,8 @@ export function AdminPage() {
               </div>
 
               <p className="hint">
-                Scoring preview: squat {draft.squat_points_per_rep}/rep, jumping jack {draft.burpee_points_per_rep}/rep,
+                Scoring preview: squat {draft.squat_points_per_rep}/rep, jumping jack {draft.burpee_points_per_rep}
+                /rep, high knees {draft.high_knees_points_per_rep}/rep, lunge {draft.lunges_points_per_rep}/rep,
                 qualifying threshold {draft.qualifying_threshold_value} ({draft.qualifying_threshold_type}), max
                 sessions/day {draft.max_sessions_per_day}.
               </p>

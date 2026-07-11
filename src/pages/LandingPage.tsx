@@ -1,30 +1,24 @@
 import { Link } from 'react-router-dom'
-import { CommuteWorkoutAnime } from '../components/CommuteWorkoutAnime'
 
 export function LandingPage() {
   return (
-    <main className="page landing-page">
-      <section className="hero-panel hero-panel-dark">
-        <div className="hero-copy">
-          <p className="hero-kicker">FitPerks</p>
-          <h1>Invite-Driven Challenge Flow.</h1>
-          <p className="hero-subtitle">
-            Platform admin sends setup invite. POC configures dates and gets a launch URL for iPad challenge and laptop scoreboard.
-          </p>
-          <div className="hero-actions">
-            <Link className="button primary" to="/setup/INNOSETUP2026">
-              Mock POC Setup
-            </Link>
-            <Link className="button primary" to="/admin">
-              Admin Login
-            </Link>
-            <Link className="button ghost" to="/leaderboard">
-              View Leaderboards
-            </Link>
-          </div>
+    <main className="page public-home">
+      <section className="minimal-hero">
+        <div className="minimal-mark" aria-hidden="true">
+          <span />
         </div>
-
-        <CommuteWorkoutAnime />
+        <p className="hero-kicker">FitPerks</p>
+        <h1>Fitness challenges, beautifully simple.</h1>
+        <p className="home-tagline">Every Move Deserves a Perk.</p>
+        <p className="minimal-copy">Create a quick guest challenge, or request a managed organization rollout.</p>
+        <div className="hero-actions minimal-actions">
+          <Link className="button primary" to="/guest-challenge">
+            Create Challenge (Limited Edition)
+          </Link>
+          <Link className="button ghost" to="/organization-request">
+            Organization Challenge Request
+          </Link>
+        </div>
       </section>
     </main>
   )

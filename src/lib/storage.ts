@@ -1,5 +1,5 @@
 import type { ParticipantProfile } from '../types'
-import { KIOSK_ORG_CODE_STORAGE_KEY, PARTICIPANT_STORAGE_KEY } from './constants'
+import { GUEST_CREATOR_KEY_STORAGE_KEY, KIOSK_ORG_CODE_STORAGE_KEY, PARTICIPANT_STORAGE_KEY } from './constants'
 
 export function saveParticipantProfile(profile: ParticipantProfile): void {
   localStorage.setItem(PARTICIPANT_STORAGE_KEY, JSON.stringify(profile))
@@ -35,4 +35,15 @@ export function getConfiguredOrganizationCode(): string | null {
 
 export function setConfiguredOrganizationCode(code: string): void {
   localStorage.setItem(KIOSK_ORG_CODE_STORAGE_KEY, code.trim())
+}
+
+export function getOrCreateGuestCreatorKey(): string {
+  const stored = localStorage.getItem(GUEST_CREATOR_KEY_STORAGE_KEY)
+  if (stored?.trim()) {
+    return stored.trim()
+  }
+
+  const key = crypto.randomUUID()
+  localStorage.setItem(GUEST_CREATOR_KEY_STORAGE_KEY, key)
+  return key
 }

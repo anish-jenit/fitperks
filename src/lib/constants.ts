@@ -13,14 +13,29 @@ export const CHALLENGES: ChallengeConfig[] = [
     pointsPerRep: 2,
     description: 'Jump feet out while raising arms overhead, then return to closed stance to complete a rep.',
   },
+  {
+    id: 'high-knees',
+    name: 'High Knees Challenge',
+    pointsPerRep: 1,
+    description: 'Drive one knee up toward hip height, reset, then alternate sides with quick control.',
+  },
+  {
+    id: 'lunges',
+    name: 'Lunge Challenge',
+    pointsPerRep: 2,
+    description: 'Step into a lunge until the front knee bends clearly, then stand tall before the next rep.',
+  },
 ]
 
 export const POINTS_BY_EXERCISE: Record<ExerciseType, number> = {
   squat: 1,
   burpee: 2,
+  'high-knees': 1,
+  lunges: 2,
 }
 
 export const SESSION_DURATION_SECONDS = 60
 
 export const PARTICIPANT_STORAGE_KEY = 'fitperk-participant'
 export const KIOSK_ORG_CODE_STORAGE_KEY = 'fitperk-kiosk-org-code'
+export const GUEST_CREATOR_KEY_STORAGE_KEY = 'fitperk-guest-creator-key'

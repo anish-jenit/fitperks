@@ -5,12 +5,14 @@ import { CHALLENGES } from '../lib/constants'
 import { getActiveChallenge } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
 import { getConfiguredOrganizationCode } from '../lib/storage'
-import type { ChallengeRecord } from '../types'
+import type { ChallengeRecord, ExerciseType } from '../types'
 
 const CTA_PHRASES = ['Let\'s Go', 'Start Now', 'Let\'s Move', 'Game On', 'Bring It On']
-const CHALLENGE_VIDEO_SLUG: Record<'squat' | 'burpee', string> = {
+const CHALLENGE_VIDEO_SLUG: Record<ExerciseType, string> = {
   squat: 'squat',
   burpee: 'jumping-jacks',
+  'high-knees': 'high-knees',
+  lunges: 'lunges',
 }
 
 function createRandomCtaLabels() {
@@ -23,13 +25,32 @@ function createRandomCtaLabels() {
     shuffled[swapIndex] = current
   }
 
-  return {
-    squat: shuffled[0] ?? 'Start',
-    burpee: shuffled[1] ?? shuffled[0] ?? 'Start',
-  }
+  return CHALLENGES.reduce(
+    (labels, challenge, index) => ({
+      ...labels,
+      [challenge.id]: shuffled[index % shuffled.length] ?? 'Start',
+    }),
+    {} as Record<ExerciseType, string>,
+  )
 }
 
-function ChallengeMedia({ exerciseId }: { exerciseId: 'squat' | 'burpee' }) {
+function isExerciseEnabled(challenge: ChallengeRecord, exerciseId: ExerciseType): boolean {
+  if (exerciseId === 'squat') {
+    return challenge.enabled_squat
+  }
+
+  if (exerciseId === 'burpee') {
+    return challenge.enabled_burpee
+  }
+
+  if (exerciseId === 'high-knees') {
+    return challenge.enabled_high_knees
+  }
+
+  return challenge.enabled_lunges
+}
+
+function ChallengeMedia({ exerciseId }: { exerciseId: ExerciseType }) {
   const [showVideo, setShowVideo] = useState(true)
   const videoPath = `/challenge-videos/${CHALLENGE_VIDEO_SLUG[exerciseId]}/preview.mp4`
 
@@ -53,7 +74,7 @@ function ChallengeMedia({ exerciseId }: { exerciseId: 'squat' | 'burpee' }) {
   )
 }
 
-function ChallengeDoodle({ exerciseId }: { exerciseId: 'squat' | 'burpee' }) {
+function ChallengeDoodle({ exerciseId }: { exerciseId: ExerciseType }) {
   if (exerciseId === 'squat') {
     return (
       <div className="challenge-doodle" aria-hidden="true">
@@ -73,6 +94,50 @@ function ChallengeDoodle({ exerciseId }: { exerciseId: 'squat' | 'burpee' }) {
 
             <line x1="108" y1="70" x2="96" y2="100" className="doodle-line squat-leg-left" />
             <line x1="112" y1="70" x2="124" y2="100" className="doodle-line squat-leg-right" />
+          </g>
+        </svg>
+      </div>
+    )
+  }
+
+  if (exerciseId === 'high-knees') {
+    return (
+      <div className="challenge-doodle" aria-hidden="true">
+        <svg viewBox="0 0 220 120" role="img">
+          <rect x="0" y="0" width="220" height="120" rx="18" className="doodle-bg" />
+          <line x1="20" y1="100" x2="200" y2="100" className="doodle-ground" />
+          <g className="doodle-figure high-knees-body">
+            <rect x="100" y="17" width="20" height="16" rx="4" className="robot-head-shell" />
+            <rect x="104" y="23" width="12" height="6" rx="2" className="robot-visor" />
+            <rect x="97" y="39" width="26" height="24" rx="6" className="robot-torso" />
+            <rect x="104" y="45" width="12" height="4" rx="2" className="robot-core" />
+            <rect x="107" y="63" width="6" height="8" rx="2" className="robot-pelvis" />
+            <line x1="100" y1="51" x2="87" y2="70" className="doodle-line high-knees-arm-left" />
+            <line x1="120" y1="51" x2="133" y2="70" className="doodle-line high-knees-arm-right" />
+            <line x1="108" y1="70" x2="91" y2="78" className="doodle-line high-knees-leg-left" />
+            <line x1="112" y1="70" x2="124" y2="100" className="doodle-line high-knees-leg-right" />
+          </g>
+        </svg>
+      </div>
+    )
+  }
+
+  if (exerciseId === 'lunges') {
+    return (
+      <div className="challenge-doodle" aria-hidden="true">
+        <svg viewBox="0 0 220 120" role="img">
+          <rect x="0" y="0" width="220" height="120" rx="18" className="doodle-bg" />
+          <line x1="20" y1="100" x2="200" y2="100" className="doodle-ground" />
+          <g className="doodle-figure lunge-body">
+            <rect x="100" y="18" width="20" height="16" rx="4" className="robot-head-shell" />
+            <rect x="104" y="24" width="12" height="6" rx="2" className="robot-visor" />
+            <rect x="97" y="40" width="26" height="24" rx="6" className="robot-torso" />
+            <rect x="104" y="46" width="12" height="4" rx="2" className="robot-core" />
+            <rect x="107" y="64" width="6" height="8" rx="2" className="robot-pelvis" />
+            <line x1="100" y1="51" x2="86" y2="68" className="doodle-line lunge-arm-left" />
+            <line x1="120" y1="51" x2="134" y2="68" className="doodle-line lunge-arm-right" />
+            <line x1="108" y1="70" x2="84" y2="100" className="doodle-line lunge-leg-left" />
+            <line x1="112" y1="70" x2="150" y2="100" className="doodle-line lunge-leg-right" />
           </g>
         </svg>
       </div>
@@ -121,11 +186,15 @@ export function ChallengeSelectPage() {
         status: 'active',
         squat_points_per_rep: 1,
         burpee_points_per_rep: 2,
+        high_knees_points_per_rep: 1,
+        lunges_points_per_rep: 2,
         daily_streak_bonus: 0,
         team_streak_bonus: 0,
         max_sessions_per_day: 5,
         enabled_squat: true,
         enabled_burpee: true,
+        enabled_high_knees: true,
+        enabled_lunges: true,
         qualifying_threshold_type: 'total_points',
         qualifying_threshold_value: 10,
         team_qualification_type: 'fixed_count',
@@ -166,7 +235,7 @@ export function ChallengeSelectPage() {
             <article className="challenge-card" key={challenge.id}>
               <ChallengeMedia exerciseId={challenge.id} />
               <h2>{challenge.name}</h2>
-              {activeChallenge && ((challenge.id === 'squat' && activeChallenge.enabled_squat) || (challenge.id === 'burpee' && activeChallenge.enabled_burpee)) ? (
+              {activeChallenge && isExerciseEnabled(activeChallenge, challenge.id) ? (
                 <Link className="button primary" to={`/workout/${challenge.id}`}>
                   {ctaLabelByChallenge[challenge.id]}
                 </Link>

@@ -3,10 +3,17 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useEventSettings } from '../hooks/useEventSettings'
 import { CHALLENGES } from '../lib/constants'
 import { analyzePose } from '../lib/poseUtils'
-import { getActiveChallenge, joinOrganizationAndRegister, nowSessionId, submitWorkoutSecure } from '../lib/supabaseApi'
+import {
+  getActiveChallenge,
+  getGuestChallenge,
+  joinOrganizationAndRegister,
+  nowSessionId,
+  submitGuestAttempt,
+  submitWorkoutSecure,
+} from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
 import { clearParticipantProfile, getConfiguredOrganizationCode, saveParticipantProfile } from '../lib/storage'
-import type { ChallengeRecord, ExerciseType } from '../types'
+import type { ChallengeRecord, ExerciseType, GuestChallengeRecord } from '../types'
 
 type NormalizedLandmark = {
   x: number
@@ -60,6 +67,46 @@ type SquatStage = 'standing' | 'down'
 
 type JumpingJackStage = 'closed' | 'open'
 
+type HighKneeStage = 'lowered' | 'raised'
+
+type PaceFeedback = {
+  id: number
+  tone: 'fast' | 'slow'
+  label: string
+}
+
+function getPointsPerRep(challenge: ChallengeRecord, exercise: ExerciseType): number {
+  if (exercise === 'squat') {
+    return challenge.squat_points_per_rep
+  }
+
+  if (exercise === 'burpee') {
+    return challenge.burpee_points_per_rep
+  }
+
+  if (exercise === 'high-knees') {
+    return challenge.high_knees_points_per_rep
+  }
+
+  return challenge.lunges_points_per_rep
+}
+
+function isExerciseEnabled(challenge: ChallengeRecord, exercise: ExerciseType): boolean {
+  if (exercise === 'squat') {
+    return challenge.enabled_squat
+  }
+
+  if (exercise === 'burpee') {
+    return challenge.enabled_burpee
+  }
+
+  if (exercise === 'high-knees') {
+    return challenge.enabled_high_knees
+  }
+
+  return challenge.enabled_lunges
+}
+
 function getCameraErrorHint(err: unknown): string {
   const raw = err instanceof Error ? `${err.name} ${err.message}`.toLowerCase() : String(err).toLowerCase()
 
@@ -87,14 +134,16 @@ function getCameraErrorHint(err: unknown): string {
 }
 
 export function WorkoutPage() {
-  const { exercise: exerciseParam } = useParams()
+  const { challengeCode = '', exercise: exerciseParam } = useParams()
   const navigate = useNavigate()
 
+  const isGuestWorkout = Boolean(challengeCode)
   const configuredOrgCode = getConfiguredOrganizationCode()
   const { settings, loading: settingsLoading } = useEventSettings()
   const exercise = (exerciseParam ?? '') as ExerciseType
   const challenge = CHALLENGES.find((item) => item.id === exercise)
   const [activeChallenge, setActiveChallenge] = useState<ChallengeRecord | null>(null)
+  const [guestChallenge, setGuestChallenge] = useState<GuestChallengeRecord | null>(null)
   const [sessionId] = useState(nowSessionId())
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -103,7 +152,9 @@ export function WorkoutPage() {
   const cameraRef = useRef<CameraInstance | null>(null)
 
   const squatStageRef = useRef<SquatStage>('standing')
+  const lungeStageRef = useRef<SquatStage>('standing')
   const jumpingJackStageRef = useRef<JumpingJackStage>('closed')
+  const highKneeStageRef = useRef<HighKneeStage>('lowered')
   const [repCount, setRepCount] = useState(0)
   const [secondsLeft, setSecondsLeft] = useState(settings.sessionDurationSeconds)
   const [countdown, setCountdown] = useState<number | null>(null)
@@ -117,17 +168,58 @@ export function WorkoutPage() {
   const [saveName, setSaveName] = useState('')
   const [saveTeam, setSaveTeam] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [paceFeedback, setPaceFeedback] = useState<PaceFeedback | null>(null)
+  const lastRepAtRef = useRef<number | null>(null)
+  const lastRepIntervalRef = useRef<number | null>(null)
 
   const points = useMemo(() => {
     if (!challenge || !activeChallenge) {
       return 0
     }
 
-    const perRep = challenge.id === 'squat' ? activeChallenge.squat_points_per_rep : activeChallenge.burpee_points_per_rep
+    const perRep = getPointsPerRep(activeChallenge, challenge.id)
     return perRep * repCount
   }, [activeChallenge, challenge, repCount])
 
   useEffect(() => {
+    if (isGuestWorkout) {
+      void getGuestChallenge(challengeCode)
+        .then((payload) => {
+          setGuestChallenge(payload)
+          setActiveChallenge({
+            id: payload.id,
+            organization_id: 'guest',
+            name: payload.title,
+            description: 'Guest limited edition challenge',
+            start_date: payload.startDate,
+            end_date: payload.endDate,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+            status: new Date(payload.endDate) >= new Date() ? 'active' : 'completed',
+            squat_points_per_rep: 1,
+            burpee_points_per_rep: 2,
+            high_knees_points_per_rep: 1,
+            lunges_points_per_rep: 2,
+            daily_streak_bonus: 0,
+            team_streak_bonus: 0,
+            max_sessions_per_day: payload.attemptsPerDay,
+            enabled_squat: true,
+            enabled_burpee: true,
+            enabled_high_knees: true,
+            enabled_lunges: true,
+            qualifying_threshold_type: 'total_points',
+            qualifying_threshold_value: 0,
+            team_qualification_type: 'fixed_count',
+            team_required_unique_members: 1,
+            team_required_participation_percent: 0,
+            created_at: payload.createdAt,
+          })
+        })
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : 'Unable to load guest challenge.')
+        })
+      return
+    }
+
     if (!hasSupabaseConfig) {
       setActiveChallenge({
         id: 'demo-challenge',
@@ -140,11 +232,15 @@ export function WorkoutPage() {
         status: 'active',
         squat_points_per_rep: 1,
         burpee_points_per_rep: 2,
+        high_knees_points_per_rep: 1,
+        lunges_points_per_rep: 2,
         daily_streak_bonus: 0,
         team_streak_bonus: 0,
         max_sessions_per_day: 5,
         enabled_squat: true,
         enabled_burpee: true,
+        enabled_high_knees: true,
+        enabled_lunges: true,
         qualifying_threshold_type: 'total_points',
         qualifying_threshold_value: 10,
         team_qualification_type: 'fixed_count',
@@ -165,11 +261,31 @@ export function WorkoutPage() {
       .catch((err) => {
         setError(err instanceof Error ? err.message : 'Unable to load active challenge.')
       })
-  }, [configuredOrgCode])
+  }, [challengeCode, configuredOrgCode, isGuestWorkout])
 
   useEffect(() => {
     setSecondsLeft(settings.sessionDurationSeconds)
   }, [settings.sessionDurationSeconds])
+
+  const recordRep = useCallback(() => {
+    const now = performance.now()
+    const lastRepAt = lastRepAtRef.current
+    const previousInterval = lastRepIntervalRef.current
+    const nextInterval = lastRepAt === null ? null : now - lastRepAt
+    const isSteadyOrFaster = nextInterval === null || previousInterval === null || nextInterval <= previousInterval * 1.08
+
+    lastRepAtRef.current = now
+    if (nextInterval !== null) {
+      lastRepIntervalRef.current = nextInterval
+    }
+
+    setRepCount((value) => value + 1)
+    setPaceFeedback({
+      id: now,
+      tone: isSteadyOrFaster ? 'fast' : 'slow',
+      label: isSteadyOrFaster ? '+1 ↑' : '+1',
+    })
+  }, [])
 
   const handleRepDetection = useCallback(
     (landmarks: NormalizedLandmark[]) => {
@@ -186,7 +302,7 @@ export function WorkoutPage() {
 
         if (squatStageRef.current === 'down' && pose.isStanding) {
           squatStageRef.current = 'standing'
-          setRepCount((value) => value + 1)
+          recordRep()
         }
       }
 
@@ -195,11 +311,31 @@ export function WorkoutPage() {
           jumpingJackStageRef.current = 'open'
         } else if (jumpingJackStageRef.current === 'open' && pose.isJumpingJackClosed) {
           jumpingJackStageRef.current = 'closed'
-          setRepCount((value) => value + 1)
+          recordRep()
+        }
+      }
+
+      if (challenge.id === 'high-knees') {
+        if (highKneeStageRef.current === 'lowered' && pose.isHighKneeRaised) {
+          highKneeStageRef.current = 'raised'
+        } else if (highKneeStageRef.current === 'raised' && pose.isHighKneeLowered) {
+          highKneeStageRef.current = 'lowered'
+          recordRep()
+        }
+      }
+
+      if (challenge.id === 'lunges') {
+        if (lungeStageRef.current === 'standing' && pose.isLungeDepth) {
+          lungeStageRef.current = 'down'
+        }
+
+        if (lungeStageRef.current === 'down' && pose.isStanding) {
+          lungeStageRef.current = 'standing'
+          recordRep()
         }
       }
     },
-    [challenge, isSessionComplete, isWorkoutRunning, settings.calibration],
+    [challenge, isSessionComplete, isWorkoutRunning, recordRep, settings.calibration],
   )
 
   useEffect(() => {
@@ -357,11 +493,16 @@ export function WorkoutPage() {
 
     setError(null)
     setRepCount(0)
+    setPaceFeedback(null)
     setSecondsLeft(settings.sessionDurationSeconds)
     setIsSessionComplete(false)
     setIsWorkoutRunning(false)
     squatStageRef.current = 'standing'
+    lungeStageRef.current = 'standing'
     jumpingJackStageRef.current = 'closed'
+    highKneeStageRef.current = 'lowered'
+    lastRepAtRef.current = null
+    lastRepIntervalRef.current = null
     setCountdown(3)
   }
 
@@ -379,9 +520,30 @@ export function WorkoutPage() {
 
     try {
       setIsSubmitting(true)
-      if (!hasSupabaseConfig) {
+      if (!hasSupabaseConfig && !isGuestWorkout) {
         clearParticipantProfile()
         navigate('/challenges')
+        return
+      }
+
+      if (isGuestWorkout) {
+        if (!challengeCode) {
+          throw new Error('Guest challenge code is missing.')
+        }
+
+        if (!saveName.trim()) {
+          throw new Error('Guest name is required to save your score.')
+        }
+
+        await submitGuestAttempt({
+          code: challengeCode,
+          guestName: saveName.trim(),
+          sessionId,
+          exercise: challenge.id,
+          reps: repCount,
+        })
+
+        navigate(`/guest/${challengeCode}/scoreboard`)
         return
       }
 
@@ -440,7 +602,7 @@ export function WorkoutPage() {
     )
   }
 
-  if (!settings.enabledChallenges[challenge.id]) {
+  if (!settings.enabledChallenges[challenge.id] || (activeChallenge && !isExerciseEnabled(activeChallenge, challenge.id))) {
     return (
       <main className="page">
         <section className="panel">
@@ -457,9 +619,9 @@ export function WorkoutPage() {
   return (
     <main className="page">
       <section className="panel workout-panel">
-        <h1>{challenge.name}</h1>
+        <h1>{guestChallenge?.title ?? challenge.name}</h1>
 
-        {!hasSupabaseConfig ? (
+        {!hasSupabaseConfig && !isGuestWorkout ? (
           <p className="hint">Demo mode active: camera and rep counting work locally, results are not saved.</p>
         ) : null}
 
@@ -476,10 +638,21 @@ export function WorkoutPage() {
               Exercise: <strong>{challenge.name}</strong>
             </p>
             <p>
-              Valid reps: <strong>{repCount}</strong>
+              Valid reps:{' '}
+              <strong className={`counter-value ${paceFeedback ? 'counter-pulse' : ''}`} key={paceFeedback?.id ?? 'rep-count'}>
+                {repCount}
+              </strong>
+              {paceFeedback ? (
+                <span className={`rep-feedback rep-feedback-${paceFeedback.tone}`} key={paceFeedback.id}>
+                  {paceFeedback.label}
+                </span>
+              ) : null}
             </p>
             <p>
-              Points earned: <strong>{points}</strong>
+              Points earned:{' '}
+              <strong className={`counter-value ${paceFeedback ? 'counter-pulse' : ''}`} key={`points-${paceFeedback?.id ?? 0}`}>
+                {points}
+              </strong>
             </p>
             <p>
               Timer: <strong>{secondsLeft}s</strong>
@@ -521,40 +694,45 @@ export function WorkoutPage() {
 
             {isSessionComplete ? (
               <div className="stack">
+                {isGuestWorkout ? null : (
+                  <label>
+                    Email (required for streak storage)
+                    <input
+                      type="email"
+                      value={saveEmail}
+                      onChange={(event) => setSaveEmail(event.target.value)}
+                      placeholder="name@company.com"
+                      required
+                    />
+                  </label>
+                )}
                 <label>
-                  Email (required for streak storage)
-                  <input
-                    type="email"
-                    value={saveEmail}
-                    onChange={(event) => setSaveEmail(event.target.value)}
-                    placeholder="name@company.com"
-                    required
-                  />
-                </label>
-                <label>
-                  Nickname (optional)
+                  {isGuestWorkout ? 'Guest name' : 'Nickname (optional)'}
                   <input
                     value={saveName}
                     onChange={(event) => setSaveName(event.target.value)}
                     placeholder="Alex"
+                    required={isGuestWorkout}
                   />
                 </label>
-                <label>
-                  Team (optional)
-                  <input
-                    value={saveTeam}
-                    onChange={(event) => setSaveTeam(event.target.value)}
-                    placeholder="Engineering"
-                  />
-                </label>
+                {isGuestWorkout ? null : (
+                  <label>
+                    Team (optional)
+                    <input
+                      value={saveTeam}
+                      onChange={(event) => setSaveTeam(event.target.value)}
+                      placeholder="Engineering"
+                    />
+                  </label>
+                )}
                 <button className="button primary" onClick={() => void submitWorkout()} disabled={isSubmitting}>
-                  {isSubmitting ? 'Saving...' : 'Save Workout'}
+                  {isSubmitting ? 'Saving...' : isGuestWorkout ? 'Save Score' : 'Save Workout'}
                 </button>
               </div>
             ) : null}
 
-            <Link className="button ghost" to="/challenges">
-              Back to challenges
+            <Link className="button ghost" to={isGuestWorkout ? `/guest/${challengeCode}` : '/challenges'}>
+              {isGuestWorkout ? 'Back to guest challenge' : 'Back to challenges'}
             </Link>
           </aside>
         </div>

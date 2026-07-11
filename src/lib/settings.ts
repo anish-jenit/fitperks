@@ -50,6 +50,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   enabledChallenges: {
     squat: true,
     burpee: true,
+    'high-knees': true,
+    lunges: true,
   },
   calibration: DEFAULT_CALIBRATION,
 }
@@ -65,7 +67,7 @@ export function validateAppSettings(settings: AppSettings): string[] {
     errors.push('Session duration must be between 15 and 300 seconds.')
   }
 
-  if (!settings.enabledChallenges.squat && !settings.enabledChallenges.burpee) {
+  if (!Object.values(settings.enabledChallenges).some(Boolean)) {
     errors.push('At least one challenge must remain enabled.')
   }
 
@@ -115,7 +117,7 @@ export function validateAppSettingsByField(settings: AppSettings): AppSettingsFi
     errors.sessionDurationSeconds = 'Use 15 to 300 seconds.'
   }
 
-  if (!settings.enabledChallenges.squat && !settings.enabledChallenges.burpee) {
+  if (!Object.values(settings.enabledChallenges).some(Boolean)) {
     errors.enabledChallenges = 'At least one challenge must stay enabled.'
   }
 

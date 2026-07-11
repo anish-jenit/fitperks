@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { CommuteWorkoutAnime } from '../components/CommuteWorkoutAnime'
 import { getPublicLaunchContext } from '../lib/supabaseApi'
@@ -15,8 +15,6 @@ export function PublicLaunchPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const leaderboardPath = useMemo(() => `/launch/${country}/${organization}/leaderboard`, [country, organization])
-
   useEffect(() => {
     if (!country || !organization) {
       setLoading(false)
@@ -27,6 +25,10 @@ export function PublicLaunchPage() {
     void getPublicLaunchContext({ countryCode: country, organizationSlug: organization })
       .then((payload) => {
         setContext(payload)
+        if (payload.setupStatus === 'ready') {
+          setConfiguredOrganizationCode(payload.organizationCode)
+          navigate('/challenges', { replace: true })
+        }
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : 'Unable to load organization launch page.')
@@ -34,16 +36,7 @@ export function PublicLaunchPage() {
       .finally(() => {
         setLoading(false)
       })
-  }, [country, organization])
-
-  function startChallenge() {
-    if (!context) {
-      return
-    }
-
-    setConfiguredOrganizationCode(context.organizationCode)
-    navigate('/challenges')
-  }
+  }, [country, navigate, organization])
 
   if (!country || !organization) {
     return <Navigate to="/" replace />
@@ -62,20 +55,23 @@ export function PublicLaunchPage() {
   return (
     <main className="page landing-page">
       <section className="hero-panel hero-panel-dark">
-        <p className="hero-kicker">FitPerks Challenge</p>
+        <p className="hero-kicker">Almost Ready</p>
         <h1>{context ? context.organizationName : 'Organization Challenge'}</h1>
         <p className="hero-subtitle">
-          {context?.displayMessage || 'Everyone can now hit fitness goals on the way to school, college, and work.'}
+          Setup is still warming up. Once the organization setup is complete, this challenge link will take everyone
+          straight to the workout choices.
         </p>
 
         {error ? <p className="error">{error}</p> : null}
 
         <div className="hero-actions">
-          <button className="button primary" onClick={startChallenge} disabled={!context}>
-            Start
-          </button>
-          <Link className="button ghost button-small" to={leaderboardPath}>
-            View Leaderboard
+          {context?.setupUrlPath ? (
+            <Link className="button primary" to={context.setupUrlPath}>
+              Finish Setup
+            </Link>
+          ) : null}
+          <Link className="button ghost button-small" to="/">
+            Back Home
           </Link>
         </div>
 

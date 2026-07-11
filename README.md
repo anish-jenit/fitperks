@@ -1,13 +1,13 @@
 # FitPerks Multi-Organization MVP
 
-FitPerks is an AI-powered wellness platform for companies and schools. This implementation extends the original MVP with strict organization-level isolation, challenge windows, streak bonuses, secure server-side scoring, and admin governance.
+FitPerks is an AI-powered wellness platform for companies, schools, and lightweight guest challenges. This implementation extends the original MVP with strict organization-level isolation, challenge windows, streak bonuses, secure server-side scoring, admin governance, and a no-login guest challenge path.
 
 ## Core Architecture
 
 - Frontend: React + TypeScript + Vite
 - DB/Auth/API: Supabase (RLS + RPC security-definer functions)
 - Pose Detection: MediaPipe Pose (local in browser)
-- Deployment: Vercel
+- Deployment: Vite static build (`dist`) for Vercel, Hostinger, or any static host with SPA fallback
 
 ## What This Version Adds
 
@@ -22,6 +22,21 @@ FitPerks is an AI-powered wellness platform for companies and schools. This impl
 - Privacy modes for leaderboard display names
 - Audit logs for high-impact admin changes
 - Completed challenge read-only history in admin UI
+- Public homepage with two clear entry points: guest limited challenge and organization challenge request
+- Guest limited challenges without login, capped at 10 players and purged after the post-challenge grace period
+
+## UI/UX Theme Standard
+
+Use the same theme across every FitPerks screen:
+
+- Audience: professionals and students. Keep the interface calm, quick to scan, and friendly without feeling childish.
+- Layout: show the usable workflow first. Avoid marketing-heavy sections, nested cards, and unnecessary feature explanation text.
+- Visual style: light neutral canvas, white panels, restrained blue/teal accents, subtle borders, and minimal Apple-like motion.
+- Components: use shared `.panel`, `.button`, `.hero-actions`, `.stats-cards`, `.url-list`, form, and table patterns from `src/App.css`.
+- Shape: prefer compact 8-12px radii, stable spacing, and dense but breathable controls.
+- Mobile: every public and workout flow must work at phone width. Buttons should be full-width when stacked, tables should scroll horizontally, and text must not overflow its container.
+- Content: labels should be plain and generic enough for companies, schools, clubs, and guest groups.
+- Motion: keep animation subtle and purposeful. No decorative blobs, noisy gradients, or one-note color themes.
 
 ## Database Deliverables
 
@@ -48,6 +63,9 @@ Key tables:
 - `streak_bonus_awards`
 - `point_transactions`
 - `audit_logs`
+- `guest_challenges`
+- `guest_challenge_players`
+- `guest_challenge_attempts`
 
 Security and validation:
 
@@ -70,6 +88,14 @@ Leaderboard functions:
 
 - `get_individual_leaderboard(challenge_id, period)`
 - `get_team_leaderboard(challenge_id, period)`
+
+Guest challenge functions:
+
+- `create_guest_challenge(creator_key, creator_name, title, duration_days, attempts_per_day)`
+- `get_guest_challenge(code)`
+- `submit_guest_attempt(code, guest_name, session_id, exercise, reps)`
+- `get_guest_scoreboard(code)`
+- `purge_expired_guest_challenges()`
 
 Organization-scoped participant onboarding:
 
@@ -154,9 +180,17 @@ SQL/DB test script (`supabase/tests.sql`) and secure function constraints cover:
 - organization data isolation baseline checks
 - completed challenge history retained as read-only data
 
-Playwright E2E (`tests/e2e/fitperk.spec.ts`) covers core UI flows and admin guardrails.
+Playwright E2E (`tests/e2e/fitperk.spec.ts`) covers core UI flows, guest sharing, POC setup URLs, and admin guardrails on desktop Chromium and mobile Chrome viewports.
 
-## Deployment (Vercel)
+## Deployment
+
+Build:
+
+```bash
+npm run build
+```
+
+Vercel:
 
 1. Push repo to GitHub.
 2. Import into Vercel.
@@ -167,6 +201,12 @@ Playwright E2E (`tests/e2e/fitperk.spec.ts`) covers core UI flows and admin guar
   - `VITE_SUPABASE_URL`
   - `VITE_SUPABASE_ANON_KEY`
 5. Deploy.
+
+Hostinger/static hosting:
+
+1. Run `npm run build`.
+2. Upload the contents of `dist` into `public_html`.
+3. Include `dist/.htaccess` so deep links like `/setup/...`, `/guest/...`, and `/launch/...` fall back to `index.html`.
 
 ## Privacy Defaults
 

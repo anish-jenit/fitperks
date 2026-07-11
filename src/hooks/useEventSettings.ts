@@ -26,6 +26,8 @@ export function useEventSettings() {
         enabledChallenges: {
           squat: challenge?.enabled_squat ?? next.enabledChallenges.squat,
           burpee: challenge?.enabled_burpee ?? next.enabledChallenges.burpee,
+          'high-knees': challenge?.enabled_high_knees ?? next.enabledChallenges['high-knees'],
+          lunges: challenge?.enabled_lunges ?? next.enabledChallenges.lunges,
         },
       }
 

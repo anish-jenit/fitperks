@@ -12,11 +12,15 @@ test.beforeEach(async ({ page }) => {
     status: 'active',
     squat_points_per_rep: 1,
     burpee_points_per_rep: 2,
+    high_knees_points_per_rep: 1,
+    lunges_points_per_rep: 2,
     daily_streak_bonus: 0,
     team_streak_bonus: 0,
     max_sessions_per_day: 2,
     enabled_squat: true,
     enabled_burpee: true,
+    enabled_high_knees: true,
+    enabled_lunges: true,
     qualifying_threshold_type: 'total_points',
     qualifying_threshold_value: 10,
     team_qualification_type: 'fixed_count',
@@ -32,9 +36,25 @@ test.beforeEach(async ({ page }) => {
       team_name: 'Blue Team',
       total_squats: 30,
       total_burpees: 10,
+      total_high_knees: 24,
+      total_lunges: 12,
       score: 50,
     },
   ]
+  let guestChallenge = {
+    id: 'guest-challenge-1',
+    code: 'weekend-move-abc123',
+    title: 'Weekend Move Challenge',
+    creator_name: 'Maya',
+    duration_days: 3,
+    attempts_per_day: 3,
+    max_players: 10,
+    start_date: new Date().toISOString(),
+    end_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+    purge_after: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(),
+    created_at: new Date().toISOString(),
+  }
+  let innoBlazeSetupStatus: 'pending' | 'ready' = 'pending'
 
   await page.route('http://127.0.0.1:54321/auth/v1/**', async (route) => {
     const request = route.request()
@@ -119,6 +139,21 @@ test.beforeEach(async ({ page }) => {
           country_code: 'us',
           organization_code: 'INNOBLAZE2026',
           display_message: 'Welcome to the InnoBlaze commute challenge.',
+          setup_status: innoBlazeSetupStatus,
+          setup_url_path: innoBlazeSetupStatus === 'pending' ? '/setup/INNOSETUP2026' : null,
+        })
+      }
+
+      if (body.p_country_code === 'us' && body.p_organization_slug === 'pending-co') {
+        return json({
+          organization_id: 'org-pending',
+          organization_name: 'Pending Co',
+          organization_slug: 'pending-co',
+          country_code: 'us',
+          organization_code: 'PENDING2026',
+          display_message: 'Setup is almost there.',
+          setup_status: 'pending',
+          setup_url_path: '/setup/PENDING2026',
         })
       }
 
@@ -129,6 +164,8 @@ test.beforeEach(async ({ page }) => {
         country_code: 'us',
         organization_code: 'COMPANYA2026',
         display_message: 'Welcome to Company A Challenge Week',
+        setup_status: 'ready',
+        setup_url_path: null,
       })
     }
 
@@ -147,7 +184,33 @@ test.beforeEach(async ({ page }) => {
     }
 
     if (path.endsWith('/rpc/complete_invite_setup') && method === 'POST') {
+      innoBlazeSetupStatus = 'ready'
       return json({ launch_url_path: '/launch/us/innoblaze' })
+    }
+
+    if (path.endsWith('/rpc/create_guest_challenge') && method === 'POST') {
+      const body = request.postDataJSON() as {
+        p_creator_name?: string
+        p_title?: string
+        p_duration_days?: number
+        p_attempts_per_day?: number
+      }
+      guestChallenge = {
+        ...guestChallenge,
+        title: body.p_title || guestChallenge.title,
+        creator_name: body.p_creator_name || guestChallenge.creator_name,
+        duration_days: body.p_duration_days || guestChallenge.duration_days,
+        attempts_per_day: body.p_attempts_per_day || guestChallenge.attempts_per_day,
+      }
+      return json(guestChallenge)
+    }
+
+    if (path.endsWith('/rpc/get_guest_challenge') && method === 'POST') {
+      return json(guestChallenge)
+    }
+
+    if (path.endsWith('/rpc/get_guest_scoreboard') && method === 'POST') {
+      return json([])
     }
 
     if (path.endsWith('/rpc/get_individual_leaderboard') && method === 'POST') {
@@ -186,33 +249,83 @@ test.beforeEach(async ({ page }) => {
 
 test('launch start, challenge list, leaderboards, and admin dashboard render correctly', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Invite-Driven Challenge Flow.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Fitness challenges, beautifully simple.' })).toBeVisible()
+  await expect(page.getByText('Every Move Deserves a Perk.')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Create Challenge (Limited Edition)' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Organization Challenge Request' })).toBeVisible()
 
   await page.goto('/launch/us/company-a')
-  await page.getByRole('button', { name: 'Start' }).click()
-
   await expect(page.getByRole('heading', { name: 'Choose a Challenge' })).toBeVisible()
   await expect(page.getByText(/to .*\(.+\)/)).toBeVisible()
-  await expect(page.getByRole('link', { name: /^(Let's Go|Start Now|Let's Move|Game On|Bring It On)$/ })).toHaveCount(2)
+  await expect(page.getByRole('link', { name: /^(Let's Go|Start Now|Let's Move|Game On|Bring It On)$/ })).toHaveCount(4)
 
   await page.goto('/leaderboard')
   await expect(page.getByRole('heading', { name: 'Leaderboards' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Daily' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Overall' })).toBeVisible()
+  await expect(page.locator('.winner-score').first()).toBeVisible()
 
   await page.goto('/admin')
   await expect(page.getByRole('heading', { name: 'Organization Admin Dashboard' })).toBeVisible()
 })
 
-test('public organization launch URL shows primary start and separate leaderboard button', async ({ page }) => {
+test('guest limited challenge creates shareable challenge and scoreboard links', async ({ page }) => {
+  await page.goto('/guest-challenge')
+
+  await expect(page.getByRole('heading', { name: 'Create Challenge' })).toBeVisible()
+  await page.getByLabel('Guest name').fill('Maya')
+  await page.getByRole('button', { name: 'Create Share Link' }).click()
+
+  await expect(page.getByText('Challenge link')).toBeVisible()
+  await expect(page.getByText('Scoreboard link')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Open WhatsApp' })).toBeVisible()
+
+  await page.goto('/guest/weekend-move-abc123')
+  await expect(page.getByRole('link', { name: 'Squats' })).toHaveAttribute('href', '/guest/weekend-move-abc123/workout/squat')
+  await expect(page.getByRole('link', { name: 'Jumping Jacks' })).toHaveAttribute(
+    'href',
+    '/guest/weekend-move-abc123/workout/burpee',
+  )
+  await expect(page.getByRole('link', { name: 'High Knees' })).toHaveAttribute(
+    'href',
+    '/guest/weekend-move-abc123/workout/high-knees',
+  )
+  await expect(page.getByRole('link', { name: 'Lunges' })).toHaveAttribute(
+    'href',
+    '/guest/weekend-move-abc123/workout/lunges',
+  )
+
+  await page.goto('/guest/weekend-move-abc123/scoreboard')
+  await expect(page.getByRole('main').getByText('Scoreboard', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Weekend Move Challenge' })).toBeVisible()
+  await expect(page.getByText('Waiting for players')).toBeVisible()
+})
+
+test('organization request prepares email draft', async ({ page }) => {
+  await page.goto('/organization-request')
+
+  await expect(page.getByRole('heading', { name: 'Challenge Request' })).toBeVisible()
+  await page.getByLabel('Organization', { exact: true }).fill('Acme Inc')
+  await page.getByLabel('Contact name').fill('Alex')
+  await page.getByLabel('Organization email').fill('alex@acme.com')
+  await page.getByLabel('Country').fill('us')
+  await page.getByLabel('Expected participants').fill('120')
+  await page.getByRole('button', { name: 'Prepare Email' }).click()
+  await expect(page.getByText('Email draft opened.')).toBeVisible()
+})
+
+test('ready public challenge URL opens challenge selection directly', async ({ page }) => {
   await page.goto('/launch/us/company-a')
 
-  await expect(page.getByRole('heading', { name: 'Company A' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Start' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'View Leaderboard' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Choose a Challenge' })).toBeVisible()
+})
 
-  await page.getByRole('link', { name: 'View Leaderboard' }).click()
-  await expect(page.getByRole('heading', { name: 'Leaderboards' })).toBeVisible()
+test('pending public challenge URL explains setup is not ready yet', async ({ page }) => {
+  await page.goto('/launch/us/pending-co')
+
+  await expect(page.getByRole('heading', { name: 'Pending Co' })).toBeVisible()
+  await expect(page.getByText(/Setup is still warming up/)).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Finish Setup' })).toHaveAttribute('href', '/setup/PENDING2026')
 })
 
 test('POC setup, launch, and scoreboard URLs resolve', async ({ page }) => {
@@ -224,10 +337,11 @@ test('POC setup, launch, and scoreboard URLs resolve', async ({ page }) => {
   await expect(page.getByRole('link', { name: /\/setup\/INNOSETUP2026$/ })).toBeVisible()
   await expect(page.getByRole('link', { name: /\/launch\/us\/innoblaze$/ })).toBeVisible()
   await expect(page.getByRole('link', { name: /\/launch\/us\/innoblaze\/leaderboard$/ })).toBeVisible()
+  await expect(page.getByText('Challenge URL', { exact: true })).toBeVisible()
+  await expect(page.getByText('Scoreboard URL', { exact: true })).toBeVisible()
 
   await page.goto('/launch/us/innoblaze')
-  await expect(page.getByRole('heading', { name: 'InnoBlaze' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Start' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Choose a Challenge' })).toBeVisible()
 
   await page.goto('/launch/us/innoblaze/leaderboard')
   await expect(page.getByRole('heading', { name: 'Leaderboards' })).toBeVisible()

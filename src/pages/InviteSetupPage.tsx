@@ -11,6 +11,8 @@ type SetupForm = {
   endDate: string
   enabledSquat: boolean
   enabledBurpee: boolean
+  enabledHighKnees: boolean
+  enabledLunges: boolean
   displayMessage: string
 }
 
@@ -26,6 +28,8 @@ export function InviteSetupPage() {
     endDate: dayjs().add(14, 'day').endOf('day').toISOString(),
     enabledSquat: true,
     enabledBurpee: true,
+    enabledHighKnees: true,
+    enabledLunges: true,
     displayMessage: '',
   })
   const [busy, setBusy] = useState(false)
@@ -97,6 +101,8 @@ export function InviteSetupPage() {
         endDate: form.endDate,
         enabledSquat: form.enabledSquat,
         enabledBurpee: form.enabledBurpee,
+        enabledHighKnees: form.enabledHighKnees,
+        enabledLunges: form.enabledLunges,
         displayMessage: form.displayMessage,
       })
 
@@ -136,15 +142,15 @@ export function InviteSetupPage() {
                 <a href={setupPath}>{fullUrl(setupPath)}</a>
               </article>
               <article>
-                <span>iPad challenge URL</span>
+                <span>Challenge URL</span>
                 <a href={launchPath}>{fullUrl(launchPath)}</a>
               </article>
               <article>
-                <span>Laptop scoreboard URL</span>
+                <span>Scoreboard URL</span>
                 <a href={`${launchPath}/leaderboard`}>{fullUrl(`${launchPath}/leaderboard`)}</a>
               </article>
             </div>
-            <p className="hint">Use the iPad URL for the challenge station and the laptop URL for the live scoreboard.</p>
+            <p className="hint">Use the challenge URL for the workout station and the scoreboard URL for the live display.</p>
           </div>
         ) : (
           <form className="stack" onSubmit={onSubmit}>
@@ -213,6 +219,24 @@ export function InviteSetupPage() {
                 onChange={(event) => setForm((state) => ({ ...state, enabledBurpee: event.target.checked }))}
               />
               Include jumping jacks
+            </label>
+
+            <label>
+              <input
+                type="checkbox"
+                checked={form.enabledHighKnees}
+                onChange={(event) => setForm((state) => ({ ...state, enabledHighKnees: event.target.checked }))}
+              />
+              Include high knees
+            </label>
+
+            <label>
+              <input
+                type="checkbox"
+                checked={form.enabledLunges}
+                onChange={(event) => setForm((state) => ({ ...state, enabledLunges: event.target.checked }))}
+              />
+              Include lunges
             </label>
 
             <label>

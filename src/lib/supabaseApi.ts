@@ -5,6 +5,10 @@ import { ensureAnonymousParticipantSession, supabase, useFlowStubs } from './sup
 import type {
   AdminUserRecord,
   ChallengeRecord,
+  ExerciseType,
+  GuestChallengeInput,
+  GuestChallengeRecord,
+  GuestScoreboardRow,
   InviteSetupContext,
   IndividualLeaderboardRow,
   ParticipantInput,
@@ -21,10 +25,12 @@ type StubInviteState = {
   countryCode: string
   pocEmail: string
   displayMessage: string
+  status?: 'pending' | 'accepted' | 'expired'
 }
 
 type StubFlowState = {
   invites: StubInviteState[]
+  guestChallenges?: GuestChallengeRecord[]
 }
 
 const STUB_FLOW_STORAGE_KEY = 'fitperk.flow.stub.state.v1'
@@ -37,6 +43,7 @@ const POC_INVITE: StubInviteState = {
   countryCode: 'us',
   pocEmail: 'poc@innoblaze.test',
   displayMessage: 'Welcome to the InnoBlaze commute challenge. Complete your reps and climb the leaderboard.',
+  status: 'pending',
 }
 
 function slugify(value: string): string {
@@ -59,7 +66,7 @@ function titleFromCode(organizationCode: string): string {
 function readStubFlowState(): StubFlowState {
   const raw = localStorage.getItem(STUB_FLOW_STORAGE_KEY)
   if (!raw) {
-    return { invites: [POC_INVITE] }
+    return { invites: [POC_INVITE], guestChallenges: [] }
   }
 
   try {
@@ -68,9 +75,9 @@ function readStubFlowState(): StubFlowState {
     if (!invites.some((invite) => invite.token === POC_INVITE_TOKEN)) {
       invites.push(POC_INVITE)
     }
-    return { invites }
+    return { invites, guestChallenges: parsed.guestChallenges ?? [] }
   } catch {
-    return { invites: [POC_INVITE] }
+    return { invites: [POC_INVITE], guestChallenges: [] }
   }
 }
 
@@ -90,11 +97,15 @@ function buildStubChallenge(organizationCode = 'SAMPLECO2026'): ChallengeRecord 
     status: 'active',
     squat_points_per_rep: 1,
     burpee_points_per_rep: 2,
+    high_knees_points_per_rep: 1,
+    lunges_points_per_rep: 2,
     daily_streak_bonus: 0,
     team_streak_bonus: 0,
     max_sessions_per_day: 3,
     enabled_squat: true,
     enabled_burpee: true,
+    enabled_high_knees: true,
+    enabled_lunges: true,
     qualifying_threshold_type: 'total_points',
     qualifying_threshold_value: 10,
     team_qualification_type: 'fixed_count',
@@ -112,6 +123,8 @@ function samplePublicContext(): PublicLaunchContext {
     countryCode: 'us',
     organizationCode: 'SAMPLECO2026',
     displayMessage: 'Welcome to the commute challenge. To office: jumping jacks. Return: squats.',
+    setupStatus: 'ready',
+    setupUrlPath: null,
   }
 }
 
@@ -134,10 +147,12 @@ export async function getOrCreateEventSettings(): Promise<AppSettings> {
   return {
     id: challenge.id,
     sessionDurationSeconds: 60,
-    enabledChallenges: {
-      squat: Boolean(challenge.enabled_squat),
-      burpee: Boolean(challenge.enabled_burpee),
-    },
+      enabledChallenges: {
+        squat: Boolean(challenge.enabled_squat),
+        burpee: Boolean(challenge.enabled_burpee),
+        'high-knees': Boolean(challenge.enabled_high_knees),
+        lunges: Boolean(challenge.enabled_lunges),
+      },
     calibration: DEFAULT_CALIBRATION,
   }
 }
@@ -146,6 +161,8 @@ export async function updateEventSettings(settings: AppSettings): Promise<AppSet
   const patch = {
     enabled_squat: settings.enabledChallenges.squat,
     enabled_burpee: settings.enabledChallenges.burpee,
+    enabled_high_knees: settings.enabledChallenges['high-knees'],
+    enabled_lunges: settings.enabledChallenges.lunges,
   }
 
   const { error } = await supabase.from('challenges').update(patch).eq('id', settings.id)
@@ -239,7 +256,7 @@ export async function getChallengeHistory(): Promise<ChallengeRecord[]> {
 
 export async function submitWorkoutSecure(input: {
   sessionId: string
-  exercise: 'squat' | 'burpee'
+  exercise: ExerciseType
   reps: number
 }): Promise<{ workoutId: string; idempotent: boolean; pointsAdded: number; qualifying: boolean }> {
   const { data, error } = await supabase.rpc('submit_workout_secure', {
@@ -280,6 +297,8 @@ export async function getIndividualLeaderboard(
         teamName: 'Ops',
         totalSquats: 20 * multiplier,
         totalBurpees: 10 * multiplier,
+        totalHighKnees: 25 * multiplier,
+        totalLunges: 12 * multiplier,
         score: 40 * multiplier,
       },
       {
@@ -288,6 +307,8 @@ export async function getIndividualLeaderboard(
         teamName: 'Sales',
         totalSquats: 15 * multiplier,
         totalBurpees: 8 * multiplier,
+        totalHighKnees: 18 * multiplier,
+        totalLunges: 10 * multiplier,
         score: 31 * multiplier,
       },
     ]
@@ -308,6 +329,8 @@ export async function getIndividualLeaderboard(
     teamName: row.team_name,
     totalSquats: row.total_squats,
     totalBurpees: row.total_burpees,
+    totalHighKnees: row.total_high_knees,
+    totalLunges: row.total_lunges,
     score: row.score,
   }))
 }
@@ -406,6 +429,7 @@ export async function createOrganizationInvite(input: {
       countryCode: input.countryCode.trim().toLowerCase() || 'us',
       pocEmail: input.pocEmail.trim().toLowerCase(),
       displayMessage: 'Welcome to the challenge. Complete your commute reps and climb the leaderboard.',
+      status: 'pending',
     })
     writeStubFlowState(state)
 
@@ -494,6 +518,8 @@ export async function completeInviteSetup(input: {
   endDate: string
   enabledSquat: boolean
   enabledBurpee: boolean
+  enabledHighKnees: boolean
+  enabledLunges: boolean
   displayMessage: string
 }): Promise<{ launchUrlPath: string }> {
   if (useFlowStubs) {
@@ -515,6 +541,7 @@ export async function completeInviteSetup(input: {
       countryCode,
       displayMessage:
         input.displayMessage.trim() || 'Welcome to the challenge. Complete your commute reps and climb the leaderboard.',
+      status: 'accepted',
     }
 
     writeStubFlowState(state)
@@ -531,6 +558,8 @@ export async function completeInviteSetup(input: {
     p_enabled_squat: input.enabledSquat,
     p_enabled_burpee: input.enabledBurpee,
     p_display_message: input.displayMessage.trim() || null,
+    p_enabled_high_knees: input.enabledHighKnees,
+    p_enabled_lunges: input.enabledLunges,
   })
 
   if (error) {
@@ -562,6 +591,8 @@ export async function getPublicLaunchContext(input: {
         countryCode: invite.countryCode,
         organizationCode: invite.organizationCode,
         displayMessage: invite.displayMessage,
+        setupStatus: invite.status === 'accepted' ? 'ready' : 'pending',
+        setupUrlPath: invite.status === 'accepted' ? null : `/setup/${invite.token}`,
       }
     }
 
@@ -577,6 +608,8 @@ export async function getPublicLaunchContext(input: {
         countryCode: 'us',
         organizationCode: 'COMPANYA2026',
         displayMessage: 'Welcome to Company A Challenge Week',
+        setupStatus: 'ready',
+        setupUrlPath: null,
       }
     }
 
@@ -599,6 +632,8 @@ export async function getPublicLaunchContext(input: {
     country_code: string
     organization_code: string
     display_message: string | null
+    setup_status: 'pending' | 'ready' | null
+    setup_url_path: string | null
   }
 
   return {
@@ -608,6 +643,8 @@ export async function getPublicLaunchContext(input: {
     countryCode: payload.country_code,
     organizationCode: payload.organization_code,
     displayMessage: payload.display_message,
+    setupStatus: payload.setup_status ?? 'ready',
+    setupUrlPath: payload.setup_url_path,
   }
 }
 
@@ -645,6 +682,150 @@ export async function updateChallengeConfig(input: {
   })
 }
 
+function mapGuestChallenge(payload: {
+  id: string
+  code: string
+  title: string
+  creator_name: string
+  duration_days: number
+  attempts_per_day: number
+  max_players: number
+  start_date: string
+  end_date: string
+  purge_after: string
+  created_at: string
+}): GuestChallengeRecord {
+  return {
+    id: payload.id,
+    code: payload.code,
+    title: payload.title,
+    creatorName: payload.creator_name,
+    durationDays: payload.duration_days,
+    attemptsPerDay: payload.attempts_per_day,
+    maxPlayers: payload.max_players,
+    startDate: payload.start_date,
+    endDate: payload.end_date,
+    purgeAfter: payload.purge_after,
+    createdAt: payload.created_at,
+  }
+}
+
+export async function createGuestChallenge(input: GuestChallengeInput): Promise<GuestChallengeRecord> {
+  if (useFlowStubs) {
+    const state = readStubFlowState()
+    const active = state.guestChallenges?.find((challenge) => dayjs(challenge.endDate).isAfter(dayjs()))
+    if (active) {
+      throw new Error('You already have an active guest challenge. Share that one until it ends.')
+    }
+
+    const durationDays = Math.min(7, Math.max(1, input.durationDays))
+    const attemptsPerDay = Math.min(5, Math.max(1, input.attemptsPerDay))
+    const code = `${slugify(input.title) || 'challenge'}-${crypto.randomUUID().slice(0, 6)}`
+    const now = dayjs()
+    const challenge: GuestChallengeRecord = {
+      id: `stub-guest-${code}`,
+      code,
+      title: input.title.trim() || 'FitPerks Challenge',
+      creatorName: input.creatorName.trim() || 'Host',
+      durationDays,
+      attemptsPerDay,
+      maxPlayers: 10,
+      startDate: now.toISOString(),
+      endDate: now.add(durationDays, 'day').toISOString(),
+      purgeAfter: now.add(durationDays + 3, 'day').toISOString(),
+      createdAt: now.toISOString(),
+    }
+
+    state.guestChallenges = [challenge, ...(state.guestChallenges ?? [])]
+    writeStubFlowState(state)
+    return challenge
+  }
+
+  const { data, error } = await supabase.rpc('create_guest_challenge', {
+    p_creator_key: input.creatorKey,
+    p_creator_name: input.creatorName.trim(),
+    p_title: input.title.trim(),
+    p_duration_days: input.durationDays,
+    p_attempts_per_day: input.attemptsPerDay,
+  })
+
+  if (error) {
+    throw error
+  }
+
+  return mapGuestChallenge(data as Parameters<typeof mapGuestChallenge>[0])
+}
+
+export async function getGuestChallenge(code: string): Promise<GuestChallengeRecord> {
+  if (useFlowStubs) {
+    const state = readStubFlowState()
+    const challenge = state.guestChallenges?.find((item) => item.code === code)
+    if (!challenge) {
+      throw new Error('Guest challenge not found.')
+    }
+    return challenge
+  }
+
+  const { data, error } = await supabase.rpc('get_guest_challenge', {
+    p_code: code.trim().toLowerCase(),
+  })
+
+  if (error) {
+    throw error
+  }
+
+  return mapGuestChallenge(data as Parameters<typeof mapGuestChallenge>[0])
+}
+
+export async function getGuestScoreboard(code: string): Promise<GuestScoreboardRow[]> {
+  if (useFlowStubs) {
+    return []
+  }
+
+  const { data, error } = await supabase.rpc('get_guest_scoreboard', {
+    p_code: code.trim().toLowerCase(),
+  })
+
+  if (error) {
+    throw error
+  }
+
+  return ((data ?? []) as any[]).map((row) => ({
+    rank: Number(row.rank),
+    guestName: row.guest_name,
+    dailyBestScore: row.daily_best_score,
+    overallScore: row.overall_score,
+    attemptsToday: row.attempts_today,
+  }))
+}
+
+export async function submitGuestAttempt(input: {
+  code: string
+  guestName: string
+  sessionId: string
+  exercise: ExerciseType
+  reps: number
+}): Promise<{ attemptId: string; playerId: string; score: number }> {
+  const { data, error } = await supabase.rpc('submit_guest_attempt', {
+    p_code: input.code.trim().toLowerCase(),
+    p_guest_name: input.guestName.trim(),
+    p_session_id: input.sessionId,
+    p_exercise: input.exercise,
+    p_reps: input.reps,
+  })
+
+  if (error) {
+    throw error
+  }
+
+  const payload = data as { attempt_id: string; player_id: string; score: number }
+  return {
+    attemptId: payload.attempt_id,
+    playerId: payload.player_id,
+    score: payload.score,
+  }
+}
+
 export function toCsv(rows: IndividualLeaderboardRow[]): string {
   return Papa.unparse(
     rows.map((row) => ({
@@ -652,6 +833,8 @@ export function toCsv(rows: IndividualLeaderboardRow[]): string {
       team: row.teamName,
       total_squats: row.totalSquats,
       total_burpees: row.totalBurpees,
+      total_high_knees: row.totalHighKnees,
+      total_lunges: row.totalLunges,
       score: row.score,
     })),
   )

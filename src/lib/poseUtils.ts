@@ -8,6 +8,9 @@ export type PoseState = {
   isPlank: boolean
   isJumpingJackOpen: boolean
   isJumpingJackClosed: boolean
+  isHighKneeRaised: boolean
+  isHighKneeLowered: boolean
+  isLungeDepth: boolean
 }
 
 function angle(a: NormalizedLandmark, b: NormalizedLandmark, c: NormalizedLandmark): number {
@@ -74,6 +77,14 @@ export function analyzePose(landmarks: NormalizedLandmark[], calibration: Calibr
   const handsAboveHead = avgWristY < avgShoulderY - 0.04
   const isJumpingJackOpen = handsAboveHead && ankleWidth > shoulderWidth * 1.35
   const isJumpingJackClosed = !handsAboveHead && ankleWidth < shoulderWidth * 0.95 && isStanding
+  const leftKneeRaised = leftKnee.y < avgHipY + 0.03 && rightKneeAngle > 145
+  const rightKneeRaised = rightKnee.y < avgHipY + 0.03 && leftKneeAngle > 145
+  const isHighKneeRaised = leftKneeRaised || rightKneeRaised
+  const isHighKneeLowered = isStanding && leftKnee.y > avgHipY + 0.08 && rightKnee.y > avgHipY + 0.08
+  const oneLegBent = Math.min(leftKneeAngle, rightKneeAngle) < 112
+  const otherLegStable = Math.max(leftKneeAngle, rightKneeAngle) > 135
+  const kneesSeparated = Math.abs(leftKnee.x - rightKnee.x) > shoulderWidth * 0.28
+  const isLungeDepth = oneLegBent && otherLegStable && kneesSeparated && avgHipY > avgShoulderY + 0.18
 
   return {
     isStanding,
@@ -82,5 +93,8 @@ export function analyzePose(landmarks: NormalizedLandmark[], calibration: Calibr
     isPlank,
     isJumpingJackOpen,
     isJumpingJackClosed,
+    isHighKneeRaised,
+    isHighKneeLowered,
+    isLungeDepth,
   }
 }
