@@ -237,6 +237,11 @@ export function GuestChallengePage() {
             active = match
           }
           setExistingChallenge(active)
+          saveGuestJoinContext({
+            guestName: active.creatorName,
+            guestEmail: active.creatorEmail,
+            challengeCode: active.code,
+          })
           setError('You already have an active guest challenge. Share that one until it ends.')
         } catch {
           setError(message)

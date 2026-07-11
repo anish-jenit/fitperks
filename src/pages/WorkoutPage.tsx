@@ -12,7 +12,7 @@ import {
   submitWorkoutSecure,
 } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
-import { clearParticipantProfile, getConfiguredOrganizationCode, getLastGuestEmail, getLastGuestName, saveGuestJoinContext, saveParticipantProfile } from '../lib/storage'
+import { clearParticipantProfile, getConfiguredOrganizationCode, getLastGuestChallengeCode, getLastGuestEmail, getLastGuestName, saveGuestJoinContext, saveParticipantProfile } from '../lib/storage'
 import type { ChallengeRecord, ExerciseType, GuestChallengeRecord } from '../types'
 
 type NormalizedLandmark = {
@@ -182,6 +182,9 @@ export function WorkoutPage() {
 
   const squatStageRef = useRef<SquatStage>('standing')
   const lungeStageRef = useRef<SquatStage>('standing')
+  const lungeDepthFramesRef = useRef(0)
+  const lungeStandingFramesRef = useRef(0)
+  const lastLungeRepAtRef = useRef(0)
   const jumpingJackStageRef = useRef<JumpingJackStage>('closed')
   const highKneeStageRef = useRef<HighKneeStage>('lowered')
   const [repCount, setRepCount] = useState(0)
@@ -216,6 +219,10 @@ export function WorkoutPage() {
       void getGuestChallenge(challengeCode)
         .then((payload) => {
           setGuestChallenge(payload)
+          if (getLastGuestChallengeCode() === payload.code) {
+            setSaveName((current) => current.trim() || payload.creatorName)
+            setSaveEmail((current) => current.trim() || payload.creatorEmail)
+          }
           setSecondsLeft(payload.sessionDurationSeconds)
           setActiveChallenge({
             id: payload.id,
@@ -301,6 +308,10 @@ export function WorkoutPage() {
   const recordRep = useCallback(() => {
     const now = performance.now()
     const lastRepAt = lastRepAtRef.current
+    if (lastRepAt !== null && now - lastRepAt < 650) {
+      return
+    }
+
     const previousInterval = lastRepIntervalRef.current
     const nextInterval = lastRepAt === null ? null : now - lastRepAt
     const isSteadyOrFaster = nextInterval === null || previousInterval === null || nextInterval <= previousInterval * 1.08
@@ -356,13 +367,25 @@ export function WorkoutPage() {
       }
 
       if (challenge.id === 'lunges') {
-        if (lungeStageRef.current === 'standing' && pose.isLungeDepth) {
-          lungeStageRef.current = 'down'
-        }
+        const now = performance.now()
+        if (lungeStageRef.current === 'standing') {
+          lungeStandingFramesRef.current = 0
+          lungeDepthFramesRef.current = pose.isLungeDepth ? lungeDepthFramesRef.current + 1 : 0
 
-        if (lungeStageRef.current === 'down' && pose.isStanding) {
-          lungeStageRef.current = 'standing'
-          recordRep()
+          if (lungeDepthFramesRef.current >= 4) {
+            lungeStageRef.current = 'down'
+            lungeDepthFramesRef.current = 0
+          }
+        } else {
+          lungeDepthFramesRef.current = 0
+          lungeStandingFramesRef.current = pose.isStanding ? lungeStandingFramesRef.current + 1 : 0
+
+          if (lungeStandingFramesRef.current >= 4 && now - lastLungeRepAtRef.current >= 650) {
+            lungeStageRef.current = 'standing'
+            lungeStandingFramesRef.current = 0
+            lastLungeRepAtRef.current = now
+            recordRep()
+          }
         }
       }
     },
@@ -534,6 +557,9 @@ export function WorkoutPage() {
     setIsWorkoutRunning(false)
     squatStageRef.current = 'standing'
     lungeStageRef.current = 'standing'
+    lungeDepthFramesRef.current = 0
+    lungeStandingFramesRef.current = 0
+    lastLungeRepAtRef.current = 0
     jumpingJackStageRef.current = 'closed'
     highKneeStageRef.current = 'lowered'
     lastRepAtRef.current = null
