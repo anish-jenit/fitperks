@@ -156,7 +156,7 @@ export function WorkoutPage() {
     }
 
     if (!configuredOrgCode) {
-      setError('Kiosk org code is not configured. Set VITE_DEFAULT_ORG_CODE before running live saves.')
+      setError('Organization context is missing. Open your organization launch URL and tap Start first.')
       return
     }
 
@@ -386,7 +386,7 @@ export function WorkoutPage() {
       }
 
       if (!configuredOrgCode) {
-        throw new Error('Organization code is not configured on this kiosk.')
+        throw new Error('Organization context is missing. Open your organization launch URL and tap Start first.')
       }
 
       if (!saveEmail.trim()) {

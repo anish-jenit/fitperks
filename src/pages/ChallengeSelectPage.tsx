@@ -137,7 +137,7 @@ export function ChallengeSelectPage() {
     }
 
     if (!orgCode) {
-      setError('Organization code is missing. Complete participant registration to continue.')
+      setError('Organization context is missing. Open your organization launch URL and tap Start.')
       return
     }
 

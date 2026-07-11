@@ -154,14 +154,12 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
-test('BAU registration, challenge list, leaderboards, and admin dashboard render correctly', async ({ page }) => {
+test('launch start, challenge list, leaderboards, and admin dashboard render correctly', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Participant Registration' })).toBeVisible()
-  await page.getByLabel('Organization code').fill('COMPANYA2026')
-  await page.getByLabel('Name or nickname').fill('Anish')
-  await page.getByLabel('Team name').fill('Blue Team')
-  await page.getByLabel('Email').fill('anish@companya.com')
-  await page.getByRole('button', { name: 'Continue' }).click()
+  await expect(page.getByRole('heading', { name: 'Invite-Driven Challenge Flow.' })).toBeVisible()
+
+  await page.goto('/launch/us/company-a')
+  await page.getByRole('button', { name: 'Start' }).click()
 
   await expect(page.getByRole('heading', { name: 'Choose a Challenge' })).toBeVisible()
   await expect(page.getByText(/to .*\(.+\)/)).toBeVisible()

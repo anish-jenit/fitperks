@@ -14,11 +14,11 @@ function App() {
   return (
     <div className="app-shell">
       <header className="top-nav">
-        <Link to="/register" className="brand">
+        <Link to="/home" className="brand">
           FitPerks
         </Link>
         <nav>
-          <Link to="/register">Join</Link>
+          <Link to="/home">Home</Link>
           <Link to="/challenges">Choose Challenge</Link>
           <Link to="/leaderboard">Scoreboard</Link>
           <Link to="/admin">Admin</Link>
@@ -26,7 +26,7 @@ function App() {
       </header>
 
       <Routes>
-        <Route path="/" element={<Navigate to="/register" replace />} />
+        <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="/home" element={<LandingPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/challenges" element={<ChallengeSelectPage />} />

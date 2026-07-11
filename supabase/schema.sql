@@ -239,6 +239,7 @@ create table if not exists audit_logs (
 );
 
 create index if not exists idx_participants_org on participants(organization_id);
+create unique index if not exists idx_participants_org_email_unique on participants(organization_id, lower(email)) where email is not null;
 create index if not exists idx_teams_org on teams(organization_id);
 create index if not exists idx_workouts_org_challenge_created on workouts(organization_id, challenge_id, created_at desc);
 create index if not exists idx_point_tx_org_challenge_created on point_transactions(organization_id, challenge_id, created_at desc);
@@ -305,6 +306,7 @@ declare
   v_team teams%rowtype;
   v_participant participants%rowtype;
   v_domain text;
+  v_email text;
 begin
   if auth.uid() is null then
     raise exception 'Authentication required';
@@ -319,12 +321,14 @@ begin
     raise exception 'Invalid organization code';
   end if;
 
-  if p_email is not null and array_length(v_org.allowed_email_domains, 1) is not null then
-    v_domain := split_part(lower(trim(p_email)), '@', 2);
+  v_email := nullif(lower(trim(p_email)), '');
+
+  if v_email is not null and array_length(v_org.allowed_email_domains, 1) is not null then
+    v_domain := split_part(v_email, '@', 2);
     if not (v_domain = any(v_org.allowed_email_domains)) then
       raise exception 'Email domain is not allowed for this organization';
     end if;
-  elsif p_email is null and array_length(v_org.allowed_email_domains, 1) is not null then
+  elsif v_email is null and array_length(v_org.allowed_email_domains, 1) is not null then
     raise exception 'Email is required for this organization';
   end if;
 
@@ -333,9 +337,26 @@ begin
   on conflict (organization_id, name) do update set name = excluded.name
   returning * into v_team;
 
-  insert into participants (organization_id, team_id, nickname, email)
-  values (v_org.id, v_team.id, trim(p_nickname), nullif(trim(p_email), ''))
-  returning * into v_participant;
+  if v_email is not null then
+    select * into v_participant
+    from participants
+    where organization_id = v_org.id
+      and lower(email) = v_email
+    limit 1;
+  end if;
+
+  if v_participant.id is null then
+    insert into participants (organization_id, team_id, nickname, email)
+    values (v_org.id, v_team.id, trim(p_nickname), v_email)
+    returning * into v_participant;
+  else
+    update participants
+    set team_id = v_team.id,
+        nickname = trim(p_nickname),
+        email = v_email
+    where id = v_participant.id
+    returning * into v_participant;
+  end if;
 
   insert into participant_profiles (user_id, organization_id, participant_id)
   values (auth.uid(), v_org.id, v_participant.id)
