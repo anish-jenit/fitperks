@@ -30,7 +30,9 @@ export function getConfiguredOrganizationCode(): string | null {
 
   const stored = localStorage.getItem(KIOSK_ORG_CODE_STORAGE_KEY)
   if (!stored) {
-    return null
+    const participant = getParticipantProfile()
+    const participantOrgCode = participant?.organizationCode?.trim()
+    return participantOrgCode || null
   }
 
   return stored.trim() || null

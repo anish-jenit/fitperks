@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { joinOrganizationAndRegister } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
-import { saveParticipantProfile } from '../lib/storage'
+import { saveParticipantProfile, setConfiguredOrganizationCode } from '../lib/storage'
 
 function isNetworkFailure(error: unknown): boolean {
   if (!(error instanceof Error)) {
@@ -34,6 +34,7 @@ export function RegisterPage() {
     setError(null)
 
     if (!hasSupabaseConfig) {
+      setConfiguredOrganizationCode(organizationCode)
       saveParticipantProfile({
         id: crypto.randomUUID(),
         organizationId: 'demo-org',
@@ -57,10 +58,12 @@ export function RegisterPage() {
         team,
         email,
       })
+      setConfiguredOrganizationCode(participant.organizationCode)
       saveParticipantProfile(participant)
       navigate('/challenges')
     } catch (err) {
       if (isNetworkFailure(err)) {
+        setConfiguredOrganizationCode(organizationCode)
         saveParticipantProfile({
           id: crypto.randomUUID(),
           organizationId: 'demo-org',
