@@ -156,6 +156,18 @@
   border-top: 1px solid var(--line);
 }
 
+.text-action {
+  border: 0;
+  padding: 0;
+  margin-left: 0.35rem;
+  color: var(--ink-strong);
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .join-result {
   display: flex;
   align-items: center;

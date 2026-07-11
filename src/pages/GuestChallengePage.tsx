@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { CHALLENGES } from '../lib/constants'
-import { createGuestChallenge, getGuestChallenge, getGuestChallengesForEmail, getGuestScoreboard } from '../lib/supabaseApi'
+import { createGuestChallenge, getGuestChallenge, getGuestChallengeForCreator, getGuestChallengesForEmail, getGuestScoreboard } from '../lib/supabaseApi'
 import { getLastGuestChallengeCode, getLastGuestName, getOrCreateGuestCreatorKey, saveGuestJoinContext } from '../lib/storage'
 import type { ExerciseType, GuestChallengeRecord, GuestChallengeSummary, GuestScoreboardRow } from '../types'
 
@@ -190,6 +190,7 @@ export function GuestChallengePage() {
   const [sessionDurationSeconds, setSessionDurationSeconds] = useState(60)
   const [selectedExercises, setSelectedExercises] = useState<ExerciseType[]>(['squat', 'burpee'])
   const [created, setCreated] = useState<GuestChallengeRecord | null>(null)
+  const [existingChallenge, setExistingChallenge] = useState<GuestChallengeRecord | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -223,7 +224,17 @@ export function GuestChallengePage() {
         : typeof err === 'object' && err !== null && 'message' in err
           ? String(err.message)
           : 'Unable to create guest challenge.'
-      setError(message)
+      if (message.includes('already have an active guest challenge')) {
+        try {
+          const active = await getGuestChallengeForCreator(getOrCreateGuestCreatorKey(), creatorEmail)
+          setExistingChallenge(active)
+          setError('You already have an active guest challenge. Share that one until it ends.')
+        } catch {
+          setError(message)
+        }
+      } else {
+        setError(message)
+      }
     } finally {
       setBusy(false)
     }
@@ -236,7 +247,16 @@ export function GuestChallengePage() {
         <h1>Create Challenge</h1>
         <p className="hint">For up to 10 players. Maximum duration is 7 days.</p>
 
-        {error ? <p className="error">{error}</p> : null}
+        {error ? (
+          <p className="error">
+            {error}
+            {existingChallenge ? (
+              <button className="text-action" type="button" onClick={() => setCreated(existingChallenge)}>
+                Share
+              </button>
+            ) : null}
+          </p>
+        ) : null}
 
         {created ? (
           <div className="setup-result">

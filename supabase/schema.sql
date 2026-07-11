@@ -1569,6 +1569,52 @@ begin
 end;
 $$;
 
+create or replace function public.get_guest_challenge_for_creator(
+  p_creator_key text,
+  p_creator_email text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_challenge guest_challenges%rowtype;
+  v_creator_hash text;
+begin
+  v_creator_hash := encode(extensions.digest(trim(p_creator_key)::text, 'sha256'::text), 'hex');
+
+  select * into v_challenge
+  from guest_challenges
+  where deleted_at is null
+    and end_date >= now()
+    and (creator_key_hash = v_creator_hash or lower(creator_email) = lower(trim(p_creator_email)))
+  order by created_at desc
+  limit 1;
+
+  if v_challenge.id is null then
+    raise exception 'Active guest challenge not found';
+  end if;
+
+  return jsonb_build_object(
+    'id', v_challenge.id,
+    'code', v_challenge.code,
+    'title', v_challenge.title,
+    'creator_name', v_challenge.creator_name,
+    'creator_email', v_challenge.creator_email,
+    'duration_days', v_challenge.duration_days,
+    'attempts_per_day', v_challenge.attempts_per_day,
+    'max_players', v_challenge.max_players,
+    'selected_exercises', v_challenge.selected_exercises,
+    'session_duration_seconds', v_challenge.session_duration_seconds,
+    'start_date', v_challenge.start_date,
+    'end_date', v_challenge.end_date,
+    'purge_after', v_challenge.purge_after,
+    'created_at', v_challenge.created_at
+  );
+end;
+$$;
+
 create or replace function public.get_guest_challenges_for_email(p_email text)
 returns table(
   id uuid,

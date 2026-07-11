@@ -817,6 +817,30 @@ export async function getGuestChallenge(code: string): Promise<GuestChallengeRec
   return mapGuestChallenge(data as Parameters<typeof mapGuestChallenge>[0])
 }
 
+export async function getGuestChallengeForCreator(creatorKey: string, creatorEmail: string): Promise<GuestChallengeRecord> {
+  if (useFlowStubs) {
+    const state = readStubFlowState()
+    const challenge = state.guestChallenges?.find((item) =>
+      dayjs(item.endDate).isAfter(dayjs()) && item.creatorEmail === creatorEmail.trim().toLowerCase(),
+    )
+    if (!challenge) {
+      throw new Error('Active guest challenge not found.')
+    }
+    return challenge
+  }
+
+  const { data, error } = await supabase.rpc('get_guest_challenge_for_creator', {
+    p_creator_key: creatorKey,
+    p_creator_email: creatorEmail.trim().toLowerCase(),
+  })
+
+  if (error) {
+    throw error
+  }
+
+  return mapGuestChallenge(data as Parameters<typeof mapGuestChallenge>[0])
+}
+
 export async function getGuestScoreboard(code: string): Promise<GuestScoreboardRow[]> {
   if (useFlowStubs) {
     return []
