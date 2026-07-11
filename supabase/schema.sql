@@ -1501,6 +1501,9 @@ begin
 end;
 $$;
 
+alter function public.create_guest_challenge(text, text, text, integer, integer, text, timestamptz, text[], integer)
+  set search_path = public, extensions;
+
 create or replace function public.create_guest_challenge(
   p_creator_key text,
   p_creator_name text,
