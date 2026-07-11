@@ -148,6 +148,103 @@
   box-shadow: var(--shadow-panel);
 }
 
+.join-results {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.join-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+}
+
+.join-result p {
+  color: var(--ink);
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+.workout-picker {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.workout-picker legend {
+  color: var(--ink-strong);
+  font-weight: 700;
+  margin-bottom: 0.7rem;
+}
+
+.workout-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.workout-choice {
+  position: relative;
+  display: grid;
+  gap: 0.45rem;
+  min-height: 8.5rem;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+.workout-choice:hover,
+.workout-choice.selected {
+  border-color: var(--accent-strong);
+  background: #17233a;
+  transform: translateY(-2px);
+}
+
+.workout-choice input {
+  position: absolute;
+  opacity: 0;
+}
+
+.workout-glyph {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  color: #030712;
+  font-size: 1.5rem;
+  font-weight: 700;
+  animation: choice-float 2.8s ease-in-out infinite;
+}
+
+.glyph-squat { background: #facc15; }
+.glyph-burpee { background: #f0abfc; animation-delay: 0.2s; }
+.glyph-high-knees { background: #5eead4; animation-delay: 0.4s; }
+.glyph-lunges { background: #93c5fd; animation-delay: 0.6s; }
+
+@keyframes choice-float {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-5px) rotate(3deg); }
+}
+
+@media (max-width: 560px) {
+  .workout-choice-grid { grid-template-columns: 1fr; }
+  .join-result { align-items: flex-start; flex-direction: column; }
+  .join-result .button { width: 100%; }
+}
+
 .hero-panel {
   background: linear-gradient(180deg, #101827 0%, var(--panel) 100%);
   border: 1px solid var(--line);

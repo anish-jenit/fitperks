@@ -261,12 +261,29 @@ create table if not exists guest_challenges (
   check (purge_after >= end_date)
 );
 
+alter table guest_challenges add column if not exists creator_email text not null default '';
+alter table guest_challenges add column if not exists selected_exercises text[] not null default array['squat', 'burpee'];
+alter table guest_challenges add column if not exists session_duration_seconds int not null default 60;
+update guest_challenges
+set selected_exercises = (selected_exercises)[1:3]
+where cardinality(selected_exercises) > 3;
+alter table guest_challenges drop constraint if exists guest_challenge_selected_exercises_check;
+alter table guest_challenges add constraint guest_challenge_selected_exercises_check
+  check (cardinality(selected_exercises) between 1 and 3 and selected_exercises <@ array['squat', 'burpee', 'high-knees', 'lunges']::text[]);
+alter table guest_challenges drop constraint if exists guest_challenge_timer_check;
+alter table guest_challenges add constraint guest_challenge_timer_check check (session_duration_seconds between 60 and 180);
+
 create table if not exists guest_challenge_players (
   id uuid primary key default gen_random_uuid(),
   challenge_id uuid not null references guest_challenges(id) on delete cascade,
   guest_name text not null,
   created_at timestamptz not null default now()
 );
+
+alter table guest_challenge_players add column if not exists guest_email text not null default '';
+update guest_challenge_players
+set guest_email = lower(regexp_replace(guest_name, '[^a-zA-Z0-9]+', '-', 'g')) || '-' || id::text || '@legacy.invalid'
+where guest_email = '';
 
 create table if not exists guest_challenge_attempts (
   id uuid primary key default gen_random_uuid(),
@@ -306,6 +323,10 @@ create index if not exists idx_guest_challenges_code on guest_challenges(code);
 create index if not exists idx_guest_challenges_creator_active on guest_challenges(creator_key_hash, end_date) where deleted_at is null;
 create index if not exists idx_guest_challenge_players_challenge on guest_challenge_players(challenge_id);
 create unique index if not exists idx_guest_challenge_players_name_unique on guest_challenge_players(challenge_id, lower(guest_name));
+create unique index if not exists idx_guest_challenge_players_email_unique on guest_challenge_players(challenge_id, lower(guest_email));
+create index if not exists idx_guest_challenge_players_email on guest_challenge_players(lower(guest_email));
+drop index if exists idx_guest_challenges_creator_email_active;
+create index if not exists idx_guest_challenges_creator_email on guest_challenges(lower(creator_email)) where deleted_at is null and creator_email <> '';
 create index if not exists idx_guest_challenge_attempts_challenge_created on guest_challenge_attempts(challenge_id, created_at desc);
 
 create or replace function public.current_organization_id()
@@ -1347,7 +1368,11 @@ create or replace function public.create_guest_challenge(
   p_creator_name text,
   p_title text,
   p_duration_days int,
-  p_attempts_per_day int
+  p_attempts_per_day int,
+  p_creator_email text,
+  p_start_date timestamptz,
+  p_selected_exercises text[],
+  p_session_duration_seconds int
 )
 returns jsonb
 language plpgsql
@@ -1361,6 +1386,9 @@ declare
   v_code text;
   v_duration_days int;
   v_attempts_per_day int;
+  v_start_date timestamptz;
+  v_selected_exercises text[];
+  v_session_duration_seconds int;
 begin
   if nullif(trim(p_creator_key), '') is null then
     raise exception 'Creator key is required';
@@ -1368,6 +1396,25 @@ begin
 
   if nullif(trim(p_creator_name), '') is null then
     raise exception 'Guest name is required';
+  end if;
+
+  if nullif(trim(p_creator_email), '') is null or position('@' in trim(p_creator_email)) < 2 then
+    raise exception 'Valid creator email is required';
+  end if;
+
+  v_start_date := coalesce(p_start_date, now());
+  if v_start_date < date_trunc('day', now()) or v_start_date > date_trunc('day', now()) + interval '5 days' then
+    raise exception 'Challenge start date must be within the next 5 days';
+  end if;
+
+  v_selected_exercises := coalesce(p_selected_exercises, array['squat', 'burpee']::text[]);
+  if cardinality(v_selected_exercises) < 1 or cardinality(v_selected_exercises) > 3 or not (v_selected_exercises <@ array['squat', 'burpee', 'high-knees', 'lunges']::text[]) then
+    raise exception 'Choose between 1 and 3 valid workouts';
+  end if;
+
+  v_session_duration_seconds := coalesce(p_session_duration_seconds, 60);
+  if v_session_duration_seconds not between 60 and 180 then
+    raise exception 'Session timer must be between 1 and 3 minutes';
   end if;
 
   v_duration_days := least(7, greatest(1, coalesce(p_duration_days, 1)));
@@ -1378,7 +1425,7 @@ begin
 
   select * into v_existing
   from guest_challenges
-  where creator_key_hash = v_creator_hash
+  where (creator_key_hash = v_creator_hash or lower(creator_email) = lower(trim(p_creator_email)))
     and deleted_at is null
     and end_date >= now()
   order by created_at desc
@@ -1398,9 +1445,12 @@ begin
         code,
         title,
         creator_name,
+        creator_email,
         creator_key_hash,
         duration_days,
         attempts_per_day,
+        selected_exercises,
+        session_duration_seconds,
         max_players,
         start_date,
         end_date,
@@ -1410,13 +1460,16 @@ begin
         v_code,
         trim(coalesce(nullif(p_title, ''), 'FitPerks Challenge')),
         trim(p_creator_name),
+        lower(trim(p_creator_email)),
         v_creator_hash,
         v_duration_days,
         v_attempts_per_day,
+        v_selected_exercises,
+        v_session_duration_seconds,
         10,
-        now(),
-        now() + make_interval(days => v_duration_days),
-        now() + make_interval(days => v_duration_days + 3)
+        v_start_date,
+        v_start_date + make_interval(days => v_duration_days),
+        v_start_date + make_interval(days => v_duration_days + 3)
       )
       returning * into v_challenge;
       exit;
@@ -1430,9 +1483,12 @@ begin
     'code', v_challenge.code,
     'title', v_challenge.title,
     'creator_name', v_challenge.creator_name,
+    'creator_email', v_challenge.creator_email,
     'duration_days', v_challenge.duration_days,
     'attempts_per_day', v_challenge.attempts_per_day,
     'max_players', v_challenge.max_players,
+    'selected_exercises', v_challenge.selected_exercises,
+    'session_duration_seconds', v_challenge.session_duration_seconds,
     'start_date', v_challenge.start_date,
     'end_date', v_challenge.end_date,
     'purge_after', v_challenge.purge_after,
@@ -1467,9 +1523,12 @@ begin
     'code', v_challenge.code,
     'title', v_challenge.title,
     'creator_name', v_challenge.creator_name,
+    'creator_email', v_challenge.creator_email,
     'duration_days', v_challenge.duration_days,
     'attempts_per_day', v_challenge.attempts_per_day,
     'max_players', v_challenge.max_players,
+    'selected_exercises', v_challenge.selected_exercises,
+    'session_duration_seconds', v_challenge.session_duration_seconds,
     'start_date', v_challenge.start_date,
     'end_date', v_challenge.end_date,
     'purge_after', v_challenge.purge_after,
@@ -1478,9 +1537,45 @@ begin
 end;
 $$;
 
+create or replace function public.get_guest_challenges_for_email(p_email text)
+returns table(
+  id uuid,
+  code text,
+  title text,
+  creator_name text,
+  creator_email text,
+  duration_days int,
+  attempts_per_day int,
+  max_players int,
+  selected_exercises text[],
+  session_duration_seconds int,
+  start_date timestamptz,
+  end_date timestamptz,
+  purge_after timestamptz,
+  created_at timestamptz,
+  player_count bigint,
+  joined boolean
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select c.id, c.code, c.title, c.creator_name, c.creator_email,
+    c.duration_days, c.attempts_per_day, c.max_players, c.selected_exercises,
+    c.session_duration_seconds, c.start_date, c.end_date, c.purge_after, c.created_at,
+    count(p.id) as player_count,
+    exists (select 1 from guest_challenge_players jp where jp.challenge_id = c.id and lower(jp.guest_email) = lower(trim(p_email))) as joined
+  from guest_challenges c
+  left join guest_challenge_players p on p.challenge_id = c.id
+  where c.deleted_at is null and c.end_date >= now() and nullif(trim(p_email), '') is not null
+  group by c.id
+  order by c.start_date asc, c.created_at desc;
+$$;
+
 create or replace function public.submit_guest_attempt(
   p_code text,
   p_guest_name text,
+  p_guest_email text,
   p_session_id uuid,
   p_exercise text,
   p_reps int
@@ -1522,14 +1617,22 @@ begin
     raise exception 'Guest challenge has ended';
   end if;
 
+  if now() < v_challenge.start_date then
+    raise exception 'Guest challenge has not started yet';
+  end if;
+
   if nullif(trim(p_guest_name), '') is null then
     raise exception 'Guest name is required';
+  end if;
+
+  if nullif(trim(p_guest_email), '') is null or position('@' in trim(p_guest_email)) < 2 then
+    raise exception 'Valid guest email is required';
   end if;
 
   select * into v_player
   from guest_challenge_players
   where challenge_id = v_challenge.id
-    and lower(guest_name) = lower(trim(p_guest_name))
+    and lower(guest_email) = lower(trim(p_guest_email))
   limit 1;
 
   if v_player.id is null then
@@ -1541,9 +1644,24 @@ begin
       raise exception 'This guest challenge is full';
     end if;
 
-    insert into guest_challenge_players (challenge_id, guest_name)
-    values (v_challenge.id, trim(p_guest_name))
+    if (
+      select count(*)
+      from guest_challenge_players p
+      join guest_challenges c on c.id = p.challenge_id
+      where lower(p.guest_email) = lower(trim(p_guest_email))
+        and c.deleted_at is null
+        and c.end_date >= now()
+    ) >= 3 then
+      raise exception 'This email is already active in 3 challenges. Wait for one to finish.';
+    end if;
+
+    insert into guest_challenge_players (challenge_id, guest_name, guest_email)
+    values (v_challenge.id, trim(p_guest_name), lower(trim(p_guest_email)))
     returning * into v_player;
+  end if;
+
+  if not (p_exercise = any(v_challenge.selected_exercises)) then
+    raise exception 'This workout is not part of the challenge';
   end if;
 
   select count(*) into v_attempts_today
@@ -1589,6 +1707,21 @@ begin
     'score', v_attempt.score
   );
 end;
+$$;
+
+create or replace function public.submit_guest_attempt(
+  p_code text,
+  p_guest_name text,
+  p_session_id uuid,
+  p_exercise text,
+  p_reps int
+)
+returns jsonb
+language sql
+security definer
+set search_path = public
+as $$
+  select public.submit_guest_attempt(p_code, p_guest_name, lower(trim(p_guest_name)) || '@legacy.invalid', p_session_id, p_exercise, p_reps);
 $$;
 
 create or replace function public.get_guest_scoreboard(p_code text)

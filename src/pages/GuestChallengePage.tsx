@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { createGuestChallenge, getGuestChallenge, getGuestScoreboard } from '../lib/supabaseApi'
+import { CHALLENGES } from '../lib/constants'
+import { createGuestChallenge, getGuestChallenge, getGuestChallengesForEmail, getGuestScoreboard } from '../lib/supabaseApi'
 import { getLastGuestChallengeCode, getLastGuestName, getOrCreateGuestCreatorKey, saveGuestJoinContext } from '../lib/storage'
-import type { GuestChallengeRecord, GuestScoreboardRow } from '../types'
+import type { ExerciseType, GuestChallengeRecord, GuestChallengeSummary, GuestScoreboardRow } from '../types'
+
+function dateInputValue(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
 
 function buildUrl(path: string): string {
   if (typeof window === 'undefined') {
@@ -75,22 +80,44 @@ function ShareLinks({ challenge }: { challenge: GuestChallengeRecord }) {
 export function JoinChallengePage() {
   const navigate = useNavigate()
   const [guestName, setGuestName] = useState(() => getLastGuestName())
+  const [guestEmail, setGuestEmail] = useState('')
   const [challengeCode, setChallengeCode] = useState(() => getLastGuestChallengeCode())
+  const [challenges, setChallenges] = useState<GuestChallengeSummary[]>([])
+  const [searched, setSearched] = useState(false)
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const normalizedCode = challengeCode.trim().toLowerCase()
-
-    if (!guestName.trim() || !normalizedCode) {
-      setError('Guest name and challenge code are required.')
+    if (!guestEmail.trim() || !guestName.trim()) {
+      setError('Email and guest name are required.')
       return
     }
 
-    saveGuestJoinContext({
-      guestName,
-      challengeCode: normalizedCode,
-    })
+    try {
+      setBusy(true)
+      setError(null)
+      const rows = await getGuestChallengesForEmail(guestEmail)
+      setChallenges(rows)
+      setSearched(true)
+      if (!rows.length && !challengeCode.trim()) {
+        setError('No current challenges found. Enter a challenge code to join a new one.')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to find current challenges.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function joinChallenge(code: string) {
+    const normalizedCode = code.trim().toLowerCase()
+    if (!normalizedCode) {
+      setError('Choose a challenge or enter a challenge code.')
+      return
+    }
+
+    saveGuestJoinContext({ guestName, guestEmail, challengeCode: normalizedCode })
     navigate(`/guest/${normalizedCode}`)
   }
 
@@ -98,30 +125,56 @@ export function JoinChallengePage() {
     <main className="page">
       <section className="panel form-panel">
         <p className="hero-kicker">Join Challenge</p>
-        <h1>Enter Challenge Code</h1>
-        <p className="hint">Use the guest name and challenge code shared by the challenge creator.</p>
+        <h1>Join a Challenge</h1>
+        <p className="hint">Enter your email to find current challenges, or use a code shared with you.</p>
 
         {error ? <p className="error">{error}</p> : null}
 
-        <form className="stack" onSubmit={onSubmit}>
+        <form className="stack" onSubmit={(event) => void onSubmit(event)}>
+          <label>
+            Email address
+            <input type="email" value={guestEmail} onChange={(event) => setGuestEmail(event.target.value)} required />
+          </label>
           <label>
             Guest name
             <input value={guestName} onChange={(event) => setGuestName(event.target.value)} maxLength={80} required />
           </label>
           <label>
-            Challenge code
+            Challenge code <span className="hint">(optional)</span>
             <input
               value={challengeCode}
               onChange={(event) => setChallengeCode(event.target.value)}
               placeholder="weekend-move-abc123"
               maxLength={96}
-              required
             />
           </label>
           <button className="button primary" type="submit">
-            Join Challenge
+            {busy ? 'Finding challenges...' : 'Find Challenges'}
           </button>
         </form>
+
+        {searched ? (
+          <div className="join-results">
+            <h2>Current challenges</h2>
+            {challenges.length ? challenges.map((challenge) => (
+              <article className="join-result" key={challenge.code}>
+                <div>
+                  <strong>{challenge.title}</strong>
+                  <p>{challenge.durationDays} days · {challenge.playerCount}/{challenge.maxPlayers} players · {challenge.selectedExercises.length} workouts</p>
+                </div>
+                <button className="button ghost button-small" type="button" onClick={() => joinChallenge(challenge.code)}>
+                  {challenge.joined ? 'Continue' : 'Join'}
+                </button>
+              </article>
+            )) : <p className="hint">No current challenges match this email yet.</p>}
+            {challengeCode.trim() ? (
+              <button className="button primary" type="button" onClick={() => joinChallenge(challengeCode)}>
+                Join with code
+              </button>
+            ) : null}
+            {!challenges.length ? <Link className="button ghost" to="/guest-challenge">Create a new challenge</Link> : null}
+          </div>
+        ) : null}
       </section>
     </main>
   )
@@ -130,14 +183,23 @@ export function JoinChallengePage() {
 export function GuestChallengePage() {
   const [title, setTitle] = useState('Weekend Move Challenge')
   const [creatorName, setCreatorName] = useState('')
+  const [creatorEmail, setCreatorEmail] = useState('')
   const [durationDays, setDurationDays] = useState(3)
   const [attemptsPerDay, setAttemptsPerDay] = useState(3)
+  const [startDate, setStartDate] = useState(() => dateInputValue(new Date()))
+  const [sessionDurationSeconds, setSessionDurationSeconds] = useState(60)
+  const [selectedExercises, setSelectedExercises] = useState<ExerciseType[]>(['squat', 'burpee'])
   const [created, setCreated] = useState<GuestChallengeRecord | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
+    if (!selectedExercises.length) {
+      setError('Choose at least one workout.')
+      return
+    }
 
     try {
       setBusy(true)
@@ -146,9 +208,13 @@ export function GuestChallengePage() {
       const challenge = await createGuestChallenge({
         creatorKey: getOrCreateGuestCreatorKey(),
         creatorName,
+        creatorEmail,
         title,
         durationDays,
         attemptsPerDay,
+        startDate: new Date(`${startDate}T12:00:00`).toISOString(),
+        selectedExercises,
+        sessionDurationSeconds,
       })
       setCreated(challenge)
     } catch (err) {
@@ -184,7 +250,7 @@ export function GuestChallengePage() {
                 <p>Attempts/day</p>
               </article>
             </div>
-            <p className="hint">Daily scoreboard uses the best 3 attempts when available.</p>
+            <p className="hint">Daily scoreboard uses the best 3 attempts when available. Session timer: {created.sessionDurationSeconds / 60} minutes.</p>
             <ShareLinks challenge={created} />
           </div>
         ) : (
@@ -197,7 +263,21 @@ export function GuestChallengePage() {
               Guest name
               <input value={creatorName} onChange={(event) => setCreatorName(event.target.value)} maxLength={80} required />
             </label>
+            <label>
+              Email address
+              <input type="email" value={creatorEmail} onChange={(event) => setCreatorEmail(event.target.value)} required />
+            </label>
             <div className="settings-grid">
+              <label>
+                Start date
+                <input
+                  type="date"
+                  min={dateInputValue(new Date())}
+                  max={dateInputValue(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000))}
+                  value={startDate}
+                  onChange={(event) => setStartDate(event.target.value)}
+                />
+              </label>
               <label>
                 Duration
                 <input
@@ -218,7 +298,38 @@ export function GuestChallengePage() {
                   onChange={(event) => setAttemptsPerDay(Number(event.target.value))}
                 />
               </label>
+              <label>
+                Session timer
+                <select value={sessionDurationSeconds} onChange={(event) => setSessionDurationSeconds(Number(event.target.value))}>
+                  <option value={60}>1 minute</option>
+                  <option value={120}>2 minutes</option>
+                  <option value={180}>3 minutes</option>
+                </select>
+              </label>
             </div>
+            <fieldset className="workout-picker">
+              <legend>Choose up to 3 workouts</legend>
+              <div className="workout-choice-grid">
+                {CHALLENGES.map((workout) => {
+                  const selected = selectedExercises.includes(workout.id)
+                  return (
+                    <label className={`workout-choice ${selected ? 'selected' : ''}`} key={workout.id}>
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => {
+                          setSelectedExercises((current) => selected
+                            ? current.filter((id) => id !== workout.id)
+                            : current.length < 3 ? [...current, workout.id] : current)
+                        }}
+                      />
+                      <span className={`workout-glyph glyph-${workout.id}`} aria-hidden="true">{workout.id === 'squat' ? '↓' : workout.id === 'burpee' ? '✦' : workout.id === 'high-knees' ? '↑' : '↗'}</span>
+                      <strong>{workout.name.replace(' Challenge', '')}</strong>
+                    </label>
+                  )
+                })}
+              </div>
+            </fieldset>
             <button className="button primary" type="submit" disabled={busy}>
               {busy ? 'Creating...' : 'Create Share Link'}
             </button>
@@ -308,18 +419,10 @@ export function GuestChallengeLandingPage() {
           </article>
         </div>
         <div className="hero-actions">
-          <Link className="button primary" to={`/guest/${challenge.code}/workout/squat`}>
-            Squats
-          </Link>
-          <Link className="button ghost" to={`/guest/${challenge.code}/workout/burpee`}>
-            Jumping Jacks
-          </Link>
-          <Link className="button ghost" to={`/guest/${challenge.code}/workout/high-knees`}>
-            High Knees
-          </Link>
-          <Link className="button ghost" to={`/guest/${challenge.code}/workout/lunges`}>
-            Lunges
-          </Link>
+          {challenge.selectedExercises.map((exercise) => {
+            const workout = CHALLENGES.find((item) => item.id === exercise)
+            return workout ? <Link className="button ghost" to={`/guest/${challenge.code}/workout/${exercise}`} key={exercise}>{workout.name.replace(' Challenge', '')}</Link> : null
+          })}
           <Link className="button ghost" to={`/guest/${challenge.code}/scoreboard`}>
             Scoreboard
           </Link>

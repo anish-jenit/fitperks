@@ -206,7 +206,11 @@ begin
     'Maya',
     'Weekend Move Challenge',
     7,
-    5
+    5,
+    'maya@test.example',
+    date_trunc('day', now()),
+    array['high-knees', 'lunges'],
+    120
   );
 
   v_code := v_result ->> 'code';
@@ -214,7 +218,9 @@ begin
   if v_result ->> 'creator_name' <> 'Maya'
     or (v_result ->> 'duration_days')::int <> 7
     or (v_result ->> 'attempts_per_day')::int <> 5
-    or (v_result ->> 'max_players')::int <> 10 then
+    or (v_result ->> 'max_players')::int <> 10
+    or (v_result ->> 'session_duration_seconds')::int <> 120
+    or (v_result -> 'selected_exercises') <> '["high-knees", "lunges"]'::jsonb then
     raise exception 'Guest challenge creation returned unexpected configuration';
   end if;
 
@@ -225,6 +231,7 @@ begin
   perform submit_guest_attempt(
     v_code,
     'Maya',
+    'maya@test.example',
     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
     'high-knees',
     20
@@ -233,6 +240,7 @@ begin
   perform submit_guest_attempt(
     v_code,
     'Maya',
+    'maya@test.example',
     'cccccccc-cccc-cccc-cccc-cccccccccccc',
     'lunges',
     10

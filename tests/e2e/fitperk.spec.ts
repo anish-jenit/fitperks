@@ -46,9 +46,12 @@ test.beforeEach(async ({ page }) => {
     code: 'weekend-move-abc123',
     title: 'Weekend Move Challenge',
     creator_name: 'Maya',
+    creator_email: 'maya@example.com',
     duration_days: 3,
     attempts_per_day: 3,
     max_players: 10,
+    selected_exercises: ['squat', 'burpee'],
+    session_duration_seconds: 60,
     start_date: new Date().toISOString(),
     end_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
     purge_after: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(),
@@ -191,18 +194,28 @@ test.beforeEach(async ({ page }) => {
     if (path.endsWith('/rpc/create_guest_challenge') && method === 'POST') {
       const body = request.postDataJSON() as {
         p_creator_name?: string
+        p_creator_email?: string
         p_title?: string
         p_duration_days?: number
         p_attempts_per_day?: number
+        p_selected_exercises?: string[]
+        p_session_duration_seconds?: number
       }
       guestChallenge = {
         ...guestChallenge,
         title: body.p_title || guestChallenge.title,
         creator_name: body.p_creator_name || guestChallenge.creator_name,
+        creator_email: body.p_creator_email || guestChallenge.creator_email,
         duration_days: body.p_duration_days || guestChallenge.duration_days,
         attempts_per_day: body.p_attempts_per_day || guestChallenge.attempts_per_day,
+        selected_exercises: body.p_selected_exercises || guestChallenge.selected_exercises,
+        session_duration_seconds: body.p_session_duration_seconds || guestChallenge.session_duration_seconds,
       }
       return json(guestChallenge)
+    }
+
+    if (path.endsWith('/rpc/get_guest_challenges_for_email') && method === 'POST') {
+      return json([{ ...guestChallenge, player_count: 1, joined: false }])
     }
 
     if (path.endsWith('/rpc/get_guest_challenge') && method === 'POST') {
@@ -274,6 +287,7 @@ test('guest limited challenge creates shareable challenge and scoreboard links',
 
   await expect(page.getByRole('heading', { name: 'Create Challenge' })).toBeVisible()
   await page.getByLabel('Guest name').fill('Maya')
+  await page.getByLabel('Email address').fill('maya@example.com')
   await page.getByRole('button', { name: 'Create Share Link' }).click()
 
   await expect(page.getByText('Guest name')).toBeVisible()
@@ -284,26 +298,20 @@ test('guest limited challenge creates shareable challenge and scoreboard links',
   await expect(page.getByRole('link', { name: 'Open WhatsApp' })).toBeVisible()
 
   await page.goto('/join-challenge')
-  await expect(page.getByRole('heading', { name: 'Enter Challenge Code' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Join a Challenge' })).toBeVisible()
+  await page.getByLabel('Email address').fill('ravi@example.com')
   await page.getByLabel('Guest name').fill('Ravi')
   await page.getByLabel('Challenge code').fill('weekend-move-abc123')
-  await page.getByRole('button', { name: 'Join Challenge' }).click()
+  await page.getByRole('button', { name: 'Find Challenges' }).click()
+  await page.getByRole('button', { name: 'Join with code' }).click()
   await expect(page).toHaveURL(/\/guest\/weekend-move-abc123$/)
   await expect(page.getByRole('heading', { name: 'Weekend Move Challenge' })).toBeVisible()
 
   await page.goto('/guest/weekend-move-abc123')
-  await expect(page.getByRole('link', { name: 'Squats' })).toHaveAttribute('href', '/guest/weekend-move-abc123/workout/squat')
-  await expect(page.getByRole('link', { name: 'Jumping Jacks' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'Squat' })).toHaveAttribute('href', '/guest/weekend-move-abc123/workout/squat')
+  await expect(page.getByRole('link', { name: 'Jumping Jack' })).toHaveAttribute(
     'href',
     '/guest/weekend-move-abc123/workout/burpee',
-  )
-  await expect(page.getByRole('link', { name: 'High Knees' })).toHaveAttribute(
-    'href',
-    '/guest/weekend-move-abc123/workout/high-knees',
-  )
-  await expect(page.getByRole('link', { name: 'Lunges' })).toHaveAttribute(
-    'href',
-    '/guest/weekend-move-abc123/workout/lunges',
   )
 
   await page.goto('/guest/weekend-move-abc123/scoreboard')

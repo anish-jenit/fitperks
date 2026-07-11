@@ -8,6 +8,7 @@ import type {
   ExerciseType,
   GuestChallengeInput,
   GuestChallengeRecord,
+  GuestChallengeSummary,
   GuestScoreboardRow,
   InviteSetupContext,
   IndividualLeaderboardRow,
@@ -687,9 +688,12 @@ function mapGuestChallenge(payload: {
   code: string
   title: string
   creator_name: string
+  creator_email: string
   duration_days: number
   attempts_per_day: number
   max_players: number
+  selected_exercises: ExerciseType[]
+  session_duration_seconds: number
   start_date: string
   end_date: string
   purge_after: string
@@ -700,9 +704,12 @@ function mapGuestChallenge(payload: {
     code: payload.code,
     title: payload.title,
     creatorName: payload.creator_name,
+    creatorEmail: payload.creator_email,
     durationDays: payload.duration_days,
     attemptsPerDay: payload.attempts_per_day,
     maxPlayers: payload.max_players,
+    selectedExercises: payload.selected_exercises ?? ['squat', 'burpee', 'high-knees', 'lunges'],
+    sessionDurationSeconds: payload.session_duration_seconds ?? 60,
     startDate: payload.start_date,
     endDate: payload.end_date,
     purgeAfter: payload.purge_after,
@@ -713,7 +720,9 @@ function mapGuestChallenge(payload: {
 export async function createGuestChallenge(input: GuestChallengeInput): Promise<GuestChallengeRecord> {
   if (useFlowStubs) {
     const state = readStubFlowState()
-    const active = state.guestChallenges?.find((challenge) => dayjs(challenge.endDate).isAfter(dayjs()))
+    const active = state.guestChallenges?.find((challenge) =>
+      dayjs(challenge.endDate).isAfter(dayjs()) && challenge.creatorEmail === input.creatorEmail.trim().toLowerCase(),
+    )
     if (active) {
       throw new Error('You already have an active guest challenge. Share that one until it ends.')
     }
@@ -721,15 +730,19 @@ export async function createGuestChallenge(input: GuestChallengeInput): Promise<
     const durationDays = Math.min(7, Math.max(1, input.durationDays))
     const attemptsPerDay = Math.min(5, Math.max(1, input.attemptsPerDay))
     const code = `${slugify(input.title) || 'challenge'}-${crypto.randomUUID().slice(0, 6)}`
-    const now = dayjs()
+    const start = dayjs(input.startDate).isValid() ? dayjs(input.startDate) : dayjs()
+    const now = start
     const challenge: GuestChallengeRecord = {
       id: `stub-guest-${code}`,
       code,
       title: input.title.trim() || 'FitPerks Challenge',
       creatorName: input.creatorName.trim() || 'Host',
+      creatorEmail: input.creatorEmail.trim().toLowerCase(),
       durationDays,
       attemptsPerDay,
       maxPlayers: 10,
+      selectedExercises: input.selectedExercises,
+      sessionDurationSeconds: input.sessionDurationSeconds,
       startDate: now.toISOString(),
       endDate: now.add(durationDays, 'day').toISOString(),
       purgeAfter: now.add(durationDays + 3, 'day').toISOString(),
@@ -744,9 +757,13 @@ export async function createGuestChallenge(input: GuestChallengeInput): Promise<
   const { data, error } = await supabase.rpc('create_guest_challenge', {
     p_creator_key: input.creatorKey,
     p_creator_name: input.creatorName.trim(),
+    p_creator_email: input.creatorEmail.trim().toLowerCase(),
     p_title: input.title.trim(),
     p_duration_days: input.durationDays,
     p_attempts_per_day: input.attemptsPerDay,
+    p_start_date: input.startDate,
+    p_selected_exercises: input.selectedExercises,
+    p_session_duration_seconds: input.sessionDurationSeconds,
   })
 
   if (error) {
@@ -754,6 +771,29 @@ export async function createGuestChallenge(input: GuestChallengeInput): Promise<
   }
 
   return mapGuestChallenge(data as Parameters<typeof mapGuestChallenge>[0])
+}
+
+export async function getGuestChallengesForEmail(email: string): Promise<GuestChallengeSummary[]> {
+  if (useFlowStubs) {
+    const state = readStubFlowState()
+    return (state.guestChallenges ?? [])
+      .filter((challenge) => dayjs(challenge.endDate).isAfter(dayjs()))
+      .map((challenge) => ({ ...challenge, playerCount: 0, joined: challenge.creatorEmail === email.trim().toLowerCase() }))
+  }
+
+  const { data, error } = await supabase.rpc('get_guest_challenges_for_email', {
+    p_email: email.trim().toLowerCase(),
+  })
+
+  if (error) {
+    throw error
+  }
+
+  return ((data ?? []) as any[]).map((row) => ({
+    ...mapGuestChallenge(row),
+    playerCount: Number(row.player_count),
+    joined: Boolean(row.joined),
+  }))
 }
 
 export async function getGuestChallenge(code: string): Promise<GuestChallengeRecord> {
@@ -802,6 +842,7 @@ export async function getGuestScoreboard(code: string): Promise<GuestScoreboardR
 export async function submitGuestAttempt(input: {
   code: string
   guestName: string
+  guestEmail: string
   sessionId: string
   exercise: ExerciseType
   reps: number
@@ -809,6 +850,7 @@ export async function submitGuestAttempt(input: {
   const { data, error } = await supabase.rpc('submit_guest_attempt', {
     p_code: input.code.trim().toLowerCase(),
     p_guest_name: input.guestName.trim(),
+    p_guest_email: input.guestEmail.trim().toLowerCase(),
     p_session_id: input.sessionId,
     p_exercise: input.exercise,
     p_reps: input.reps,

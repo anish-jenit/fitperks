@@ -12,7 +12,7 @@ import {
   submitWorkoutSecure,
 } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
-import { clearParticipantProfile, getConfiguredOrganizationCode, getLastGuestName, saveParticipantProfile } from '../lib/storage'
+import { clearParticipantProfile, getConfiguredOrganizationCode, getLastGuestEmail, getLastGuestName, saveParticipantProfile } from '../lib/storage'
 import type { ChallengeRecord, ExerciseType, GuestChallengeRecord } from '../types'
 
 type NormalizedLandmark = {
@@ -186,6 +186,7 @@ export function WorkoutPage() {
       void getGuestChallenge(challengeCode)
         .then((payload) => {
           setGuestChallenge(payload)
+          setSecondsLeft(payload.sessionDurationSeconds)
           setActiveChallenge({
             id: payload.id,
             organization_id: 'guest',
@@ -264,8 +265,8 @@ export function WorkoutPage() {
   }, [challengeCode, configuredOrgCode, isGuestWorkout])
 
   useEffect(() => {
-    setSecondsLeft(settings.sessionDurationSeconds)
-  }, [settings.sessionDurationSeconds])
+    setSecondsLeft(guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds)
+  }, [guestChallenge?.sessionDurationSeconds, settings.sessionDurationSeconds])
 
   const recordRep = useCallback(() => {
     const now = performance.now()
@@ -494,7 +495,7 @@ export function WorkoutPage() {
     setError(null)
     setRepCount(0)
     setPaceFeedback(null)
-    setSecondsLeft(settings.sessionDurationSeconds)
+    setSecondsLeft(guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds)
     setIsSessionComplete(false)
     setIsWorkoutRunning(false)
     squatStageRef.current = 'standing'
@@ -535,9 +536,15 @@ export function WorkoutPage() {
           throw new Error('Guest name is required to save your score.')
         }
 
+        const guestEmail = getLastGuestEmail()
+        if (!guestEmail) {
+          throw new Error('Guest email is required to save your score. Return to Join Challenge and enter it first.')
+        }
+
         await submitGuestAttempt({
           code: challengeCode,
           guestName: saveName.trim(),
+          guestEmail,
           sessionId,
           exercise: challenge.id,
           reps: repCount,
@@ -602,7 +609,7 @@ export function WorkoutPage() {
     )
   }
 
-  if (!settings.enabledChallenges[challenge.id] || (activeChallenge && !isExerciseEnabled(activeChallenge, challenge.id))) {
+  if (!settings.enabledChallenges[challenge.id] || (activeChallenge && !isExerciseEnabled(activeChallenge, challenge.id)) || (isGuestWorkout && guestChallenge && !guestChallenge.selectedExercises.includes(challenge.id))) {
     return (
       <main className="page">
         <section className="panel">

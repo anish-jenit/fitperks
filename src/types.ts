@@ -180,9 +180,12 @@ export type GuestChallengeRecord = {
   code: string
   title: string
   creatorName: string
+  creatorEmail: string
   durationDays: number
   attemptsPerDay: number
   maxPlayers: number
+  selectedExercises: ExerciseType[]
+  sessionDurationSeconds: number
   startDate: string
   endDate: string
   purgeAfter: string
@@ -200,7 +203,16 @@ export type GuestScoreboardRow = {
 export type GuestChallengeInput = {
   creatorKey: string
   creatorName: string
+  creatorEmail: string
   title: string
   durationDays: number
   attemptsPerDay: number
+  startDate: string
+  selectedExercises: ExerciseType[]
+  sessionDurationSeconds: number
+}
+
+export type GuestChallengeSummary = GuestChallengeRecord & {
+  playerCount: number
+  joined: boolean
 }

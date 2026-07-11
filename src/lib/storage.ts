@@ -2,6 +2,7 @@ import type { ParticipantProfile } from '../types'
 import {
   GUEST_CREATOR_KEY_STORAGE_KEY,
   GUEST_JOIN_CODE_STORAGE_KEY,
+  GUEST_JOIN_EMAIL_STORAGE_KEY,
   GUEST_JOIN_NAME_STORAGE_KEY,
   KIOSK_ORG_CODE_STORAGE_KEY,
   PARTICIPANT_STORAGE_KEY,
@@ -54,8 +55,11 @@ export function getOrCreateGuestCreatorKey(): string {
   return key
 }
 
-export function saveGuestJoinContext(input: { guestName: string; challengeCode: string }): void {
+export function saveGuestJoinContext(input: { guestName: string; guestEmail?: string; challengeCode: string }): void {
   localStorage.setItem(GUEST_JOIN_NAME_STORAGE_KEY, input.guestName.trim())
+  if (input.guestEmail) {
+    localStorage.setItem(GUEST_JOIN_EMAIL_STORAGE_KEY, input.guestEmail.trim().toLowerCase())
+  }
   localStorage.setItem(GUEST_JOIN_CODE_STORAGE_KEY, input.challengeCode.trim().toLowerCase())
 }
 
@@ -65,4 +69,8 @@ export function getLastGuestName(): string {
 
 export function getLastGuestChallengeCode(): string {
   return localStorage.getItem(GUEST_JOIN_CODE_STORAGE_KEY)?.trim() ?? ''
+}
+
+export function getLastGuestEmail(): string {
+  return localStorage.getItem(GUEST_JOIN_EMAIL_STORAGE_KEY)?.trim().toLowerCase() ?? ''
 }
