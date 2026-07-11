@@ -226,7 +226,17 @@ export function GuestChallengePage() {
           : 'Unable to create guest challenge.'
       if (message.includes('already have an active guest challenge')) {
         try {
-          const active = await getGuestChallengeForCreator(getOrCreateGuestCreatorKey(), creatorEmail)
+          let active: GuestChallengeRecord
+          try {
+            active = await getGuestChallengeForCreator(getOrCreateGuestCreatorKey(), creatorEmail)
+          } catch {
+            const matches = await getGuestChallengesForEmail(creatorEmail)
+            const match = matches.find((challenge) => challenge.creatorEmail === creatorEmail.trim().toLowerCase())
+            if (!match) {
+              throw new Error('Active guest challenge not found.')
+            }
+            active = match
+          }
           setExistingChallenge(active)
           setError('You already have an active guest challenge. Share that one until it ends.')
         } catch {
