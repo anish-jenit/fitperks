@@ -1,0 +1,42 @@
+{
+  "name": "fitperks",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "supabase:schema": "echo 'Run supabase/schema.sql in Supabase SQL Editor'",
+    "supabase:seed": "echo 'Run supabase/seed.sql in Supabase SQL Editor after schema'",
+    "supabase:test-sql": "echo 'Run supabase/tests.sql in Supabase SQL Editor after seed'",
+    "supabase:verify": "node scripts/verify-supabase.mjs",
+    "e2e:install": "playwright install chromium",
+    "test:e2e": "playwright test",
+    "validate:e2e": "npm run e2e:install && npm run test:e2e"
+  },
+  "dependencies": {
+    "@mediapipe/camera_utils": "^0.3.1675466862",
+    "@mediapipe/drawing_utils": "^0.3.1675466124",
+    "@mediapipe/pose": "^0.5.1675469404",
+    "@supabase/supabase-js": "^2.110.2",
+    "dayjs": "^1.11.21",
+    "papaparse": "^5.5.4",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^24.13.2",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "dotenv": "^17.4.2",
+    "oxlint": "^1.71.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1"
+  }
+}
