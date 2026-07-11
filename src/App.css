@@ -123,6 +123,18 @@
 .minimal-actions {
   justify-content: center;
   margin-top: 1.4rem;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.minimal-actions .button {
+  width: 100%;
+  min-width: 0;
+  min-height: 58px;
+  padding: 0.7rem 0.8rem;
+  line-height: 1.15;
 }
 
 .minimal-mark {
@@ -1586,6 +1598,10 @@ th {
 
   .setup-actions {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .minimal-actions {
+    grid-template-columns: 1fr;
   }
 
   .setup-actions .button {
