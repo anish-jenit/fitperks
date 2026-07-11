@@ -13,6 +13,21 @@ function isNetworkFailure(error: unknown): boolean {
   return text.includes('load failed') || text.includes('failed to fetch') || text.includes('network')
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim()) {
+      return message
+    }
+  }
+
+  return 'Unable to register participant.'
+}
+
 export function RegisterPage() {
   const navigate = useNavigate()
   const [organizationCode, setOrganizationCode] = useState('')
@@ -25,8 +40,8 @@ export function RegisterPage() {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (!organizationCode.trim() || !name.trim() || !team.trim()) {
-      setError('Organization code, name, and team are required.')
+    if (!organizationCode.trim() || !name.trim() || !team.trim() || !email.trim()) {
+      setError('Organization code, name, team, and email are required.')
       return
     }
 
@@ -79,7 +94,7 @@ export function RegisterPage() {
         return
       }
 
-      setError(err instanceof Error ? err.message : 'Unable to register participant.')
+      setError(getErrorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -125,13 +140,14 @@ export function RegisterPage() {
           </label>
 
           <label>
-            Optional email
+            Email
             <input
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               type="email"
               placeholder="alex@company.com"
               maxLength={120}
+              required
             />
           </label>
 

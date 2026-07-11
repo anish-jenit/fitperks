@@ -160,6 +160,7 @@ test('BAU registration, challenge list, leaderboards, and admin dashboard render
   await page.getByLabel('Organization code').fill('COMPANYA2026')
   await page.getByLabel('Name or nickname').fill('Anish')
   await page.getByLabel('Team name').fill('Blue Team')
+  await page.getByLabel('Email').fill('anish@companya.com')
   await page.getByRole('button', { name: 'Continue' }).click()
 
   await expect(page.getByRole('heading', { name: 'Choose a Challenge' })).toBeVisible()
