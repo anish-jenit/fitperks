@@ -288,7 +288,7 @@ test('guest limited challenge creates shareable challenge and scoreboard links',
   await expect(page.getByRole('heading', { name: 'Create Challenge' })).toBeVisible()
   await page.getByLabel('Guest name').fill('Maya')
   await page.getByLabel('Email address').fill('maya@example.com')
-  await page.getByRole('button', { name: 'Create Share Link' }).click()
+  await page.getByRole('button', { name: 'Create Challenge' }).click()
 
   await expect(page.getByText('Guest name')).toBeVisible()
   await expect(page.getByText('Challenge code')).toBeVisible()

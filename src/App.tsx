@@ -15,6 +15,7 @@ import { InviteSetupPage } from './pages/InviteSetupPage'
 function App() {
   const location = useLocation()
   const isPublicHome = location.pathname === '/' || location.pathname === '/home'
+  const isGuestEntry = location.pathname === '/join-challenge' || location.pathname === '/guest-challenge'
 
   return (
     <div className="app-shell">
@@ -22,7 +23,7 @@ function App() {
         <Link to="/home" className="brand">
           FitPerks
         </Link>
-        {isPublicHome ? null : (
+        {isPublicHome || isGuestEntry ? null : (
           <nav>
             <Link to="/home">Home</Link>
             <Link to="/challenges">Choose Challenge</Link>

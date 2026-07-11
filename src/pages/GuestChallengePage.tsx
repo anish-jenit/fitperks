@@ -336,7 +336,7 @@ export function GuestChallengePage() {
               </div>
             </fieldset>
             <button className="button primary" type="submit" disabled={busy}>
-              {busy ? 'Creating...' : 'Create Share Link'}
+              {busy ? 'Creating...' : 'Create Challenge'}
             </button>
           </form>
         )}
