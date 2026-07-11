@@ -1,7 +1,20 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+function cleanEnv(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined
+  }
+
+  const trimmed = value.trim()
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    return trimmed.slice(1, -1).trim()
+  }
+
+  return trimmed
+}
+
+const supabaseUrl = cleanEnv(import.meta.env.VITE_SUPABASE_URL as string | undefined)
+const supabaseAnonKey = cleanEnv(import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)
 
 function isPlaceholder(value: string | undefined): boolean {
   if (!value) {
