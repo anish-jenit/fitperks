@@ -300,8 +300,8 @@ export function GuestChallengePage() {
                 <p>Attempts/day</p>
               </article>
             </div>
-            <p className="hint">Daily scoreboard uses the best 3 attempts when available. Session timer: {created.sessionDurationSeconds / 60} minutes.</p>
-            <div className="hero-actions">
+            <p className="hint setup-meta">Daily Scoreboard: Best of 3 attempts. Session timer: {created.sessionDurationSeconds / 60} minutes</p>
+            <div className="hero-actions setup-actions">
               {created.selectedExercises.map((exercise) => {
                 const workout = CHALLENGES.find((item) => item.id === exercise)
                 return workout ? (

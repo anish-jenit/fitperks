@@ -560,6 +560,23 @@
   flex-wrap: wrap;
 }
 
+.setup-meta {
+  white-space: nowrap;
+  font-size: 0.86rem;
+}
+
+.setup-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.setup-actions .button {
+  min-width: 0;
+  width: 100%;
+  padding-inline: 0.45rem;
+  font-size: 0.9rem;
+}
+
 .button {
   border: 1px solid transparent;
   border-radius: var(--radius);
@@ -1561,6 +1578,21 @@ th {
   .button {
     width: 100%;
     min-height: 44px;
+  }
+
+  .setup-meta {
+    white-space: normal;
+  }
+
+  .setup-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .setup-actions .button {
+    min-height: 46px;
+    padding-inline: 0.2rem;
+    font-size: 0.72rem;
+    line-height: 1.1;
   }
 
   .stats-cards {
