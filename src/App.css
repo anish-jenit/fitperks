@@ -954,6 +954,32 @@ textarea {
   z-index: 2;
 }
 
+.workout-counter-overlay {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 2;
+  display: grid;
+  justify-items: start;
+  gap: 0.15rem;
+  color: #f8fafc;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+.workout-counter-overlay span {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.workout-counter-overlay strong {
+  min-width: 4ch;
+  color: #f8fafc;
+  font-size: clamp(3.4rem, 7vw, 5.5rem);
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+}
+
 .camera-control {
   display: inline-flex;
   align-items: center;
@@ -1501,6 +1527,19 @@ th {
 
   .workout-camera-controls {
     inset: auto 0.7rem 0.7rem;
+  }
+
+  .workout-counter-overlay {
+    top: 0.7rem;
+    left: 0.7rem;
+  }
+
+  .workout-counter-overlay span {
+    font-size: 0.75rem;
+  }
+
+  .workout-counter-overlay strong {
+    font-size: 3.2rem;
   }
 
   .camera-control {

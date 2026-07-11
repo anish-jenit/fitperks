@@ -12,7 +12,7 @@ import {
   submitWorkoutSecure,
 } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
-import { clearParticipantProfile, getConfiguredOrganizationCode, getLastGuestEmail, getLastGuestName, saveParticipantProfile } from '../lib/storage'
+import { clearParticipantProfile, getConfiguredOrganizationCode, getLastGuestEmail, getLastGuestName, saveGuestJoinContext, saveParticipantProfile } from '../lib/storage'
 import type { ChallengeRecord, ExerciseType, GuestChallengeRecord } from '../types'
 
 type NormalizedLandmark = {
@@ -194,7 +194,7 @@ export function WorkoutPage() {
   const [cameraAttempt, setCameraAttempt] = useState(0)
   const [hasRequestedCamera, setHasRequestedCamera] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [saveEmail, setSaveEmail] = useState('')
+  const [saveEmail, setSaveEmail] = useState(() => getLastGuestEmail())
   const [saveName, setSaveName] = useState(() => getLastGuestName())
   const [saveTeam, setSaveTeam] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -570,20 +570,20 @@ export function WorkoutPage() {
           throw new Error('Guest name is required to save your score.')
         }
 
-        const guestEmail = getLastGuestEmail()
-        if (!guestEmail) {
+        if (!saveEmail.trim()) {
           throw new Error('Guest email is required to save your score. Return to Join Challenge and enter it first.')
         }
 
         await submitGuestAttempt({
           code: challengeCode,
           guestName: saveName.trim(),
-          guestEmail,
+          guestEmail: saveEmail.trim(),
           sessionId,
           exercise: challenge.id,
           reps: repCount,
         })
 
+        saveGuestJoinContext({ guestName: saveName.trim(), guestEmail: saveEmail.trim(), challengeCode })
         navigate(`/guest/${challengeCode}/scoreboard`)
         return
       }
@@ -672,6 +672,10 @@ export function WorkoutPage() {
           <div className="camera-wrapper">
             <video ref={videoRef} className="camera-feed" playsInline muted autoPlay />
             <canvas ref={canvasRef} className="camera-overlay" />
+            <div className="workout-counter-overlay" aria-live="polite">
+              <span>Valid reps</span>
+              <strong className={paceFeedback ? 'counter-pulse' : ''}>{repCount}</strong>
+            </div>
             {!isSessionComplete && countdown === null && !isWorkoutRunning ? (
               <div className="workout-camera-controls">
                 {!isCameraReady ? (
@@ -708,17 +712,6 @@ export function WorkoutPage() {
               Exercise: <strong>{challenge.name}</strong>
             </p>
             <p>
-              Valid reps:{' '}
-              <strong className={`counter-value ${paceFeedback ? 'counter-pulse' : ''}`} key={paceFeedback?.id ?? 'rep-count'}>
-                {repCount}
-              </strong>
-              {paceFeedback ? (
-                <span className={`rep-feedback rep-feedback-${paceFeedback.tone}`} key={paceFeedback.id}>
-                  {paceFeedback.label}
-                </span>
-              ) : null}
-            </p>
-            <p>
               Points earned:{' '}
               <strong className={`counter-value ${paceFeedback ? 'counter-pulse' : ''}`} key={`points-${paceFeedback?.id ?? 0}`}>
                 {points}
@@ -751,7 +744,18 @@ export function WorkoutPage() {
 
             {isSessionComplete ? (
               <div className="stack">
-                {isGuestWorkout ? null : (
+                {isGuestWorkout ? (
+                  <label>
+                    Guest email
+                    <input
+                      type="email"
+                      value={saveEmail}
+                      onChange={(event) => setSaveEmail(event.target.value)}
+                      placeholder="name@example.com"
+                      required
+                    />
+                  </label>
+                ) : (
                   <label>
                     Email (required for streak storage)
                     <input
