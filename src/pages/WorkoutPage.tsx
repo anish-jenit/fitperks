@@ -204,6 +204,9 @@ export function WorkoutPage() {
   const [paceFeedback, setPaceFeedback] = useState<PaceFeedback | null>(null)
   const lastRepAtRef = useRef<number | null>(null)
   const lastRepIntervalRef = useRef<number | null>(null)
+  const totalSessionSeconds = guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds
+  const halfwayReached = isWorkoutRunning && secondsLeft <= Math.ceil(totalSessionSeconds / 2) && secondsLeft > 10
+  const finalTenSeconds = isWorkoutRunning && secondsLeft > 0 && secondsLeft <= 10
 
   const points = useMemo(() => {
     if (!challenge || !activeChallenge) {
@@ -472,8 +475,8 @@ export function WorkoutPage() {
           }
           await pose.send({ image: videoRef.current })
         },
-        width: 960,
-        height: 540,
+        width: window.matchMedia('(max-width: 640px)').matches ? 720 : 960,
+        height: window.matchMedia('(max-width: 640px)').matches ? 1280 : 540,
       })
 
       cameraRef.current = camera
@@ -702,6 +705,11 @@ export function WorkoutPage() {
               <span>Valid reps</span>
               <strong className={paceFeedback ? 'counter-pulse' : ''}>{repCount}</strong>
             </div>
+            {halfwayReached || finalTenSeconds ? (
+              <div className={`workout-timer-overlay ${finalTenSeconds ? 'workout-timer-overlay-urgent' : ''}`} aria-live="polite">
+                {finalTenSeconds ? `Last ${secondsLeft}s` : 'Halfway'}
+              </div>
+            ) : null}
             {!isSessionComplete && countdown === null && !isWorkoutRunning ? (
               <div className="workout-camera-controls">
                 {!isCameraReady ? (
@@ -743,9 +751,11 @@ export function WorkoutPage() {
                 {points}
               </strong>
             </p>
-            <p>
+            <p className={`workout-timer ${finalTenSeconds ? 'workout-timer-urgent' : ''}`}>
               Timer: <strong>{secondsLeft}s</strong>
             </p>
+            {halfwayReached ? <p className="workout-timer-status">Halfway point</p> : null}
+            {finalTenSeconds ? <p className="workout-timer-status workout-timer-status-urgent">Last 10 seconds</p> : null}
             <p className="hint">Camera processing is on-device only. No videos are uploaded.</p>
 
             {!isCameraReady ? (
