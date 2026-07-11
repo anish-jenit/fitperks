@@ -24,6 +24,22 @@
   letter-spacing: 0;
 }
 
+.top-nav-workout {
+  justify-content: flex-start;
+  padding-block: 0.7rem;
+}
+
+.top-nav-workout .brand {
+  display: inline-flex;
+  align-items: center;
+}
+
+.top-nav-workout .brand img {
+  display: block;
+  width: 1.8rem;
+  height: 1.8rem;
+}
+
 .top-nav nav {
   display: flex;
   gap: 0.8rem;

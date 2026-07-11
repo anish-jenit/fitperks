@@ -16,14 +16,15 @@ function App() {
   const location = useLocation()
   const isPublicHome = location.pathname === '/' || location.pathname === '/home'
   const isGuestEntry = location.pathname === '/join-challenge' || location.pathname === '/guest-challenge'
+  const isWorkoutRoute = /^\/workout\/[^/]+$/.test(location.pathname) || /^\/guest\/[^/]+\/workout\/[^/]+$/.test(location.pathname)
 
   return (
     <div className="app-shell">
-      <header className={`top-nav ${isPublicHome ? 'top-nav-minimal' : ''}`}>
+      <header className={`top-nav ${isPublicHome ? 'top-nav-minimal' : ''} ${isWorkoutRoute ? 'top-nav-workout' : ''}`}>
         <Link to="/home" className="brand">
-          FitPerks
+          {isWorkoutRoute ? <img src="/favicon.svg" alt="FitPerks" /> : 'FitPerks'}
         </Link>
-        {isPublicHome || isGuestEntry ? null : (
+        {isPublicHome || isGuestEntry || isWorkoutRoute ? null : (
           <nav>
             <Link to="/home">Home</Link>
             <Link to="/challenges">Choose Challenge</Link>
