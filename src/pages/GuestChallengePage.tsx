@@ -488,7 +488,9 @@ export function GuestScoreboardPage() {
   const [loading, setLoading] = useState(true)
   const dailyWinningScore = Math.max(...rows.map((row) => row.dailyBestScore), 0)
   const overallWinningScore = Math.max(...rows.map((row) => row.overallScore), 0)
-  const exerciseColumns = challenge?.selectedExercises ?? []
+  const exerciseColumns = challenge?.selectedExercises?.length
+    ? challenge.selectedExercises
+    : ['squat', 'burpee', 'high-knees', 'lunges'] as ExerciseType[]
 
   useEffect(() => {
     if (!challengeCode) {
@@ -569,7 +571,7 @@ export function GuestScoreboardPage() {
                   <th>Player</th>
                   {exerciseColumns.map((exercise) => {
                     const workout = CHALLENGES.find((item) => item.id === exercise)
-                    return <th key={exercise}>{workout?.name.replace(' Challenge', '') ?? exercise}</th>
+                    return <th key={exercise}>{workout?.name.replace(' Challenge', '') ?? exercise} score</th>
                   })}
                   <th>Total</th>
                 </tr>

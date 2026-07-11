@@ -15,7 +15,6 @@ import { InviteSetupPage } from './pages/InviteSetupPage'
 function App() {
   const location = useLocation()
   const isPublicHome = location.pathname === '/' || location.pathname === '/home'
-  const isGuestEntry = location.pathname === '/join-challenge' || location.pathname === '/guest-challenge'
   const isWorkoutRoute = /^\/workout\/[^/]+$/.test(location.pathname) || /^\/guest\/[^/]+\/workout\/[^/]+$/.test(location.pathname)
 
   return (
@@ -24,14 +23,6 @@ function App() {
         <Link to="/home" className="brand">
           {isWorkoutRoute ? <img src="/favicon.svg" alt="FitPerks" /> : 'FitPerks'}
         </Link>
-        {isPublicHome || isGuestEntry || isWorkoutRoute ? null : (
-          <nav>
-            <Link to="/home">Home</Link>
-            <Link to="/challenges">Choose Challenge</Link>
-            <Link to="/leaderboard">Scoreboard</Link>
-            <Link to="/admin">Admin</Link>
-          </nav>
-        )}
       </header>
 
       <Routes>
