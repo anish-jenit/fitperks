@@ -137,7 +137,7 @@ export function ChallengeSelectPage() {
     }
 
     if (!orgCode) {
-      setError('Kiosk org code is not configured. Set VITE_DEFAULT_ORG_CODE for one-click start.')
+      setError('Organization code is missing. Complete participant registration to continue.')
       return
     }
 

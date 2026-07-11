@@ -23,11 +23,6 @@ export function clearParticipantProfile(): void {
 }
 
 export function getConfiguredOrganizationCode(): string | null {
-  const envCode = import.meta.env.VITE_DEFAULT_ORG_CODE as string | undefined
-  if (envCode && envCode.trim()) {
-    return envCode.trim()
-  }
-
   const stored = localStorage.getItem(KIOSK_ORG_CODE_STORAGE_KEY)
   if (!stored) {
     const participant = getParticipantProfile()
