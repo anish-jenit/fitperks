@@ -2034,3 +2034,5 @@ drop policy if exists "Audit logs internal write" on audit_logs;
 create policy "Audit logs internal write" on audit_logs
 for insert
 with check (auth.uid() is not null);
+
+notify pgrst, 'reload schema';
