@@ -199,6 +199,7 @@ export function GuestChallengePage() {
     try {
       setBusy(true)
       setError(null)
+      setExistingChallenge(null)
 
       const challenge = await createGuestChallenge({
         creatorKey: getOrCreateGuestCreatorKey(),
@@ -263,12 +264,22 @@ export function GuestChallengePage() {
 
         {error ? (
           <p className="error">
-            {error}
             {existingChallenge ? (
-              <button className="text-action" type="button" onClick={() => setCreated(existingChallenge)}>
-                Share
-              </button>
-            ) : null}
+              <>
+                You already have an active challenge, please{' '}
+                <button
+                  className="text-action"
+                  type="button"
+                  onClick={() => {
+                    setCreated(existingChallenge)
+                    setError(null)
+                  }}
+                >
+                  click here
+                </button>{' '}
+                to view and share.
+              </>
+            ) : error}
           </p>
         ) : null}
 
