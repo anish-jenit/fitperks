@@ -488,6 +488,7 @@ export function GuestScoreboardPage() {
   const [loading, setLoading] = useState(true)
   const dailyWinningScore = Math.max(...rows.map((row) => row.dailyBestScore), 0)
   const overallWinningScore = Math.max(...rows.map((row) => row.overallScore), 0)
+  const exerciseColumns = challenge?.selectedExercises ?? []
 
   useEffect(() => {
     if (!challengeCode) {
@@ -566,6 +567,10 @@ export function GuestScoreboardPage() {
                 <tr>
                   <th>Rank</th>
                   <th>Player</th>
+                  {exerciseColumns.map((exercise) => {
+                    const workout = CHALLENGES.find((item) => item.id === exercise)
+                    return <th key={exercise}>{workout?.name.replace(' Challenge', '') ?? exercise}</th>
+                  })}
                   <th>Total</th>
                 </tr>
               </thead>
@@ -574,6 +579,7 @@ export function GuestScoreboardPage() {
                   <tr>
                     <td>-</td>
                     <td>Challenge in progress</td>
+                    {exerciseColumns.map((exercise) => <td key={exercise}>-</td>)}
                     <td>-</td>
                   </tr>
                 ) : (
@@ -581,6 +587,7 @@ export function GuestScoreboardPage() {
                     <tr key={row.guestName}>
                       <td>{row.rank}</td>
                       <td>{row.guestName}</td>
+                      {exerciseColumns.map((exercise) => <td key={exercise}>{row.exerciseScores[exercise] ?? 0}</td>)}
                       <td className={row.overallScore === overallWinningScore && row.overallScore > 0 ? 'winner-score' : undefined}>
                         {row.overallScore}
                       </td>

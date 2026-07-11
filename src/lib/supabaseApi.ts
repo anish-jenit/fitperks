@@ -860,6 +860,12 @@ export async function getGuestScoreboard(code: string): Promise<GuestScoreboardR
     dailyBestScore: row.daily_best_score,
     overallScore: row.overall_score,
     attemptsToday: row.attempts_today,
+    exerciseScores: {
+      squat: Number(row.squat_score ?? 0),
+      burpee: Number(row.burpee_score ?? 0),
+      'high-knees': Number(row.high_knees_score ?? 0),
+      lunges: Number(row.lunges_score ?? 0),
+    },
   }))
 }
 

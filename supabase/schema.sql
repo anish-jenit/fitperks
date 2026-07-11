@@ -1802,13 +1802,19 @@ as $$
   select public.submit_guest_attempt(p_code, p_guest_name, lower(trim(p_guest_name)) || '@legacy.invalid', p_session_id, p_exercise, p_reps);
 $$;
 
+drop function if exists public.get_guest_scoreboard(text);
+
 create or replace function public.get_guest_scoreboard(p_code text)
 returns table(
   rank bigint,
   guest_name text,
   daily_best_score int,
   overall_score int,
-  attempts_today int
+  attempts_today int,
+  squat_score int,
+  burpee_score int,
+  high_knees_score int,
+  lunges_score int
 )
 language plpgsql
 security definer
@@ -1854,7 +1860,11 @@ begin
     select
       p.id as player_id,
       p.guest_name as player_name,
-      coalesce(sum(a.score), 0)::int as overall_score
+      coalesce(sum(a.score), 0)::int as overall_score,
+      coalesce(sum(a.score) filter (where a.exercise = 'squat'), 0)::int as squat_score,
+      coalesce(sum(a.score) filter (where a.exercise = 'burpee'), 0)::int as burpee_score,
+      coalesce(sum(a.score) filter (where a.exercise = 'high-knees'), 0)::int as high_knees_score,
+      coalesce(sum(a.score) filter (where a.exercise = 'lunges'), 0)::int as lunges_score
     from guest_challenge_players p
     left join guest_challenge_attempts a on a.player_id = p.id
     where p.challenge_id = v_challenge.id
@@ -1865,7 +1875,11 @@ begin
     o.player_name as guest_name,
     coalesce(d.daily_best_score, 0)::int as daily_best_score,
     o.overall_score,
-    coalesce(d.attempts_today, 0)::int as attempts_today
+    coalesce(d.attempts_today, 0)::int as attempts_today,
+    o.squat_score,
+    o.burpee_score,
+    o.high_knees_score,
+    o.lunges_score
   from overall o
   left join daily d on d.player_id = o.player_id
   order by rank;

@@ -198,6 +198,7 @@ export type GuestScoreboardRow = {
   dailyBestScore: number
   overallScore: number
   attemptsToday: number
+  exerciseScores: Partial<Record<ExerciseType, number>>
 }
 
 export type GuestChallengeInput = {
