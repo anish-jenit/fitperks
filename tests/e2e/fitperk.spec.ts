@@ -249,9 +249,9 @@ test.beforeEach(async ({ page }) => {
 
 test('launch start, challenge list, leaderboards, and admin dashboard render correctly', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Fitness challenges, beautifully simple.' })).toBeVisible()
-  await expect(page.getByText('Every Move Deserves a Perk.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Every Move Deserves a Perk.' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Create Challenge (Limited Edition)' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Join Challenge' })).toHaveAttribute('href', '/register')
   await expect(page.getByRole('link', { name: 'Organization Challenge Request' })).toBeVisible()
 
   await page.goto('/launch/us/company-a')

@@ -46,6 +46,11 @@
 .top-nav-minimal {
   border-bottom-color: transparent;
   box-shadow: none;
+  background: #030712;
+}
+
+.top-nav-minimal .brand {
+  color: #f8fafc;
 }
 
 .page {
@@ -64,34 +69,39 @@
   min-height: calc(100vh - 72px);
   display: grid;
   place-items: center;
+  max-width: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 34%),
+    radial-gradient(ellipse at top, rgba(37, 99, 235, 0.22), transparent 52%),
+    #030712;
+  color: #dbe4f0;
 }
 
 .minimal-hero {
-  width: min(760px, 100%);
+  width: min(840px, 100%);
   display: grid;
   justify-items: center;
   text-align: center;
-  gap: 1rem;
+  gap: 1.1rem;
   padding-block: clamp(4rem, 12vw, 8rem);
 }
 
 .minimal-hero h1 {
-  max-width: 12ch;
-  font-size: clamp(3rem, 9vw, 6.4rem);
+  max-width: 13ch;
+  font-size: clamp(3.3rem, 9vw, 7rem);
   letter-spacing: 0;
   line-height: 0.95;
 }
 
 .minimal-copy {
   max-width: 46ch;
-  color: color-mix(in oklab, var(--ink) 82%, #fff);
+  color: #b9c4d4;
   font-size: 1.05rem;
 }
 
 .home-tagline {
-  color: var(--accent-calm);
+  color: #f8fafc;
   font-weight: 700;
-  font-size: clamp(1.05rem, 2.4vw, 1.3rem);
 }
 
 .minimal-actions {
@@ -103,15 +113,31 @@
   width: min(420px, 84vw);
   height: 2px;
   overflow: hidden;
-  background: color-mix(in oklab, var(--line) 72%, #fff);
+  background: rgba(148, 163, 184, 0.22);
 }
 
 .minimal-mark span {
   display: block;
   width: 38%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, #0f172a, transparent);
+  background: linear-gradient(90deg, transparent, #f8fafc, transparent);
   animation: quiet-scan 5s ease-in-out infinite;
+}
+
+.public-home .hero-kicker {
+  color: #93c5fd;
+}
+
+.public-home .button.primary {
+  background: #f8fafc;
+  color: #030712;
+  box-shadow: 0 22px 44px -30px rgba(248, 250, 252, 0.75);
+}
+
+.public-home .button.ghost {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(226, 232, 240, 0.24);
+  color: #f8fafc;
 }
 
 .panel {
