@@ -520,7 +520,7 @@ begin
     raise exception 'Organization not found for the provided code';
   end if;
 
-  v_token := encode(gen_random_bytes(18), 'hex');
+  v_token := encode(extensions.gen_random_bytes(18), 'hex');
 
   insert into organization_invites (
     token,
@@ -1423,7 +1423,7 @@ begin
 
   v_duration_days := least(7, greatest(1, coalesce(p_duration_days, 1)));
   v_attempts_per_day := least(5, greatest(1, coalesce(p_attempts_per_day, 3)));
-  v_creator_hash := encode(digest(trim(p_creator_key), 'sha256'), 'hex');
+  v_creator_hash := encode(extensions.digest(trim(p_creator_key)::text, 'sha256'::text), 'hex');
 
   perform purge_expired_guest_challenges();
 
@@ -1442,7 +1442,7 @@ begin
   loop
     v_code := lower(regexp_replace(trim(coalesce(nullif(p_title, ''), 'challenge')), '[^a-zA-Z0-9]+', '-', 'g'));
     v_code := trim(both '-' from v_code);
-    v_code := coalesce(nullif(v_code, ''), 'challenge') || '-' || substr(encode(gen_random_bytes(4), 'hex'), 1, 6);
+    v_code := coalesce(nullif(v_code, ''), 'challenge') || '-' || substr(encode(extensions.gen_random_bytes(4), 'hex'), 1, 6);
 
     begin
       insert into guest_challenges (
