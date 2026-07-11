@@ -1,20 +1,13 @@
 import dayjs from 'dayjs'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CHALLENGES } from '../lib/constants'
+import { CHALLENGES, CHALLENGE_VIDEO_PATH } from '../lib/constants'
 import { getActiveChallenge } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
 import { getConfiguredOrganizationCode } from '../lib/storage'
 import type { ChallengeRecord, ExerciseType } from '../types'
 
 const CTA_PHRASES = ['Let\'s Go', 'Start Now', 'Let\'s Move', 'Game On', 'Bring It On']
-const CHALLENGE_VIDEO_SLUG: Record<ExerciseType, string> = {
-  squat: 'squat',
-  burpee: 'jumping-jacks',
-  'high-knees': 'high-knees',
-  lunges: 'lunges',
-}
-
 function createRandomCtaLabels() {
   const shuffled = [...CTA_PHRASES]
 
@@ -52,25 +45,30 @@ function isExerciseEnabled(challenge: ChallengeRecord, exerciseId: ExerciseType)
 
 function ChallengeMedia({ exerciseId }: { exerciseId: ExerciseType }) {
   const [showVideo, setShowVideo] = useState(true)
-  const videoPath = `/challenge-videos/${CHALLENGE_VIDEO_SLUG[exerciseId]}/preview.mp4`
+  const videoPath = CHALLENGE_VIDEO_PATH[exerciseId]
 
   if (!showVideo) {
     return <ChallengeDoodle exerciseId={exerciseId} />
   }
 
-  return (
-    <video
-      className="challenge-video"
-      autoPlay
-      loop
-      muted
-      playsInline
-      onError={() => {
-        setShowVideo(false)
-      }}
-    >
-      <source src={videoPath} type="video/mp4" />
-    </video>
+    return (
+      <>
+        <video
+          className="challenge-video"
+          autoPlay
+          loop
+          muted
+          playsInline
+          onError={() => {
+            setShowVideo(false)
+          }}
+        >
+          <source src={videoPath} type="video/mp4" />
+        </video>
+        <div className="challenge-mobile-media">
+          <ChallengeDoodle exerciseId={exerciseId} />
+        </div>
+      </>
   )
 }
 

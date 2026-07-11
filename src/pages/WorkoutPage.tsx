@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useEventSettings } from '../hooks/useEventSettings'
-import { CHALLENGES } from '../lib/constants'
+import { CHALLENGES, CHALLENGE_VIDEO_PATH } from '../lib/constants'
 import { analyzePose } from '../lib/poseUtils'
 import {
   getActiveChallenge,
@@ -133,6 +133,35 @@ function getCameraErrorHint(err: unknown): string {
   return 'Unable to access camera. Check browser camera permission/device settings and tap Retry Camera.'
 }
 
+function drawExerciseGuides(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  landmarks: NormalizedLandmark[] | undefined,
+  exercise: ExerciseType,
+) {
+  const shoulderY = landmarks ? (landmarks[11].y + landmarks[12].y) / 2 : 0.34
+  const hipY = landmarks ? (landmarks[23].y + landmarks[24].y) / 2 : 0.5
+  const guideY = exercise === 'high-knees' ? hipY + 0.12 : shoulderY + 0.18
+  const color = exercise === 'high-knees' ? '#facc15' : '#38bdf8'
+  const y = Math.max(0, Math.min(height, guideY * height))
+
+  context.save()
+  context.strokeStyle = color
+  context.fillStyle = color
+  context.lineWidth = 3
+  context.setLineDash([14, 10])
+  context.beginPath()
+  context.moveTo(0, y)
+  context.lineTo(width, y)
+  context.stroke()
+  context.setLineDash([])
+  context.beginPath()
+  context.arc(width / 2, y, 7, 0, Math.PI * 2)
+  context.fill()
+  context.restore()
+}
+
 export function WorkoutPage() {
   const { challengeCode = '', exercise: exerciseParam } = useParams()
   const navigate = useNavigate()
@@ -161,6 +190,7 @@ export function WorkoutPage() {
   const [isWorkoutRunning, setIsWorkoutRunning] = useState(false)
   const [isSessionComplete, setIsSessionComplete] = useState(false)
   const [isCameraReady, setIsCameraReady] = useState(false)
+  const [showInstructionVideo, setShowInstructionVideo] = useState(true)
   const [cameraAttempt, setCameraAttempt] = useState(0)
   const [hasRequestedCamera, setHasRequestedCamera] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -389,6 +419,10 @@ export function WorkoutPage() {
         ctx.save()
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height)
+
+        if (challenge.id === 'squat' || challenge.id === 'lunges' || challenge.id === 'high-knees') {
+          drawExerciseGuides(ctx, canvas.width, canvas.height, results.poseLandmarks, challenge.id)
+        }
 
         if (results.poseLandmarks) {
           drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
@@ -638,9 +672,38 @@ export function WorkoutPage() {
           <div className="camera-wrapper">
             <video ref={videoRef} className="camera-feed" playsInline muted autoPlay />
             <canvas ref={canvasRef} className="camera-overlay" />
+            {!isSessionComplete && countdown === null && !isWorkoutRunning ? (
+              <div className="workout-camera-controls">
+                {!isCameraReady ? (
+                  <button className="camera-control" type="button" onClick={retryCamera} aria-label={hasRequestedCamera ? 'Retry camera' : 'Enable camera'}>
+                    <span className="camera-control-icon" aria-hidden="true">◉</span>
+                    <span className="camera-control-label">{hasRequestedCamera ? 'Retry Camera' : 'Enable Camera'}</span>
+                  </button>
+                ) : (
+                  <button className="camera-control camera-control-primary" type="button" onClick={startWorkout} aria-label="Start workout">
+                    <span className="camera-control-icon" aria-hidden="true">▶</span>
+                    <span className="camera-control-label">Start Workout</span>
+                  </button>
+                )}
+              </div>
+            ) : null}
           </div>
 
           <aside className="stats-panel">
+            {showInstructionVideo ? (
+              <video
+                className="workout-instruction-video"
+                autoPlay
+                loop
+                muted
+                playsInline
+                controls
+                onError={() => setShowInstructionVideo(false)}
+                aria-label={`${challenge.name} demonstration`}
+              >
+                <source src={CHALLENGE_VIDEO_PATH[challenge.id]} type="video/mp4" />
+              </video>
+            ) : null}
             <p>
               Exercise: <strong>{challenge.name}</strong>
             </p>
@@ -667,12 +730,6 @@ export function WorkoutPage() {
             <p className="hint">Camera processing is on-device only. No videos are uploaded.</p>
 
             {!isCameraReady ? (
-              <button className="button ghost" type="button" onClick={retryCamera}>
-                {hasRequestedCamera ? 'Retry Camera' : 'Enable Camera'}
-              </button>
-            ) : null}
-
-            {!isCameraReady ? (
               <p className="hint">
                 {hasRequestedCamera
                   ? 'Waiting for camera access...'
@@ -680,14 +737,7 @@ export function WorkoutPage() {
               </p>
             ) : null}
 
-            {!isSessionComplete && countdown === null && !isWorkoutRunning ? (
-              <div className="stack">
-                <p className="hint">Step into frame, get ready, and press start when positioned.</p>
-                <button className="button primary" onClick={startWorkout}>
-                  Start Workout
-                </button>
-              </div>
-            ) : null}
+            {!isSessionComplete && countdown === null && !isWorkoutRunning ? <p className="hint">Step into frame, then use the camera control to begin.</p> : null}
 
             {countdown !== null ? (
               <div className="stack">

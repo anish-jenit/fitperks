@@ -2,10 +2,13 @@
 
 Drop your challenge preview videos in these folders:
 
-- `public/challenge-videos/squat/preview.mp4`
-- `public/challenge-videos/jumping-jacks/preview.mp4`
-- `public/challenge-videos/high-knees/preview.mp4`
-- `public/challenge-videos/lunges/preview.mp4`
+- `public/challenge-videos/squat/fitperks_squat.mp4`
+- `public/challenge-videos/jumping-jacks/fitperks_jumpingjacks.mp4`
+- `public/challenge-videos/high-knees/fitperks_highknees.mp4`
+- `public/challenge-videos/lunges/fitperks_lunges.mp4`
+
+The videos appear on the challenge cards and in the workout details panel. They
+are optimized for silent autoplay in the browser.
 
 If a challenge video is missing, FitPerks automatically shows the animated robot doodle fallback for that card.
 

@@ -34,6 +34,13 @@ export const POINTS_BY_EXERCISE: Record<ExerciseType, number> = {
   lunges: 2,
 }
 
+export const CHALLENGE_VIDEO_PATH: Record<ExerciseType, string> = {
+  squat: '/challenge-videos/squat/fitperks_squat.mp4',
+  burpee: '/challenge-videos/jumping-jacks/fitperks_jumpingjacks.mp4',
+  'high-knees': '/challenge-videos/high-knees/fitperks_highknees.mp4',
+  lunges: '/challenge-videos/lunges/fitperks_lunges.mp4',
+}
+
 export const SESSION_DURATION_SECONDS = 60
 
 export const PARTICIPANT_STORAGE_KEY = 'fitperk-participant'

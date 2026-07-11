@@ -124,10 +124,6 @@ export function JoinChallengePage() {
   return (
     <main className="page">
       <section className="panel form-panel">
-        <p className="hero-kicker">Join Challenge</p>
-        <h1>Join a Challenge</h1>
-        <p className="hint">Enter your email to find current challenges, or use a code shared with you.</p>
-
         {error ? <p className="error">{error}</p> : null}
 
         <form className="stack" onSubmit={(event) => void onSubmit(event)}>
@@ -155,17 +151,15 @@ export function JoinChallengePage() {
 
         {searched ? (
           <div className="join-results">
-            <h2>Current challenges</h2>
             {challenges.length ? challenges.map((challenge) => (
-              <article className="join-result" key={challenge.code}>
+              <button className="join-result" type="button" key={challenge.code} onClick={() => joinChallenge(challenge.code)}>
                 <div>
                   <strong>{challenge.title}</strong>
-                  <p>{challenge.durationDays} days · {challenge.playerCount}/{challenge.maxPlayers} players · {challenge.selectedExercises.length} workouts</p>
+                  <p>{challenge.creatorName} · {challenge.durationDays} days · {challenge.playerCount}/{challenge.maxPlayers} players</p>
+                  <p>{challenge.attemptsPerDay} attempts/day · {challenge.selectedExercises.length} workouts</p>
                 </div>
-                <button className="button ghost button-small" type="button" onClick={() => joinChallenge(challenge.code)}>
-                  {challenge.joined ? 'Continue' : 'Join'}
-                </button>
-              </article>
+                <span className="join-result-arrow" aria-hidden="true">→</span>
+              </button>
             )) : <p className="hint">No current challenges match this email yet.</p>}
             {challengeCode.trim() ? (
               <button className="button primary" type="button" onClick={() => joinChallenge(challengeCode)}>
@@ -218,6 +212,11 @@ export function GuestChallengePage() {
         sessionDurationSeconds,
       })
       setCreated(challenge)
+      saveGuestJoinContext({
+        guestName: creatorName,
+        guestEmail: creatorEmail,
+        challengeCode: challenge.code,
+      })
     } catch (err) {
       const message = err instanceof Error
         ? err.message
@@ -286,6 +285,16 @@ export function GuestChallengePage() {
               </article>
             </div>
             <p className="hint">Daily scoreboard uses the best 3 attempts when available. Session timer: {created.sessionDurationSeconds / 60} minutes.</p>
+            <div className="hero-actions">
+              {created.selectedExercises.map((exercise) => {
+                const workout = CHALLENGES.find((item) => item.id === exercise)
+                return workout ? (
+                  <Link className="button ghost" to={`/guest/${created.code}/workout/${exercise}`} key={exercise}>
+                    Start {workout.name.replace(' Challenge', '')}
+                  </Link>
+                ) : null
+              })}
+            </div>
             <ShareLinks challenge={created} />
           </div>
         ) : (
