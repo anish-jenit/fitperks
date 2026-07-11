@@ -1365,6 +1365,8 @@ begin
 end;
 $$;
 
+drop function if exists public.create_guest_challenge(text, text, text, integer, integer);
+
 create or replace function public.create_guest_challenge(
   p_creator_key text,
   p_creator_name text,
@@ -1497,6 +1499,31 @@ begin
     'created_at', v_challenge.created_at
   );
 end;
+$$;
+
+create or replace function public.create_guest_challenge(
+  p_creator_key text,
+  p_creator_name text,
+  p_title text,
+  p_duration_days int,
+  p_attempts_per_day int
+)
+returns jsonb
+language sql
+security definer
+set search_path = public
+as $$
+  select public.create_guest_challenge(
+    p_creator_key,
+    p_creator_name,
+    p_title,
+    p_duration_days,
+    p_attempts_per_day,
+    lower(trim(p_creator_key)) || '@legacy.invalid',
+    now(),
+    array['squat', 'burpee']::text[],
+    60
+  );
 $$;
 
 create or replace function public.get_guest_challenge(p_code text)

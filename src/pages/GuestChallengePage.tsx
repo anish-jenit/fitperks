@@ -218,7 +218,12 @@ export function GuestChallengePage() {
       })
       setCreated(challenge)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to create guest challenge.')
+      const message = err instanceof Error
+        ? err.message
+        : typeof err === 'object' && err !== null && 'message' in err
+          ? String(err.message)
+          : 'Unable to create guest challenge.'
+      setError(message)
     } finally {
       setBusy(false)
     }
