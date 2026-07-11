@@ -14,7 +14,7 @@ export function LandingPage() {
           <Link className="button primary" to="/guest-challenge">
             Create Challenge (Limited Edition)
           </Link>
-          <Link className="button ghost" to="/register">
+          <Link className="button ghost" to="/join-challenge">
             Join Challenge
           </Link>
           <Link className="button ghost" to="/organization-request">

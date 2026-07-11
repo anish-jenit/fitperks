@@ -251,7 +251,7 @@ test('launch start, challenge list, leaderboards, and admin dashboard render cor
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Every Move Deserves a Perk.' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Create Challenge (Limited Edition)' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Join Challenge' })).toHaveAttribute('href', '/register')
+  await expect(page.getByRole('link', { name: 'Join Challenge' })).toHaveAttribute('href', '/join-challenge')
   await expect(page.getByRole('link', { name: 'Organization Challenge Request' })).toBeVisible()
 
   await page.goto('/launch/us/company-a')
@@ -276,9 +276,20 @@ test('guest limited challenge creates shareable challenge and scoreboard links',
   await page.getByLabel('Guest name').fill('Maya')
   await page.getByRole('button', { name: 'Create Share Link' }).click()
 
-  await expect(page.getByText('Challenge link')).toBeVisible()
-  await expect(page.getByText('Scoreboard link')).toBeVisible()
+  await expect(page.getByText('Guest name')).toBeVisible()
+  await expect(page.getByText('Challenge code')).toBeVisible()
+  await expect(page.getByText('Challenge URL')).toBeVisible()
+  await expect(page.getByText('Scoreboard URL')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(4)
   await expect(page.getByRole('link', { name: 'Open WhatsApp' })).toBeVisible()
+
+  await page.goto('/join-challenge')
+  await expect(page.getByRole('heading', { name: 'Enter Challenge Code' })).toBeVisible()
+  await page.getByLabel('Guest name').fill('Ravi')
+  await page.getByLabel('Challenge code').fill('weekend-move-abc123')
+  await page.getByRole('button', { name: 'Join Challenge' }).click()
+  await expect(page).toHaveURL(/\/guest\/weekend-move-abc123$/)
+  await expect(page.getByRole('heading', { name: 'Weekend Move Challenge' })).toBeVisible()
 
   await page.goto('/guest/weekend-move-abc123')
   await expect(page.getByRole('link', { name: 'Squats' })).toHaveAttribute('href', '/guest/weekend-move-abc123/workout/squat')

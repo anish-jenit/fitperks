@@ -12,7 +12,7 @@ import {
   submitWorkoutSecure,
 } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
-import { clearParticipantProfile, getConfiguredOrganizationCode, saveParticipantProfile } from '../lib/storage'
+import { clearParticipantProfile, getConfiguredOrganizationCode, getLastGuestName, saveParticipantProfile } from '../lib/storage'
 import type { ChallengeRecord, ExerciseType, GuestChallengeRecord } from '../types'
 
 type NormalizedLandmark = {
@@ -165,7 +165,7 @@ export function WorkoutPage() {
   const [hasRequestedCamera, setHasRequestedCamera] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveEmail, setSaveEmail] = useState('')
-  const [saveName, setSaveName] = useState('')
+  const [saveName, setSaveName] = useState(() => getLastGuestName())
   const [saveTeam, setSaveTeam] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [paceFeedback, setPaceFeedback] = useState<PaceFeedback | null>(null)

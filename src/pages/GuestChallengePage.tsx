@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { createGuestChallenge, getGuestChallenge, getGuestScoreboard } from '../lib/supabaseApi'
-import { getOrCreateGuestCreatorKey } from '../lib/storage'
+import { getLastGuestChallengeCode, getLastGuestName, getOrCreateGuestCreatorKey, saveGuestJoinContext } from '../lib/storage'
 import type { GuestChallengeRecord, GuestScoreboardRow } from '../types'
 
 function buildUrl(path: string): string {
@@ -12,6 +12,45 @@ function buildUrl(path: string): string {
   return new URL(path, window.location.origin).toString()
 }
 
+function copyText(value: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(value)
+  }
+
+  const input = document.createElement('textarea')
+  input.value = value
+  input.setAttribute('readonly', 'true')
+  input.style.position = 'fixed'
+  input.style.opacity = '0'
+  document.body.appendChild(input)
+  input.select()
+  document.execCommand('copy')
+  document.body.removeChild(input)
+  return Promise.resolve()
+}
+
+function CopyableField({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false)
+
+  async function onCopy() {
+    await copyText(value)
+    setCopied(true)
+    window.setTimeout(() => {
+      setCopied(false)
+    }, 1400)
+  }
+
+  return (
+    <article className="copy-card">
+      <span>{label}</span>
+      <code>{value}</code>
+      <button className="button ghost button-small" type="button" onClick={() => void onCopy()}>
+        {copied ? 'Copied' : 'Copy'}
+      </button>
+    </article>
+  )
+}
+
 function ShareLinks({ challenge }: { challenge: GuestChallengeRecord }) {
   const challengeUrl = buildUrl(`/guest/${challenge.code}`)
   const scoreboardUrl = buildUrl(`/guest/${challenge.code}/scoreboard`)
@@ -19,14 +58,10 @@ function ShareLinks({ challenge }: { challenge: GuestChallengeRecord }) {
 
   return (
     <div className="url-list">
-      <article>
-        <span>Challenge link</span>
-        <a href={challengeUrl}>{challengeUrl}</a>
-      </article>
-      <article>
-        <span>Scoreboard link</span>
-        <a href={scoreboardUrl}>{scoreboardUrl}</a>
-      </article>
+      <CopyableField label="Guest name" value={challenge.creatorName} />
+      <CopyableField label="Challenge code" value={challenge.code} />
+      <CopyableField label="Challenge URL" value={challengeUrl} />
+      <CopyableField label="Scoreboard URL" value={scoreboardUrl} />
       <article>
         <span>WhatsApp share</span>
         <a href={`https://wa.me/?text=${whatsappText}`} target="_blank" rel="noreferrer">
@@ -34,6 +69,61 @@ function ShareLinks({ challenge }: { challenge: GuestChallengeRecord }) {
         </a>
       </article>
     </div>
+  )
+}
+
+export function JoinChallengePage() {
+  const navigate = useNavigate()
+  const [guestName, setGuestName] = useState(() => getLastGuestName())
+  const [challengeCode, setChallengeCode] = useState(() => getLastGuestChallengeCode())
+  const [error, setError] = useState<string | null>(null)
+
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const normalizedCode = challengeCode.trim().toLowerCase()
+
+    if (!guestName.trim() || !normalizedCode) {
+      setError('Guest name and challenge code are required.')
+      return
+    }
+
+    saveGuestJoinContext({
+      guestName,
+      challengeCode: normalizedCode,
+    })
+    navigate(`/guest/${normalizedCode}`)
+  }
+
+  return (
+    <main className="page">
+      <section className="panel form-panel">
+        <p className="hero-kicker">Join Challenge</p>
+        <h1>Enter Challenge Code</h1>
+        <p className="hint">Use the guest name and challenge code shared by the challenge creator.</p>
+
+        {error ? <p className="error">{error}</p> : null}
+
+        <form className="stack" onSubmit={onSubmit}>
+          <label>
+            Guest name
+            <input value={guestName} onChange={(event) => setGuestName(event.target.value)} maxLength={80} required />
+          </label>
+          <label>
+            Challenge code
+            <input
+              value={challengeCode}
+              onChange={(event) => setChallengeCode(event.target.value)}
+              placeholder="weekend-move-abc123"
+              maxLength={96}
+              required
+            />
+          </label>
+          <button className="button primary" type="submit">
+            Join Challenge
+          </button>
+        </form>
+      </section>
+    </main>
   )
 }
 
@@ -153,6 +243,11 @@ export function GuestChallengeLandingPage() {
     if (!challengeCode) {
       return
     }
+
+    saveGuestJoinContext({
+      guestName: getLastGuestName(),
+      challengeCode,
+    })
 
     void getGuestChallenge(challengeCode)
       .then(setChallenge)

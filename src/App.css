@@ -11,7 +11,7 @@
   position: sticky;
   top: 0;
   backdrop-filter: blur(10px);
-  background: color-mix(in oklab, var(--canvas) 88%, #fff);
+  background: rgba(3, 7, 18, 0.86);
   z-index: 10;
   box-shadow: 0 14px 30px -28px rgba(15, 23, 42, 0.55);
 }
@@ -39,7 +39,7 @@
 }
 
 .top-nav nav a:hover {
-  background: color-mix(in oklab, var(--panel-soft) 76%, #fff);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--ink-strong);
 }
 
@@ -73,7 +73,7 @@
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 34%),
     radial-gradient(ellipse at top, rgba(37, 99, 235, 0.22), transparent 52%),
-    #030712;
+    var(--canvas);
   color: #dbe4f0;
 }
 
@@ -149,7 +149,7 @@
 }
 
 .hero-panel {
-  background: linear-gradient(180deg, #ffffff 0%, #f7fafc 100%);
+  background: linear-gradient(180deg, #101827 0%, var(--panel) 100%);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   padding: clamp(1.5rem, 4vw, 4rem);
@@ -428,24 +428,28 @@
   display: inline-flex;
   justify-content: center;
   align-items: center;
+  min-height: 44px;
+  min-width: 12rem;
   transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 .button.primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: white;
-  box-shadow: 0 14px 28px -20px rgba(37, 99, 235, 0.8);
+  background: #f8fafc;
+  color: #030712;
+  box-shadow: 0 16px 32px -22px rgba(248, 250, 252, 0.78);
 }
 
 .button.ghost {
   border: 1px solid var(--line);
   color: var(--ink-strong);
-  background: color-mix(in oklab, white 76%, var(--panel-soft));
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .button-small {
   padding: 0.45rem 0.7rem;
   font-size: 0.85rem;
+  min-height: 36px;
+  min-width: 5.2rem;
 }
 
 .button.warn {
@@ -463,7 +467,7 @@
 }
 
 .button.primary:not(:disabled):hover {
-  box-shadow: 0 22px 30px -24px rgba(37, 99, 235, 0.9);
+  box-shadow: 0 24px 34px -24px rgba(248, 250, 252, 0.72);
 }
 
 .form-panel {
@@ -488,7 +492,8 @@
   gap: 0.75rem;
 }
 
-.url-list article {
+.url-list article,
+.copy-card {
   display: grid;
   gap: 0.35rem;
   border: 1px solid var(--line);
@@ -497,7 +502,8 @@
   background: var(--panel-soft);
 }
 
-.url-list span {
+.url-list span,
+.copy-card span {
   color: var(--ink-strong);
   font-weight: 700;
 }
@@ -505,6 +511,27 @@
 .url-list a {
   color: var(--accent);
   overflow-wrap: anywhere;
+}
+
+.copy-card {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.copy-card span,
+.copy-card code {
+  grid-column: 1;
+}
+
+.copy-card code {
+  color: var(--accent);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.copy-card button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
 label {
@@ -519,7 +546,8 @@ input {
   border-radius: var(--radius);
   font: inherit;
   padding: 0.65rem 0.7rem;
-  background: white;
+  background: #050b16;
+  color: var(--ink-strong);
 }
 
 textarea {
@@ -527,7 +555,8 @@ textarea {
   border-radius: var(--radius);
   font: inherit;
   padding: 0.65rem 0.7rem;
-  background: white;
+  background: #050b16;
+  color: var(--ink-strong);
   resize: vertical;
 }
 
@@ -557,15 +586,15 @@ textarea {
   gap: 0.7rem;
   justify-items: center;
   text-align: center;
-  background: linear-gradient(160deg, color-mix(in oklab, #fff 90%, var(--panel-soft)), var(--panel-soft));
-  box-shadow: 0 18px 28px -30px rgba(25, 49, 86, 0.5);
+  background: linear-gradient(160deg, #111827, var(--panel-soft));
+  box-shadow: 0 18px 30px -30px rgba(0, 0, 0, 0.9);
 }
 
 .challenge-doodle {
   border: 1px solid color-mix(in oklab, var(--line) 76%, #fff);
   border-radius: var(--radius);
   overflow: hidden;
-  background: #f8fbff;
+  background: #111827;
 }
 
 .challenge-video {
@@ -586,11 +615,11 @@ textarea {
 }
 
 .doodle-bg {
-  fill: #f7fbff;
+  fill: #111827;
 }
 
 .doodle-ground {
-  stroke: #bfccdd;
+  stroke: #475569;
   stroke-width: 4;
 }
 

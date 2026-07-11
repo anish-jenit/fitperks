@@ -1,5 +1,11 @@
 import type { ParticipantProfile } from '../types'
-import { GUEST_CREATOR_KEY_STORAGE_KEY, KIOSK_ORG_CODE_STORAGE_KEY, PARTICIPANT_STORAGE_KEY } from './constants'
+import {
+  GUEST_CREATOR_KEY_STORAGE_KEY,
+  GUEST_JOIN_CODE_STORAGE_KEY,
+  GUEST_JOIN_NAME_STORAGE_KEY,
+  KIOSK_ORG_CODE_STORAGE_KEY,
+  PARTICIPANT_STORAGE_KEY,
+} from './constants'
 
 export function saveParticipantProfile(profile: ParticipantProfile): void {
   localStorage.setItem(PARTICIPANT_STORAGE_KEY, JSON.stringify(profile))
@@ -46,4 +52,17 @@ export function getOrCreateGuestCreatorKey(): string {
   const key = crypto.randomUUID()
   localStorage.setItem(GUEST_CREATOR_KEY_STORAGE_KEY, key)
   return key
+}
+
+export function saveGuestJoinContext(input: { guestName: string; challengeCode: string }): void {
+  localStorage.setItem(GUEST_JOIN_NAME_STORAGE_KEY, input.guestName.trim())
+  localStorage.setItem(GUEST_JOIN_CODE_STORAGE_KEY, input.challengeCode.trim().toLowerCase())
+}
+
+export function getLastGuestName(): string {
+  return localStorage.getItem(GUEST_JOIN_NAME_STORAGE_KEY)?.trim() ?? ''
+}
+
+export function getLastGuestChallengeCode(): string {
+  return localStorage.getItem(GUEST_JOIN_CODE_STORAGE_KEY)?.trim() ?? ''
 }

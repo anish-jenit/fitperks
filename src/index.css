@@ -1,19 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Space+Grotesk:wght@500;700&display=swap');
 
 :root {
-  --canvas: #f6f8fb;
-  --panel: #ffffff;
-  --panel-soft: #f1f5f9;
-  --line: #d8e0ec;
-  --ink: #334155;
-  --ink-strong: #0f172a;
-  --accent: #2563eb;
-  --accent-strong: #1d4ed8;
-  --accent-calm: #0f766e;
-  --danger: #b91c1c;
+  --canvas: #030712;
+  --panel: #0b1220;
+  --panel-soft: #111827;
+  --line: #263244;
+  --ink: #cbd5e1;
+  --ink-strong: #f8fafc;
+  --accent: #93c5fd;
+  --accent-strong: #60a5fa;
+  --accent-calm: #5eead4;
+  --danger: #fca5a5;
   --radius: 8px;
   --radius-lg: 12px;
-  --shadow-panel: 0 18px 42px -34px rgba(15, 23, 42, 0.42);
+  --shadow-panel: 0 24px 58px -38px rgba(0, 0, 0, 0.78);
   --heading: 'Space Grotesk', sans-serif;
   --body: 'Sora', sans-serif;
 }
@@ -26,7 +26,9 @@ body {
   margin: 0;
   font-family: var(--body);
   color: var(--ink);
-  background: linear-gradient(180deg, #fbfcfe 0%, var(--canvas) 54%, #eef3f8 100%);
+  background:
+    radial-gradient(ellipse at top, rgba(37, 99, 235, 0.18), transparent 46%),
+    linear-gradient(180deg, #030712 0%, #07111f 54%, #0b1220 100%);
 }
 
 #root {

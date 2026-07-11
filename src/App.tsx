@@ -3,7 +3,7 @@ import './App.css'
 import { AdminPage } from './pages/AdminPage'
 import { ChallengeSelectPage } from './pages/ChallengeSelectPage'
 import { OrganizationRequestPage } from './pages/OrganizationRequestPage'
-import { GuestChallengeLandingPage, GuestChallengePage, GuestScoreboardPage } from './pages/GuestChallengePage'
+import { GuestChallengeLandingPage, GuestChallengePage, GuestScoreboardPage, JoinChallengePage } from './pages/GuestChallengePage'
 import { LandingPage } from './pages/LandingPage'
 import { LeaderboardPage } from './pages/LeaderboardPage'
 import { PublicLaunchPage } from './pages/PublicLaunchPage'
@@ -35,6 +35,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="/home" element={<LandingPage />} />
+        <Route path="/join-challenge" element={<JoinChallengePage />} />
         <Route path="/guest-challenge" element={<GuestChallengePage />} />
         <Route path="/guest/:challengeCode" element={<GuestChallengeLandingPage />} />
         <Route path="/guest/:challengeCode/workout/:exercise" element={<WorkoutPage />} />
