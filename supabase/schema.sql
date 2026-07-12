@@ -273,6 +273,24 @@ alter table guest_challenges add constraint guest_challenge_selected_exercises_c
 alter table guest_challenges drop constraint if exists guest_challenge_timer_check;
 alter table guest_challenges add constraint guest_challenge_timer_check check (session_duration_seconds between 60 and 180);
 
+create or replace function public.assign_random_guest_challenge_code()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  new.code := upper(substr(encode(extensions.gen_random_bytes(9), 'hex'), 1, 12));
+  return new;
+end;
+$$;
+
+drop trigger if exists guest_challenges_random_code on guest_challenges;
+create trigger guest_challenges_random_code
+before insert on guest_challenges
+for each row
+execute function public.assign_random_guest_challenge_code();
+
 create table if not exists guest_challenge_players (
   id uuid primary key default gen_random_uuid(),
   challenge_id uuid not null references guest_challenges(id) on delete cascade,
