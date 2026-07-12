@@ -1,7 +1,7 @@
 import dayjs from 'dayjs'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { completeInviteSetup, getInviteSetupContext } from '../lib/supabaseApi'
+import { cancelInviteChallenge, completeInviteSetup, getInviteSetupContext } from '../lib/supabaseApi'
 import type { InviteSetupContext } from '../types'
 
 type SetupForm = {
@@ -38,6 +38,7 @@ export function InviteSetupPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [launchPath, setLaunchPath] = useState<string | null>(null)
+  const [cancelled, setCancelled] = useState(false)
   const setupPath = `/setup/${token}`
 
   const fullUrl = (path: string) => {
@@ -74,7 +75,18 @@ export function InviteSetupPage() {
           ...current,
           organizationName: invite.organizationName,
           countryCode: invite.countryCode,
+          startDate: invite.existingChallengeStartDate ?? current.startDate,
+          endDate: invite.existingChallengeEndDate ?? current.endDate,
+          timezone: invite.existingChallengeTimezone ?? current.timezone,
+          enabledSquat: invite.existingEnabledSquat ?? current.enabledSquat,
+          enabledBurpee: invite.existingEnabledBurpee ?? current.enabledBurpee,
+          enabledHighKnees: invite.existingEnabledHighKnees ?? current.enabledHighKnees,
+          enabledLunges: invite.existingEnabledLunges ?? current.enabledLunges,
+          displayMessage: invite.existingChallengeDescription ?? current.displayMessage,
         }))
+        if (invite.inviteStatus === 'accepted') {
+          setLaunchPath(`/launch/${invite.countryCode}/${invite.organizationSlug}`)
+        }
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : 'Unable to load invite setup context.')
@@ -110,8 +122,27 @@ export function InviteSetupPage() {
       })
 
       setLaunchPath(result.launchUrlPath)
+      setContext((current) => (current ? { ...current, inviteStatus: 'accepted' } : current))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to complete setup.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onCancelChallenge() {
+    if (!context || !window.confirm('Archive this challenge? The public launch URL will no longer accept workouts.')) {
+      return
+    }
+
+    try {
+      setBusy(true)
+      setError(null)
+      await cancelInviteChallenge(context.token)
+      setCancelled(true)
+      setLaunchPath(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to cancel the challenge.')
     } finally {
       setBusy(false)
     }
@@ -138,7 +169,7 @@ export function InviteSetupPage() {
 
         {launchPath ? (
           <div className="setup-result">
-            <h2>Setup complete</h2>
+            <h2>{context?.inviteStatus === 'accepted' ? 'Challenge links' : 'Setup complete'}</h2>
             <div className="url-list">
               <article>
                 <span>Setup URL</span>
@@ -155,6 +186,10 @@ export function InviteSetupPage() {
             </div>
             <p className="hint">Use the challenge URL for the workout station and the scoreboard URL for the live display.</p>
           </div>
+        ) : null}
+
+        {cancelled ? (
+          <p className="error">This challenge has been cancelled. The setup link is no longer active.</p>
         ) : (
           <form className="stack" onSubmit={onSubmit}>
             <label>
@@ -217,41 +252,40 @@ export function InviteSetupPage() {
               />
             </label>
 
-            <label>
-              <input
-                type="checkbox"
-                checked={form.enabledSquat}
-                onChange={(event) => setForm((state) => ({ ...state, enabledSquat: event.target.checked }))}
-              />
-              Include squats
-            </label>
-
-            <label>
-              <input
-                type="checkbox"
-                checked={form.enabledBurpee}
-                onChange={(event) => setForm((state) => ({ ...state, enabledBurpee: event.target.checked }))}
-              />
-              Include jumping jacks
-            </label>
-
-            <label>
-              <input
-                type="checkbox"
-                checked={form.enabledHighKnees}
-                onChange={(event) => setForm((state) => ({ ...state, enabledHighKnees: event.target.checked }))}
-              />
-              Include high knees
-            </label>
-
-            <label>
-              <input
-                type="checkbox"
-                checked={form.enabledLunges}
-                onChange={(event) => setForm((state) => ({ ...state, enabledLunges: event.target.checked }))}
-              />
-              Include lunges
-            </label>
+            <div className="exercise-toggle-grid">
+              <label className="exercise-toggle-card">
+                <input
+                  type="checkbox"
+                  checked={form.enabledSquat}
+                  onChange={(event) => setForm((state) => ({ ...state, enabledSquat: event.target.checked }))}
+                />
+                <span>Squats</span>
+              </label>
+              <label className="exercise-toggle-card">
+                <input
+                  type="checkbox"
+                  checked={form.enabledBurpee}
+                  onChange={(event) => setForm((state) => ({ ...state, enabledBurpee: event.target.checked }))}
+                />
+                <span>Jumping jacks</span>
+              </label>
+              <label className="exercise-toggle-card">
+                <input
+                  type="checkbox"
+                  checked={form.enabledHighKnees}
+                  onChange={(event) => setForm((state) => ({ ...state, enabledHighKnees: event.target.checked }))}
+                />
+                <span>High knees</span>
+              </label>
+              <label className="exercise-toggle-card">
+                <input
+                  type="checkbox"
+                  checked={form.enabledLunges}
+                  onChange={(event) => setForm((state) => ({ ...state, enabledLunges: event.target.checked }))}
+                />
+                <span>Lunges</span>
+              </label>
+            </div>
 
             <label>
               Optional display message
@@ -265,8 +299,13 @@ export function InviteSetupPage() {
             {dateRangeError ? <p className="field-error">{dateRangeError}</p> : null}
 
             <button className="button primary" type="submit" disabled={busy || Boolean(dateRangeError)}>
-              {busy ? 'Saving setup...' : 'Complete Setup'}
+              {busy ? 'Saving...' : context?.inviteStatus === 'accepted' ? 'Save Challenge Changes' : 'Complete Setup'}
             </button>
+            {context?.inviteStatus === 'accepted' ? (
+              <button className="button warn" type="button" onClick={() => void onCancelChallenge()} disabled={busy}>
+                Cancel Challenge
+              </button>
+            ) : null}
           </form>
         )}
 

@@ -531,8 +531,18 @@ export async function getInviteSetupContext(token: string): Promise<InviteSetupC
       organizationCode: invite.organizationCode,
       countryCode: invite.countryCode,
       pocEmail: invite.pocEmail,
+      inviteStatus: 'pending',
       existingChallengeId: null,
       existingChallengeName: null,
+      existingChallengeDescription: null,
+      existingChallengeStartDate: null,
+      existingChallengeEndDate: null,
+      existingChallengeTimezone: null,
+      existingChallengeStatus: null,
+      existingEnabledSquat: null,
+      existingEnabledBurpee: null,
+      existingEnabledHighKnees: null,
+      existingEnabledLunges: null,
     }
   }
 
@@ -552,8 +562,18 @@ export async function getInviteSetupContext(token: string): Promise<InviteSetupC
     organization_code: string
     country_code: string
     poc_email: string
+    invite_status: 'pending' | 'accepted'
     existing_challenge_id: string | null
     existing_challenge_name: string | null
+    existing_challenge_description: string | null
+    existing_challenge_start_date: string | null
+    existing_challenge_end_date: string | null
+    existing_challenge_timezone: string | null
+    existing_challenge_status: 'upcoming' | 'active' | 'completed' | 'archived' | null
+    existing_enabled_squat: boolean | null
+    existing_enabled_burpee: boolean | null
+    existing_enabled_high_knees: boolean | null
+    existing_enabled_lunges: boolean | null
   }
 
   return {
@@ -564,8 +584,32 @@ export async function getInviteSetupContext(token: string): Promise<InviteSetupC
     organizationCode: payload.organization_code,
     countryCode: payload.country_code,
     pocEmail: payload.poc_email,
+    inviteStatus: payload.invite_status,
     existingChallengeId: payload.existing_challenge_id,
     existingChallengeName: payload.existing_challenge_name,
+    existingChallengeDescription: payload.existing_challenge_description,
+    existingChallengeStartDate: payload.existing_challenge_start_date,
+    existingChallengeEndDate: payload.existing_challenge_end_date,
+    existingChallengeTimezone: payload.existing_challenge_timezone,
+    existingChallengeStatus: payload.existing_challenge_status,
+    existingEnabledSquat: payload.existing_enabled_squat,
+    existingEnabledBurpee: payload.existing_enabled_burpee,
+    existingEnabledHighKnees: payload.existing_enabled_high_knees,
+    existingEnabledLunges: payload.existing_enabled_lunges,
+  }
+}
+
+export async function cancelInviteChallenge(token: string): Promise<void> {
+  if (useFlowStubs) {
+    return
+  }
+
+  const { error } = await supabase.rpc('cancel_invite_challenge', {
+    p_token: token,
+  })
+
+  if (error) {
+    throw error
   }
 }
 

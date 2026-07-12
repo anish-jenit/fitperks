@@ -1524,10 +1524,79 @@ th {
   margin-top: 1rem;
 }
 
+.admin-subsection-title {
+  margin: 0 0 0.7rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .settings-grid {
   display: grid;
   gap: 0.8rem;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.admin-window-grid,
+.exercise-toggle-grid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.exercise-toggle-card {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 3.7rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+  cursor: pointer;
+}
+
+.exercise-toggle-card input {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.exercise-toggle-card span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-settings-grid label,
+.admin-scoring-grid label,
+.admin-rules-grid label {
+  min-width: 0;
+}
+
+.admin-settings-grid input,
+.admin-scoring-grid input,
+.admin-rules-grid input {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (min-width: 901px) {
+  .admin-window-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .exercise-toggle-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .admin-scoring-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .admin-rules-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .validation-list {
@@ -2076,6 +2145,16 @@ select:focus {
 }
 
 @media (max-width: 900px) {
+  .admin-window-grid,
+  .admin-scoring-grid,
+  .admin-rules-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .exercise-toggle-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .hero-panel-dark {
     padding: 1.2rem;
   }
@@ -2105,6 +2184,18 @@ select:focus {
 }
 
 @media (max-width: 640px) {
+  .admin-window-grid,
+  .admin-scoring-grid,
+  .admin-rules-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .exercise-toggle-card {
+    min-height: 3.25rem;
+    padding: 0.72rem 0.75rem;
+    font-size: 0.9rem;
+  }
+
   .top-nav {
     position: static;
     padding: 0.85rem 1rem;

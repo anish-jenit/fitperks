@@ -160,8 +160,18 @@ export type InviteSetupContext = {
   organizationCode: string
   countryCode: string
   pocEmail: string
+  inviteStatus: 'pending' | 'accepted'
   existingChallengeId: string | null
   existingChallengeName: string | null
+  existingChallengeDescription: string | null
+  existingChallengeStartDate: string | null
+  existingChallengeEndDate: string | null
+  existingChallengeTimezone: string | null
+  existingChallengeStatus: 'upcoming' | 'active' | 'completed' | 'archived' | null
+  existingEnabledSquat: boolean | null
+  existingEnabledBurpee: boolean | null
+  existingEnabledHighKnees: boolean | null
+  existingEnabledLunges: boolean | null
 }
 
 export type PublicLaunchContext = {

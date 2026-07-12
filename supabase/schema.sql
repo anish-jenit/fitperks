@@ -608,8 +608,8 @@ begin
     raise exception 'Invite token is invalid';
   end if;
 
-  if v_invite.status <> 'pending' then
-    raise exception 'Invite has already been used';
+  if v_invite.status not in ('pending', 'accepted') then
+    raise exception 'Invite is no longer available';
   end if;
 
   if v_invite.expires_at < now() then
@@ -627,6 +627,11 @@ begin
   order by created_at desc
   limit 1;
 
+  if v_invite.status = 'accepted'
+    and (v_challenge.id is null or v_challenge.status not in ('active', 'upcoming')) then
+    raise exception 'Challenge setup link is no longer active';
+  end if;
+
   return jsonb_build_object(
     'token', v_invite.token,
     'organization_id', v_org.id,
@@ -635,8 +640,18 @@ begin
     'organization_code', v_org.organization_code,
     'country_code', v_org.country_code,
     'poc_email', v_invite.poc_email,
+    'invite_status', v_invite.status,
     'existing_challenge_id', v_challenge.id,
-    'existing_challenge_name', v_challenge.name
+    'existing_challenge_name', v_challenge.name,
+    'existing_challenge_description', v_challenge.description,
+    'existing_challenge_start_date', v_challenge.start_date,
+    'existing_challenge_end_date', v_challenge.end_date,
+    'existing_challenge_timezone', v_challenge.timezone,
+    'existing_challenge_status', v_challenge.status,
+    'existing_enabled_squat', v_challenge.enabled_squat,
+    'existing_enabled_burpee', v_challenge.enabled_burpee,
+    'existing_enabled_high_knees', v_challenge.enabled_high_knees,
+    'existing_enabled_lunges', v_challenge.enabled_lunges
   );
 end;
 $$;
@@ -676,8 +691,8 @@ begin
     raise exception 'Invite token is invalid';
   end if;
 
-  if v_invite.status <> 'pending' then
-    raise exception 'Invite has already been used';
+  if v_invite.status not in ('pending', 'accepted') then
+    raise exception 'Invite is no longer available';
   end if;
 
   if v_invite.expires_at < now() then
@@ -753,13 +768,57 @@ begin
     returning * into v_challenge;
   end if;
 
-  update organization_invites
-  set status = 'accepted',
-      accepted_at = now()
-  where id = v_invite.id;
+  if v_invite.status = 'pending' then
+    update organization_invites
+    set status = 'accepted',
+        accepted_at = now()
+    where id = v_invite.id;
+  end if;
 
   return jsonb_build_object(
     'launch_url_path', '/launch/' || v_org.country_code || '/' || v_org.slug
+  );
+end;
+$$;
+
+create or replace function public.cancel_invite_challenge(p_token text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_invite organization_invites%rowtype;
+  v_challenge challenges%rowtype;
+begin
+  select * into v_invite
+  from organization_invites
+  where token = trim(p_token)
+    and status = 'accepted'
+  limit 1;
+
+  if v_invite.id is null then
+    raise exception 'Active setup link not found';
+  end if;
+
+  select * into v_challenge
+  from challenges
+  where organization_id = v_invite.organization_id
+    and status in ('active', 'upcoming')
+  order by created_at desc
+  limit 1;
+
+  if v_challenge.id is null then
+    raise exception 'No active challenge found';
+  end if;
+
+  update challenges
+  set status = 'archived'
+  where id = v_challenge.id;
+
+  return jsonb_build_object(
+    'challenge_id', v_challenge.id,
+    'status', 'archived'
   );
 end;
 $$;

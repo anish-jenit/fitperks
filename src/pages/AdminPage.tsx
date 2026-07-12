@@ -327,130 +327,111 @@ export function AdminPage() {
         </div>
 
         <section className="panel settings-panel">
-          <h2>Challenge Configuration</h2>
+          <h2>Active Challenge Configuration</h2>
           {!draft ? (
             <p>No active challenge found for this organization.</p>
           ) : (
             <div className="stack">
-              <label>
-                Start date
-                <input
-                  type="datetime-local"
-                  value={dayjs(draft.start_date).format('YYYY-MM-DDTHH:mm')}
-                  onChange={(event) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            start_date: dayjs(event.target.value).toISOString(),
-                          }
-                        : current,
-                    )
-                  }
-                />
-              </label>
+              <div>
+                <h3 className="admin-subsection-title">Challenge window</h3>
+                <div className="admin-window-grid">
+                  <label>
+                    Start date
+                    <input
+                      type="datetime-local"
+                      value={dayjs(draft.start_date).format('YYYY-MM-DDTHH:mm')}
+                      onChange={(event) =>
+                        setDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                start_date: dayjs(event.target.value).toISOString(),
+                              }
+                            : current,
+                        )
+                      }
+                    />
+                  </label>
+                  <label>
+                    End date
+                    <input
+                      type="datetime-local"
+                      value={dayjs(draft.end_date).format('YYYY-MM-DDTHH:mm')}
+                      onChange={(event) =>
+                        setDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                end_date: dayjs(event.target.value).toISOString(),
+                              }
+                            : current,
+                        )
+                      }
+                    />
+                  </label>
+                  <label>
+                    Challenge timezone
+                    <input
+                      value={draft.timezone}
+                      onChange={(event) =>
+                        setDraft((current) => (current ? { ...current, timezone: event.target.value } : current))
+                      }
+                    />
+                  </label>
+                </div>
+              </div>
 
-              <label>
-                End date
-                <input
-                  type="datetime-local"
-                  value={dayjs(draft.end_date).format('YYYY-MM-DDTHH:mm')}
-                  onChange={(event) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            end_date: dayjs(event.target.value).toISOString(),
-                          }
-                        : current,
-                    )
-                  }
-                />
-              </label>
+              <div>
+                <h3 className="admin-subsection-title">Enabled exercises</h3>
+                <div className="exercise-toggle-grid">
+                  <label className="exercise-toggle-card">
+                    <input
+                      type="checkbox"
+                      checked={draft.enabled_squat}
+                      onChange={(event) =>
+                        setDraft((current) => (current ? { ...current, enabled_squat: event.target.checked } : current))
+                      }
+                    />
+                    <span>Squats</span>
+                  </label>
+                  <label className="exercise-toggle-card">
+                    <input
+                      type="checkbox"
+                      checked={draft.enabled_burpee}
+                      onChange={(event) =>
+                        setDraft((current) => (current ? { ...current, enabled_burpee: event.target.checked } : current))
+                      }
+                    />
+                    <span>Jumping jacks</span>
+                  </label>
+                  <label className="exercise-toggle-card">
+                    <input
+                      type="checkbox"
+                      checked={draft.enabled_high_knees}
+                      onChange={(event) =>
+                        setDraft((current) =>
+                          current ? { ...current, enabled_high_knees: event.target.checked } : current,
+                        )
+                      }
+                    />
+                    <span>High knees</span>
+                  </label>
+                  <label className="exercise-toggle-card">
+                    <input
+                      type="checkbox"
+                      checked={draft.enabled_lunges}
+                      onChange={(event) =>
+                        setDraft((current) => (current ? { ...current, enabled_lunges: event.target.checked } : current))
+                      }
+                    />
+                    <span>Lunges</span>
+                  </label>
+                </div>
+              </div>
 
-              <label>
-                Challenge timezone
-                <input
-                  value={draft.timezone}
-                  onChange={(event) =>
-                    setDraft((current) => (current ? { ...current, timezone: event.target.value } : current))
-                  }
-                />
-              </label>
-
-              <label>
-                <input
-                  type="checkbox"
-                  checked={draft.enabled_squat}
-                  onChange={(event) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            enabled_squat: event.target.checked,
-                          }
-                        : current,
-                    )
-                  }
-                />
-                Enable squats
-              </label>
-
-              <label>
-                <input
-                  type="checkbox"
-                  checked={draft.enabled_burpee}
-                  onChange={(event) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            enabled_burpee: event.target.checked,
-                          }
-                        : current,
-                    )
-                  }
-                />
-                Enable jumping jacks
-              </label>
-
-              <label>
-                <input
-                  type="checkbox"
-                  checked={draft.enabled_high_knees}
-                  onChange={(event) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            enabled_high_knees: event.target.checked,
-                          }
-                        : current,
-                    )
-                  }
-                />
-                Enable high knees
-              </label>
-
-              <label>
-                <input
-                  type="checkbox"
-                  checked={draft.enabled_lunges}
-                  onChange={(event) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            enabled_lunges: event.target.checked,
-                          }
-                        : current,
-                    )
-                  }
-                />
-                Enable lunges
-              </label>
-
-              <div className="settings-grid">
+              <div>
+                <h3 className="admin-subsection-title">Scoring</h3>
+                <div className="settings-grid admin-scoring-grid">
                 <label>
                   Squat points per rep
                   <input
@@ -523,8 +504,14 @@ export function AdminPage() {
                     }
                   />
                 </label>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="admin-subsection-title">Participation rules</h3>
+                <div className="settings-grid admin-rules-grid">
                 <label>
-                  Minimum qualifying workout
+                  Minimum qualifying reps or points
                   <input
                     type="number"
                     min={1}
@@ -596,6 +583,7 @@ export function AdminPage() {
                     }
                   />
                 </label>
+                </div>
               </div>
 
               <p className="hint">
@@ -755,7 +743,8 @@ export function AdminPage() {
         ) : null}
 
         <section className="panel settings-panel">
-          <h2>Completed Challenge History (Read-only)</h2>
+          <h2>Challenge History</h2>
+          <p>Completed and cancelled challenges remain available here for reference.</p>
           {readOnlyHistory.length === 0 ? (
             <p>No completed or archived challenge history yet.</p>
           ) : (
@@ -764,20 +753,38 @@ export function AdminPage() {
                 <tr>
                   <th>Name</th>
                   <th>Status</th>
-                  <th>Start</th>
-                  <th>End</th>
+                  <th>Exercises</th>
+                  <th>Points / rep</th>
+                  <th>Challenge window</th>
                   <th>Timezone</th>
                 </tr>
               </thead>
               <tbody>
                 {readOnlyHistory.map((item) => (
+                  (() => {
+                    const exercises = [
+                      item.enabled_squat ? 'Squats' : null,
+                      item.enabled_burpee ? 'Jumping jacks' : null,
+                      item.enabled_high_knees ? 'High knees' : null,
+                      item.enabled_lunges ? 'Lunges' : null,
+                    ].filter(Boolean).join(' · ')
+
+                    return (
                   <tr key={item.id}>
                     <td>{item.name}</td>
                     <td>{item.status}</td>
-                    <td>{dayjs(item.start_date).format('YYYY-MM-DD HH:mm')}</td>
-                    <td>{dayjs(item.end_date).format('YYYY-MM-DD HH:mm')}</td>
+                    <td>{exercises || 'None'}</td>
+                    <td>
+                      {item.squat_points_per_rep} · {item.burpee_points_per_rep} · {item.high_knees_points_per_rep} ·{' '}
+                      {item.lunges_points_per_rep}
+                    </td>
+                    <td>
+                      {dayjs(item.start_date).format('YYYY-MM-DD HH:mm')} to {dayjs(item.end_date).format('YYYY-MM-DD HH:mm')}
+                    </td>
                     <td>{item.timezone}</td>
                   </tr>
+                    )
+                  })()
                 ))}
               </tbody>
             </table>
