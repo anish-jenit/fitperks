@@ -359,6 +359,8 @@ create or replace function public.current_admin_role()
 returns admin_role
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select au.role from admin_users au where au.user_id = auth.uid() limit 1
 $$;
@@ -367,6 +369,8 @@ create or replace function public.is_platform_admin()
 returns boolean
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select exists (
     select 1 from admin_users au where au.user_id = auth.uid() and au.role = 'platform_admin'
@@ -377,6 +381,8 @@ create or replace function public.is_org_admin(org_id uuid)
 returns boolean
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select exists (
     select 1 from admin_users au where au.user_id = auth.uid() and au.role = 'organization_admin' and au.organization_id = org_id
