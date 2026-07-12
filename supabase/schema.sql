@@ -365,6 +365,19 @@ as $$
   select au.role from admin_users au where au.user_id = auth.uid() limit 1
 $$;
 
+create or replace function public.get_current_admin_user()
+returns admin_users
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select au.*
+  from admin_users au
+  where au.user_id = auth.uid()
+  limit 1
+$$;
+
 create or replace function public.is_platform_admin()
 returns boolean
 language sql

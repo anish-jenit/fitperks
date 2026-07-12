@@ -409,11 +409,7 @@ export async function getCurrentAdminUser(): Promise<AdminUserRecord | null> {
     return null
   }
 
-  const { data, error } = await supabase
-    .from('admin_users')
-    .select('*')
-    .eq('user_id', session.user.id)
-    .maybeSingle()
+  const { data, error } = await supabase.rpc('get_current_admin_user')
 
   if (error) {
     throw error

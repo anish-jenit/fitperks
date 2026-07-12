@@ -33,6 +33,21 @@ type OrganizationDraft = {
   allowedEmailDomains: string
 }
 
+function getAdminErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim()) {
+      return message
+    }
+  }
+
+  return fallback
+}
+
 export function AdminPage() {
   const [login, setLogin] = useState<LoginState>({ email: '', password: '' })
   const [authenticated, setAuthenticated] = useState(false)
@@ -95,7 +110,7 @@ export function AdminPage() {
       setDraft(nextActive)
       setChallengeHistory(nextHistory)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load admin data.')
+      setError(getAdminErrorMessage(err, 'Unable to load admin data.'))
     } finally {
       setLoading(false)
     }
@@ -111,7 +126,7 @@ export function AdminPage() {
       setAuthenticated(true)
       await hydrate()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Admin login failed.')
+      setError(getAdminErrorMessage(err, 'Admin login failed.'))
     } finally {
       setBusy(false)
     }
