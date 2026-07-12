@@ -2018,6 +2018,36 @@ select:focus {
   }
 }
 
+@media (min-width: 901px) {
+  .public-home {
+    min-height: calc(100vh - 4.4rem);
+    padding-block: 1rem;
+  }
+
+  .minimal-hero {
+    gap: 0.7rem;
+    padding-block: 1.5rem;
+  }
+
+  .minimal-hero h1 {
+    max-width: 16ch;
+    font-size: 5.8rem;
+    line-height: 0.92;
+  }
+
+  .minimal-actions {
+    margin-top: 0.8rem;
+  }
+
+  .minimal-actions .button {
+    min-height: 52px;
+  }
+
+  .guest-challenge-panel {
+    max-width: 900px;
+  }
+}
+
 @media (max-width: 900px) {
   .hero-panel-dark {
     padding: 1.2rem;

@@ -468,7 +468,7 @@ export function GuestChallengeLandingPage() {
 
   return (
     <main className="page">
-      <section className="panel form-panel">
+      <section className="panel form-panel guest-challenge-panel">
         <p className="hero-kicker">Player Challenge</p>
         <h1>{challenge.title}</h1>
         <p>{challenge.creatorName}</p>

@@ -902,6 +902,9 @@ export function WorkoutPage() {
                   : 'Tap Enable Camera to allow browser camera permission.'}
               </p>
             ) : null}
+            <p className="hint camera-privacy-note">
+              Camera video and images are used only to track your workout. FitPerks does not store them.
+            </p>
 
             {!isSessionComplete && countdown === null && !isWorkoutRunning ? <p className="hint">Step into frame, then use the camera control to begin.</p> : null}
 
