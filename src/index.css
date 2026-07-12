@@ -2,17 +2,17 @@
 
 :root {
   --canvas: #030712;
-  --panel: #0b1220;
-  --panel-soft: #111827;
-  --line: #263244;
-  --ink: #cbd5e1;
+  --panel: #0c1422;
+  --panel-soft: #111a2a;
+  --line: #253247;
+  --ink: #aeb9c9;
   --ink-strong: #f8fafc;
-  --accent: #93c5fd;
-  --accent-strong: #60a5fa;
+  --accent: #11c9f4;
+  --accent-strong: #06b6d4;
   --accent-calm: #5eead4;
   --danger: #fca5a5;
-  --radius: 8px;
-  --radius-lg: 12px;
+  --radius: 10px;
+  --radius-lg: 16px;
   --shadow-panel: 0 24px 58px -38px rgba(0, 0, 0, 0.78);
   --heading: 'Space Grotesk', sans-serif;
   --body: 'Sora', sans-serif;
@@ -27,8 +27,8 @@ body {
   font-family: var(--body);
   color: var(--ink);
   background:
-    radial-gradient(ellipse at top, rgba(37, 99, 235, 0.18), transparent 46%),
-    linear-gradient(180deg, #030712 0%, #07111f 54%, #0b1220 100%);
+    radial-gradient(ellipse at top, rgba(8, 145, 178, 0.13), transparent 42%),
+    linear-gradient(180deg, #030712 0%, #050b16 54%, #0b1220 100%);
 }
 
 #root {
@@ -55,4 +55,15 @@ h2 {
 p {
   margin: 0;
   line-height: 1.55;
+}
+
+label,
+small,
+code,
+.hint,
+.hero-kicker,
+.setup-meta,
+.scoreboard-heading span,
+.scoreboard-score span {
+  letter-spacing: 0.06em;
 }
