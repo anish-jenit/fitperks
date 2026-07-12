@@ -4,6 +4,7 @@ import { DEFAULT_APP_SETTINGS, DEFAULT_CALIBRATION, type AppSettings } from './s
 import { ensureAnonymousParticipantSession, supabase, useFlowStubs } from './supabase'
 import type {
   AdminUserRecord,
+  ApplicationSettings,
   ChallengeRecord,
   ExerciseType,
   GuestChallengeInput,
@@ -12,6 +13,8 @@ import type {
   GuestScoreboardRow,
   InviteSetupContext,
   IndividualLeaderboardRow,
+  OrganizationInviteRecord,
+  OrganizationRecord,
   ParticipantInput,
   ParticipantProfile,
   PublicLaunchContext,
@@ -253,6 +256,98 @@ export async function getChallengeHistory(): Promise<ChallengeRecord[]> {
   }
 
   return (data ?? []) as ChallengeRecord[]
+}
+
+export async function getApplicationSettings(): Promise<ApplicationSettings> {
+  if (useFlowStubs) {
+    return {
+      id: 1,
+      squat_points_per_rep: 1,
+      burpee_points_per_rep: 2,
+      high_knees_points_per_rep: 1,
+      lunges_points_per_rep: 2,
+      updated_at: dayjs().toISOString(),
+    }
+  }
+
+  const { data, error } = await supabase.rpc('get_application_settings')
+  if (error) {
+    throw error
+  }
+
+  return data as ApplicationSettings
+}
+
+export async function updateApplicationSettings(input: {
+  squatPointsPerRep: number
+  burpeePointsPerRep: number
+  highKneesPointsPerRep: number
+  lungesPointsPerRep: number
+}): Promise<ApplicationSettings> {
+  if (useFlowStubs) {
+    return getApplicationSettings()
+  }
+
+  const { data, error } = await supabase.rpc('update_application_settings', {
+    p_squat_points_per_rep: input.squatPointsPerRep,
+    p_burpee_points_per_rep: input.burpeePointsPerRep,
+    p_high_knees_points_per_rep: input.highKneesPointsPerRep,
+    p_lunges_points_per_rep: input.lungesPointsPerRep,
+  })
+  if (error) {
+    throw error
+  }
+
+  return data as ApplicationSettings
+}
+
+export async function getOrganizations(): Promise<OrganizationRecord[]> {
+  if (useFlowStubs) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('id, name, slug, organization_code, country_code, poc_email, allowed_email_domains, status, created_at')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? []) as OrganizationRecord[]
+}
+
+export async function getOrganizationInvites(): Promise<OrganizationInviteRecord[]> {
+  if (useFlowStubs) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('organization_invites')
+    .select('id, token, organization_id, poc_email, status, expires_at, accepted_at, created_at, organizations(name, organization_code, country_code)')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? []).map((item) => {
+    const organization = Array.isArray(item.organizations) ? item.organizations[0] : item.organizations
+    return {
+      id: item.id,
+      token: item.token,
+      organization_id: item.organization_id,
+      organization_name: organization?.name ?? 'Unknown organization',
+      organization_code: organization?.organization_code ?? '',
+      poc_email: item.poc_email,
+      country_code: organization?.country_code ?? '',
+      status: item.status,
+      expires_at: item.expires_at,
+      accepted_at: item.accepted_at,
+      created_at: item.created_at,
+    }
+  }) as OrganizationInviteRecord[]
 }
 
 export async function submitWorkoutSecure(input: {

@@ -24,8 +24,33 @@ export type OrganizationRecord = {
   name: string
   slug: string
   organization_code: string
+  country_code: string
+  poc_email: string | null
   allowed_email_domains: string[]
   status: 'active' | 'suspended'
+  created_at: string
+}
+
+export type ApplicationSettings = {
+  id: number
+  squat_points_per_rep: number
+  burpee_points_per_rep: number
+  high_knees_points_per_rep: number
+  lunges_points_per_rep: number
+  updated_at: string
+}
+
+export type OrganizationInviteRecord = {
+  id: string
+  token: string
+  organization_id: string
+  organization_name: string
+  organization_code: string
+  poc_email: string
+  country_code: string
+  status: 'pending' | 'accepted' | 'expired'
+  expires_at: string
+  accepted_at: string | null
   created_at: string
 }
 

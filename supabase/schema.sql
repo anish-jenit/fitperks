@@ -1,5 +1,18 @@
 create extension if not exists "pgcrypto";
 
+create table if not exists application_settings (
+  id smallint primary key default 1 check (id = 1),
+  squat_points_per_rep int not null default 1 check (squat_points_per_rep >= 0),
+  burpee_points_per_rep int not null default 2 check (burpee_points_per_rep >= 0),
+  high_knees_points_per_rep int not null default 1 check (high_knees_points_per_rep >= 0),
+  lunges_points_per_rep int not null default 2 check (lunges_points_per_rep >= 0),
+  updated_at timestamptz not null default now()
+);
+
+insert into application_settings (id)
+values (1)
+on conflict (id) do nothing;
+
 do $$ begin
   create type challenge_status as enum ('upcoming', 'active', 'completed', 'archived');
 exception when duplicate_object then null;
@@ -410,6 +423,62 @@ as $$
   select pp.participant_id from participant_profiles pp where pp.user_id = auth.uid() limit 1
 $$;
 
+create or replace function public.get_application_settings()
+returns application_settings
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_settings application_settings%rowtype;
+begin
+  if not is_platform_admin() then
+    raise exception 'Only platform admins can view application settings';
+  end if;
+
+  select * into v_settings from application_settings where id = 1;
+  return v_settings;
+end;
+$$;
+
+create or replace function public.update_application_settings(
+  p_squat_points_per_rep int,
+  p_burpee_points_per_rep int,
+  p_high_knees_points_per_rep int,
+  p_lunges_points_per_rep int
+)
+returns application_settings
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_settings application_settings%rowtype;
+begin
+  if not is_platform_admin() then
+    raise exception 'Only platform admins can update application settings';
+  end if;
+
+  if p_squat_points_per_rep < 0
+    or p_burpee_points_per_rep < 0
+    or p_high_knees_points_per_rep < 0
+    or p_lunges_points_per_rep < 0 then
+    raise exception 'Point values cannot be negative';
+  end if;
+
+  update application_settings
+  set squat_points_per_rep = p_squat_points_per_rep,
+      burpee_points_per_rep = p_burpee_points_per_rep,
+      high_knees_points_per_rep = p_high_knees_points_per_rep,
+      lunges_points_per_rep = p_lunges_points_per_rep,
+      updated_at = now()
+  where id = 1
+  returning * into v_settings;
+
+  return v_settings;
+end;
+$$;
+
 create or replace function public.participant_join_with_code(
   p_organization_code text,
   p_nickname text,
@@ -680,6 +749,7 @@ declare
   v_invite organization_invites%rowtype;
   v_org organizations%rowtype;
   v_challenge challenges%rowtype;
+  v_app_settings application_settings%rowtype;
   v_timezone text;
 begin
   select * into v_invite
@@ -704,6 +774,10 @@ begin
   from organizations
   where id = v_invite.organization_id
   limit 1;
+
+  select * into v_app_settings
+  from application_settings
+  where id = 1;
 
   v_timezone := coalesce(nullif(trim(p_timezone), ''), 'UTC');
   if not exists (select 1 from pg_timezone_names where name = v_timezone) then
@@ -733,6 +807,10 @@ begin
       end_date,
       timezone,
       status,
+      squat_points_per_rep,
+      burpee_points_per_rep,
+      high_knees_points_per_rep,
+      lunges_points_per_rep,
       enabled_squat,
       enabled_burpee,
       enabled_high_knees,
@@ -746,6 +824,10 @@ begin
       p_end_date,
       v_timezone,
       (case when p_start_date <= now() and p_end_date >= now() then 'active' else 'upcoming' end)::challenge_status,
+      v_app_settings.squat_points_per_rep,
+      v_app_settings.burpee_points_per_rep,
+      v_app_settings.high_knees_points_per_rep,
+      v_app_settings.lunges_points_per_rep,
       p_enabled_squat,
       p_enabled_burpee,
       p_enabled_high_knees,
@@ -2015,6 +2097,7 @@ begin
 end;
 $$;
 
+alter table application_settings enable row level security;
 alter table organizations enable row level security;
 alter table organization_settings enable row level security;
 alter table admin_users enable row level security;

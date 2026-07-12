@@ -1515,6 +1515,70 @@ th {
   flex-wrap: wrap;
 }
 
+.admin-tabs {
+  display: flex;
+  gap: 0.65rem;
+  margin-top: 1.2rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+.admin-tab {
+  flex: 0 0 auto;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--line);
+  border-bottom-color: transparent;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-tab.active {
+  border-color: var(--accent);
+  background: var(--panel-soft);
+  color: var(--text);
+}
+
+.admin-management-grid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.admin-management-block,
+.admin-list-block {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+}
+
+.admin-list-block {
+  margin-top: 1rem;
+}
+
+.admin-management-block .admin-subsection-title,
+.admin-list-block .admin-subsection-title {
+  margin-top: 0;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.table-scroll table {
+  min-width: 680px;
+}
+
+.table-muted {
+  color: var(--muted);
+}
+
 .settings-panel {
   margin-top: 1rem;
   border-style: dashed;
@@ -1582,6 +1646,11 @@ th {
 }
 
 @media (min-width: 901px) {
+  .admin-management-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
   .admin-window-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }

@@ -9,10 +9,14 @@ import {
   getChallengeHistory,
   getCurrentAdminUser,
   getIndividualLeaderboard,
+  getApplicationSettings,
+  getOrganizationInvites,
+  getOrganizations,
   toCsv,
+  updateApplicationSettings,
   updateChallengeConfig,
 } from '../lib/supabaseApi'
-import type { ChallengeRecord } from '../types'
+import type { ApplicationSettings, ChallengeRecord, OrganizationInviteRecord, OrganizationRecord } from '../types'
 
 type LoginState = {
   email: string
@@ -32,6 +36,8 @@ type OrganizationDraft = {
   pocEmail: string
   allowedEmailDomains: string
 }
+
+type PlatformTab = 'defaults' | 'organizations'
 
 function getAdminErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim()) {
@@ -59,6 +65,10 @@ export function AdminPage() {
   const [activeChallenge, setActiveChallenge] = useState<ChallengeRecord | null>(null)
   const [challengeHistory, setChallengeHistory] = useState<ChallengeRecord[]>([])
   const [draft, setDraft] = useState<ChallengeRecord | null>(null)
+  const [platformTab, setPlatformTab] = useState<PlatformTab>('defaults')
+  const [applicationSettings, setApplicationSettings] = useState<ApplicationSettings | null>(null)
+  const [organizations, setOrganizations] = useState<OrganizationRecord[]>([])
+  const [organizationInvites, setOrganizationInvites] = useState<OrganizationInviteRecord[]>([])
   const [inviteDraft, setInviteDraft] = useState<InviteDraft>({ organizationCode: '', pocEmail: '', countryCode: '' })
   const [generatedInviteUrl, setGeneratedInviteUrl] = useState<string | null>(null)
   const [organizationDraft, setOrganizationDraft] = useState<OrganizationDraft>({
@@ -80,10 +90,9 @@ export function AdminPage() {
       if (useFlowStubs) {
         setAuthenticated(true)
         setIsPlatformAdmin(true)
-        const [nextActive, nextHistory] = await Promise.all([getActiveChallenge('SAMPLECO2026'), getChallengeHistory()])
-        setActiveChallenge(nextActive)
-        setDraft(nextActive)
-        setChallengeHistory(nextHistory)
+        setApplicationSettings(await getApplicationSettings())
+        setOrganizations([])
+        setOrganizationInvites([])
         setMessage('Stub mode active: admin and POC invite flow is running locally without Supabase.')
         setError(null)
         return
@@ -105,10 +114,25 @@ export function AdminPage() {
       setAuthenticated(true)
       setIsPlatformAdmin(admin.role === 'platform_admin')
 
-      const [nextActive, nextHistory] = await Promise.all([getActiveChallenge(), getChallengeHistory()])
-      setActiveChallenge(nextActive)
-      setDraft(nextActive)
-      setChallengeHistory(nextHistory)
+      if (admin.role === 'platform_admin') {
+        const [nextSettings, nextOrganizations, nextInvites, nextHistory] = await Promise.all([
+          getApplicationSettings(),
+          getOrganizations(),
+          getOrganizationInvites(),
+          getChallengeHistory(),
+        ])
+        setApplicationSettings(nextSettings)
+        setOrganizations(nextOrganizations)
+        setOrganizationInvites(nextInvites)
+        setChallengeHistory(nextHistory)
+        setActiveChallenge(null)
+        setDraft(null)
+      } else {
+        const [nextActive, nextHistory] = await Promise.all([getActiveChallenge(), getChallengeHistory()])
+        setActiveChallenge(nextActive)
+        setDraft(nextActive)
+        setChallengeHistory(nextHistory)
+      }
     } catch (err) {
       setError(getAdminErrorMessage(err, 'Unable to load admin data.'))
     } finally {
@@ -183,6 +207,30 @@ export function AdminPage() {
     }
   }
 
+  async function onSaveApplicationSettings() {
+    if (!applicationSettings) {
+      return
+    }
+
+    try {
+      setBusy(true)
+      setError(null)
+      setMessage(null)
+      const next = await updateApplicationSettings({
+        squatPointsPerRep: applicationSettings.squat_points_per_rep,
+        burpeePointsPerRep: applicationSettings.burpee_points_per_rep,
+        highKneesPointsPerRep: applicationSettings.high_knees_points_per_rep,
+        lungesPointsPerRep: applicationSettings.lunges_points_per_rep,
+      })
+      setApplicationSettings(next)
+      setMessage('Application defaults updated. New organization challenges will use these point values.')
+    } catch (err) {
+      setError(getAdminErrorMessage(err, 'Unable to save application defaults.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function onExportCsv() {
     if (!activeChallenge) {
       return
@@ -212,6 +260,9 @@ export function AdminPage() {
 
       const absoluteUrl = `${window.location.origin}${result.inviteUrlPath}`
       setGeneratedInviteUrl(absoluteUrl)
+      if (isPlatformAdmin) {
+        setOrganizationInvites(await getOrganizationInvites())
+      }
       setMessage('Invite link created. Share it with the organization POC.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to create invite link.')
@@ -227,6 +278,9 @@ export function AdminPage() {
       setMessage(null)
 
       await createOrganization(organizationDraft)
+      if (isPlatformAdmin) {
+        setOrganizations(await getOrganizations())
+      }
       setInviteDraft({
         organizationCode: organizationDraft.organizationCode.trim().toUpperCase(),
         pocEmail: organizationDraft.pocEmail.trim().toLowerCase(),
@@ -293,19 +347,21 @@ export function AdminPage() {
   return (
     <main className="page">
       <section className="panel">
-        <h1>Organization Admin Dashboard</h1>
+        <h1>{isPlatformAdmin ? 'Platform Admin Dashboard' : 'Organization Admin Dashboard'}</h1>
         <p>
           {isPlatformAdmin
-            ? 'Platform admin access: organization lifecycle and admin assignment available via Supabase dashboard.'
+            ? 'Manage application defaults, organizations, onboarding links, and challenge history.'
             : 'Organization admin access: challenge configuration, scoring, streak rules, and exports.'}
         </p>
         {error ? <p className="error">{error}</p> : null}
         {message ? <p>{message}</p> : null}
 
         <div className="admin-actions">
-          <button className="button ghost" onClick={() => void onExportCsv()}>
-            Export Organization CSV
-          </button>
+          {!isPlatformAdmin ? (
+            <button className="button ghost" onClick={() => void onExportCsv()}>
+              Export Organization CSV
+            </button>
+          ) : null}
           <button
             className="button ghost"
             onClick={() => {
@@ -326,7 +382,217 @@ export function AdminPage() {
           </button>
         </div>
 
-        <section className="panel settings-panel">
+        {isPlatformAdmin ? (
+          <>
+            <div className="admin-tabs" role="tablist" aria-label="Platform admin functions">
+              <button
+                className={`admin-tab ${platformTab === 'defaults' ? 'active' : ''}`}
+                type="button"
+                role="tab"
+                aria-selected={platformTab === 'defaults'}
+                onClick={() => setPlatformTab('defaults')}
+              >
+                Application Defaults
+              </button>
+              <button
+                className={`admin-tab ${platformTab === 'organizations' ? 'active' : ''}`}
+                type="button"
+                role="tab"
+                aria-selected={platformTab === 'organizations'}
+                onClick={() => setPlatformTab('organizations')}
+              >
+                Organizations & Invites
+              </button>
+            </div>
+
+            {platformTab === 'defaults' ? (
+              <section className="panel settings-panel">
+                <h2>Application Point Defaults</h2>
+                <p>These values apply to newly created organization challenges. Existing challenges keep their current scoring.</p>
+                {applicationSettings ? (
+                  <div className="stack">
+                    <div className="settings-grid admin-scoring-grid">
+                      {([
+                        ['squat_points_per_rep', 'Squats'],
+                        ['burpee_points_per_rep', 'Jumping jacks'],
+                        ['high_knees_points_per_rep', 'High knees'],
+                        ['lunges_points_per_rep', 'Lunges'],
+                      ] as const).map(([field, label]) => (
+                        <label key={field}>
+                          {label} points per rep
+                          <input
+                            type="number"
+                            min={0}
+                            value={applicationSettings[field]}
+                            onChange={(event) =>
+                              setApplicationSettings((current) =>
+                                current ? { ...current, [field]: Number(event.target.value) } : current,
+                              )
+                            }
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <p className="hint">
+                      Current defaults: {applicationSettings.squat_points_per_rep} squat, {applicationSettings.burpee_points_per_rep}{' '}
+                      jumping jack, {applicationSettings.high_knees_points_per_rep} high knees, {applicationSettings.lunges_points_per_rep}{' '}
+                      lunge points per rep.
+                    </p>
+                    <button className="button primary" type="button" onClick={() => void onSaveApplicationSettings()} disabled={busy}>
+                      {busy ? 'Saving...' : 'Save Application Defaults'}
+                    </button>
+                  </div>
+                ) : (
+                  <p>Application defaults are unavailable.</p>
+                )}
+              </section>
+            ) : (
+              <section className="panel settings-panel">
+                <h2>Organizations & Invites</h2>
+                <p>Create organizations, generate POC setup links, and review every organization onboarding record.</p>
+
+                <div className="admin-management-grid">
+                  <div className="admin-management-block">
+                    <h3 className="admin-subsection-title">Create organization</h3>
+                    <div className="stack">
+                      <label>
+                        Organization name
+                        <input
+                          value={organizationDraft.name}
+                          onChange={(event) => setOrganizationDraft((state) => ({ ...state, name: event.target.value }))}
+                          placeholder="Citi"
+                        />
+                      </label>
+                      <label>
+                        Organization code
+                        <input
+                          value={organizationDraft.organizationCode}
+                          onChange={(event) => setOrganizationDraft((state) => ({ ...state, organizationCode: event.target.value }))}
+                          placeholder="CITI2026"
+                        />
+                      </label>
+                      <div className="settings-grid admin-window-grid">
+                        <label>
+                          Country code
+                          <input
+                            value={organizationDraft.countryCode}
+                            onChange={(event) => setOrganizationDraft((state) => ({ ...state, countryCode: event.target.value }))}
+                            placeholder="sg"
+                          />
+                        </label>
+                        <label>
+                          POC email
+                          <input
+                            type="email"
+                            value={organizationDraft.pocEmail}
+                            onChange={(event) => setOrganizationDraft((state) => ({ ...state, pocEmail: event.target.value }))}
+                            placeholder="poc@company.com"
+                          />
+                        </label>
+                      </div>
+                      <label>
+                        Allowed email domains
+                        <input
+                          value={organizationDraft.allowedEmailDomains}
+                          onChange={(event) => setOrganizationDraft((state) => ({ ...state, allowedEmailDomains: event.target.value }))}
+                          placeholder="company.com, subsidiary.com"
+                        />
+                      </label>
+                      <button
+                        className="button primary"
+                        type="button"
+                        onClick={() => void onCreateOrganization()}
+                        disabled={busy || !organizationDraft.name.trim() || !organizationDraft.organizationCode.trim() || !organizationDraft.countryCode.trim()}
+                      >
+                        {busy ? 'Creating...' : 'Create Organization'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="admin-management-block">
+                    <h3 className="admin-subsection-title">Generate POC setup URL</h3>
+                    <div className="stack">
+                      <label>
+                        Organization code
+                        <input
+                          value={inviteDraft.organizationCode}
+                          onChange={(event) => setInviteDraft((state) => ({ ...state, organizationCode: event.target.value }))}
+                          placeholder="CITI2026"
+                        />
+                      </label>
+                      <label>
+                        POC email
+                        <input
+                          type="email"
+                          value={inviteDraft.pocEmail}
+                          onChange={(event) => setInviteDraft((state) => ({ ...state, pocEmail: event.target.value }))}
+                          placeholder="poc@company.com"
+                        />
+                      </label>
+                      <label>
+                        Country code
+                        <input
+                          value={inviteDraft.countryCode}
+                          onChange={(event) => setInviteDraft((state) => ({ ...state, countryCode: event.target.value }))}
+                          placeholder="sg"
+                        />
+                      </label>
+                      <button className="button primary" type="button" onClick={() => void onGenerateInvite()} disabled={busy || !inviteDraft.organizationCode.trim() || !inviteDraft.pocEmail.trim() || !inviteDraft.countryCode.trim()}>
+                        {busy ? 'Generating...' : 'Generate Invite URL'}
+                      </button>
+                      {generatedInviteUrl ? (
+                        <label>
+                          Latest setup URL
+                          <input value={generatedInviteUrl} readOnly />
+                        </label>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="admin-list-block">
+                  <h3 className="admin-subsection-title">Organization records</h3>
+                  {organizations.length === 0 ? <p>No organizations found.</p> : (
+                    <div className="table-scroll"><table>
+                      <thead><tr><th>Organization</th><th>Code</th><th>POC</th><th>Country</th><th>Status</th></tr></thead>
+                      <tbody>{organizations.map((organization) => (
+                        <tr key={organization.id}>
+                          <td>{organization.name}</td>
+                          <td>{organization.organization_code}</td>
+                          <td>{organization.poc_email ?? 'Not set'}</td>
+                          <td>{organization.country_code}</td>
+                          <td>{organization.status}</td>
+                        </tr>
+                      ))}</tbody>
+                    </table></div>
+                  )}
+                </div>
+
+                <div className="admin-list-block">
+                  <h3 className="admin-subsection-title">Generated invite URLs</h3>
+                  {organizationInvites.length === 0 ? <p>No invite URLs generated yet.</p> : (
+                    <div className="table-scroll"><table>
+                      <thead><tr><th>Organization</th><th>POC</th><th>Status</th><th>Expires</th><th>Setup URL</th></tr></thead>
+                      <tbody>{organizationInvites.map((invite) => {
+                        const url = `${window.location.origin}/setup/${invite.token}`
+                        return <tr key={invite.id}><td>{invite.organization_name} <span className="table-muted">({invite.organization_code})</span></td><td>{invite.poc_email}</td><td>{invite.status}</td><td>{dayjs(invite.expires_at).format('YYYY-MM-DD')}</td><td><a href={url}>{url}</a></td></tr>
+                      })}</tbody>
+                    </table></div>
+                  )}
+                </div>
+
+                <div className="admin-list-block">
+                  <h3 className="admin-subsection-title">Challenge history</h3>
+                  {readOnlyHistory.length === 0 ? <p>No completed or archived challenges yet.</p> : (
+                    <div className="table-scroll"><table><thead><tr><th>Organization</th><th>Challenge</th><th>Status</th><th>Window</th></tr></thead><tbody>{readOnlyHistory.map((item) => <tr key={item.id}><td>{organizations.find((organization) => organization.id === item.organization_id)?.name ?? item.organization_id}</td><td>{item.name}</td><td>{item.status}</td><td>{dayjs(item.start_date).format('YYYY-MM-DD')} to {dayjs(item.end_date).format('YYYY-MM-DD')}</td></tr>)}</tbody></table></div>
+                  )}
+                </div>
+              </section>
+            )}
+          </>
+        ) : null}
+
+        {!isPlatformAdmin ? <section className="panel settings-panel">
           <h2>Active Challenge Configuration</h2>
           {!draft ? (
             <p>No active challenge found for this organization.</p>
@@ -598,151 +864,9 @@ export function AdminPage() {
               </button>
             </div>
           )}
-        </section>
+        </section> : null}
 
-        {isPlatformAdmin ? (
-          <section className="panel settings-panel">
-            <h2>Create Organization</h2>
-            <p>Create the organization record before generating a POC setup link.</p>
-
-            <div className="stack">
-              <label>
-                Organization name
-                <input
-                  value={organizationDraft.name}
-                  onChange={(event) => setOrganizationDraft((state) => ({ ...state, name: event.target.value }))}
-                  placeholder="Citi"
-                />
-              </label>
-
-              <label>
-                Organization code
-                <input
-                  value={organizationDraft.organizationCode}
-                  onChange={(event) =>
-                    setOrganizationDraft((state) => ({ ...state, organizationCode: event.target.value }))
-                  }
-                  placeholder="CITI2026"
-                />
-              </label>
-
-              <div className="settings-grid">
-                <label>
-                  Country code
-                  <input
-                    value={organizationDraft.countryCode}
-                    onChange={(event) => setOrganizationDraft((state) => ({ ...state, countryCode: event.target.value }))}
-                    placeholder="sg"
-                  />
-                </label>
-                <label>
-                  POC email
-                  <input
-                    type="email"
-                    value={organizationDraft.pocEmail}
-                    onChange={(event) => setOrganizationDraft((state) => ({ ...state, pocEmail: event.target.value }))}
-                    placeholder="poc@company.com"
-                  />
-                </label>
-              </div>
-
-              <label>
-                Allowed email domains (optional)
-                <input
-                  value={organizationDraft.allowedEmailDomains}
-                  onChange={(event) =>
-                    setOrganizationDraft((state) => ({ ...state, allowedEmailDomains: event.target.value }))
-                  }
-                  placeholder="company.com, subsidiary.com"
-                />
-              </label>
-
-              <button
-                className="button primary"
-                type="button"
-                onClick={() => void onCreateOrganization()}
-                disabled={busy || !organizationDraft.name.trim() || !organizationDraft.organizationCode.trim() || !organizationDraft.countryCode.trim()}
-              >
-                {busy ? 'Creating...' : 'Create Organization'}
-              </button>
-            </div>
-          </section>
-        ) : null}
-
-        {isPlatformAdmin ? (
-          <section className="panel settings-panel">
-            <h2>POC Invite</h2>
-            <p>Create an onboarding link for an organization POC.</p>
-
-            <div className="stack">
-              <label>
-                Organization code
-                <input
-                  value={inviteDraft.organizationCode}
-                  onChange={(event) =>
-                    setInviteDraft((state) => ({
-                      ...state,
-                      organizationCode: event.target.value,
-                    }))
-                  }
-                  placeholder="COMPANYA2026"
-                />
-              </label>
-
-              <label>
-                POC email
-                <input
-                  type="email"
-                  value={inviteDraft.pocEmail}
-                  onChange={(event) =>
-                    setInviteDraft((state) => ({
-                      ...state,
-                      pocEmail: event.target.value,
-                    }))
-                  }
-                  placeholder="poc@company.com"
-                />
-              </label>
-
-              <label>
-                Country code
-                <input
-                  value={inviteDraft.countryCode}
-                  onChange={(event) =>
-                    setInviteDraft((state) => ({
-                      ...state,
-                      countryCode: event.target.value,
-                    }))
-                  }
-                  placeholder="us"
-                />
-              </label>
-
-              <button
-                className="button primary"
-                type="button"
-                onClick={() => void onGenerateInvite()}
-                disabled={
-                  busy ||
-                  !inviteDraft.organizationCode.trim() ||
-                  !inviteDraft.pocEmail.trim() ||
-                  !inviteDraft.countryCode.trim()
-                }
-              >
-                {busy ? 'Generating...' : 'Generate Invite Link'}
-              </button>
-
-              {generatedInviteUrl ? (
-                <label>
-                  Shareable invite URL
-                  <input value={generatedInviteUrl} readOnly />
-                </label>
-              ) : null}
-            </div>
-          </section>
-        ) : null}
-
-        <section className="panel settings-panel">
+        {!isPlatformAdmin ? <section className="panel settings-panel">
           <h2>Challenge History</h2>
           <p>Completed and cancelled challenges remain available here for reference.</p>
           {readOnlyHistory.length === 0 ? (
@@ -789,7 +913,7 @@ export function AdminPage() {
               </tbody>
             </table>
           )}
-        </section>
+        </section> : null}
       </section>
     </main>
   )
