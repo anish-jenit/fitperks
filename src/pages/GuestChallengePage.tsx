@@ -65,15 +65,12 @@ function CopyableField({ label, value }: { label: string; value: string }) {
 
 function ShareLinks({ challenge }: { challenge: GuestChallengeRecord }) {
   const challengeUrl = buildUrl(`/guest/${challenge.code}`)
-  const scoreboardUrl = buildUrl(`/guest/${challenge.code}/scoreboard`)
   const whatsappText = encodeURIComponent(`Join my FitPerks challenge: ${challengeUrl}`)
 
   return (
     <div className="url-list">
-      <CopyableField label="Guest name" value={challenge.creatorName} />
       <CopyableField label="Challenge code" value={challenge.code} />
       <CopyableField label="Challenge URL" value={challengeUrl} />
-      <CopyableField label="Scoreboard URL" value={scoreboardUrl} />
       <article>
         <span>WhatsApp share</span>
         <a href={`https://wa.me/?text=${whatsappText}`} target="_blank" rel="noreferrer">
@@ -97,7 +94,7 @@ export function JoinChallengePage() {
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!guestEmail.trim() || !guestName.trim()) {
-      setError('Email and guest name are required.')
+      setError('Email and player name are required.')
       return
     }
 
@@ -139,7 +136,7 @@ export function JoinChallengePage() {
             <input type="email" value={guestEmail} onChange={(event) => setGuestEmail(event.target.value)} required />
           </label>
           <label>
-            Guest name
+            Player name
             <input value={guestName} onChange={(event) => setGuestName(event.target.value)} maxLength={80} required />
           </label>
           <label>
@@ -230,7 +227,7 @@ export function GuestChallengePage() {
         ? err.message
         : typeof err === 'object' && err !== null && 'message' in err
           ? String(err.message)
-          : 'Unable to create guest challenge.'
+          : 'Unable to create player challenge.'
       if (message.includes('already have an active guest challenge')) {
         try {
           let active: GuestChallengeRecord
@@ -240,7 +237,7 @@ export function GuestChallengePage() {
             const matches = await getGuestChallengesForEmail(creatorEmail)
             const match = matches.find((challenge) => challenge.creatorEmail === creatorEmail.trim().toLowerCase())
             if (!match) {
-              throw new Error('Active guest challenge not found.')
+              throw new Error('Active player challenge not found.')
             }
             active = match
           }
@@ -250,7 +247,7 @@ export function GuestChallengePage() {
             guestEmail: active.creatorEmail,
             challengeCode: active.code,
           })
-          setError('You already have an active guest challenge. Share that one until it ends.')
+          setError('You already have an active player challenge. Share that one until it ends.')
         } catch {
           setError(message)
         }
@@ -265,7 +262,6 @@ export function GuestChallengePage() {
   return (
     <main className="page">
       <section className="panel form-panel">
-        <p className="hero-kicker">Limited Edition</p>
         <h1>Create Challenge</h1>
         <p className="hint">For up to 10 players. Maximum duration is 7 days.</p>
 
@@ -328,7 +324,7 @@ export function GuestChallengePage() {
               <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={80} required />
             </label>
             <label>
-              Guest name
+              Player name
               <input value={creatorName} onChange={(event) => setCreatorName(event.target.value)} maxLength={80} required />
             </label>
             <label>
@@ -431,7 +427,7 @@ export function GuestChallengeLandingPage() {
     void getGuestChallenge(challengeCode)
       .then(setChallenge)
       .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Guest challenge not found.')
+        setError(err instanceof Error ? err.message : 'Player challenge not found.')
       })
       .finally(() => {
         setLoading(false)
@@ -446,7 +442,7 @@ export function GuestChallengeLandingPage() {
     return (
       <main className="page">
         <section className="panel form-panel">
-          <p>Loading guest challenge...</p>
+          <p>Loading player challenge...</p>
         </section>
       </main>
     )
@@ -469,7 +465,7 @@ export function GuestChallengeLandingPage() {
   return (
     <main className="page">
       <section className="panel form-panel">
-        <p className="hero-kicker">Guest Challenge</p>
+        <p className="hero-kicker">Player Challenge</p>
         <h1>{challenge.title}</h1>
         <p>{challenge.creatorName}</p>
         <div className="stats-cards">
@@ -486,11 +482,18 @@ export function GuestChallengeLandingPage() {
             <p>Attempts/day</p>
           </article>
         </div>
-        <div className="hero-actions">
+        <div className="hero-actions setup-actions guest-workout-actions">
           {challenge.selectedExercises.map((exercise) => {
             const workout = CHALLENGES.find((item) => item.id === exercise)
-            return workout ? <Link className="button ghost" to={`/guest/${challenge.code}/workout/${exercise}`} key={exercise}>{workout.name.replace(' Challenge', '')}</Link> : null
+            return workout ? (
+              <Link className={`button ghost setup-exercise-action setup-exercise-${exercise}`} to={`/guest/${challenge.code}/workout/${exercise}`} key={exercise}>
+                <span className="setup-exercise-label">Start</span>
+                <strong className="setup-exercise-name">{workout.name.replace(' Challenge', '')}</strong>
+              </Link>
+            ) : null
           })}
+        </div>
+        <div className="hero-actions">
           <Link className="button ghost" to={`/guest/${challenge.code}/scoreboard`}>
             Scoreboard
           </Link>

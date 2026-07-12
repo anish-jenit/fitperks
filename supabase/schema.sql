@@ -1440,9 +1440,7 @@ begin
   end if;
 
   loop
-    v_code := lower(regexp_replace(trim(coalesce(nullif(p_title, ''), 'challenge')), '[^a-zA-Z0-9]+', '-', 'g'));
-    v_code := trim(both '-' from v_code);
-    v_code := coalesce(nullif(v_code, ''), 'challenge') || '-' || substr(encode(extensions.gen_random_bytes(4), 'hex'), 1, 6);
+    v_code := substr(encode(extensions.gen_random_bytes(9), 'hex'), 1, 12);
 
     begin
       insert into guest_challenges (

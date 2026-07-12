@@ -235,7 +235,7 @@ export function WorkoutPage() {
             id: payload.id,
             organization_id: 'guest',
             name: payload.title,
-            description: 'Guest limited edition challenge',
+            description: 'Player challenge',
             start_date: payload.startDate,
             end_date: payload.endDate,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
@@ -260,7 +260,7 @@ export function WorkoutPage() {
           })
         })
         .catch((err) => {
-          setError(err instanceof Error ? err.message : 'Unable to load guest challenge.')
+          setError(err instanceof Error ? err.message : 'Unable to load player challenge.')
         })
       return
     }
@@ -729,15 +729,15 @@ export function WorkoutPage() {
 
       if (isGuestWorkout) {
         if (!challengeCode) {
-          throw new Error('Guest challenge code is missing.')
+          throw new Error('Player challenge code is missing.')
         }
 
         if (!saveName.trim()) {
-          throw new Error('Guest name is required to save your score.')
+          throw new Error('Player name is required to save your score.')
         }
 
         if (!saveEmail.trim()) {
-          throw new Error('Guest email is required to save your score. Return to Join Challenge and enter it first.')
+          throw new Error('Player email is required to save your score. Return to Join Challenge and enter it first.')
         }
 
         await submitGuestAttempt({
@@ -935,7 +935,7 @@ export function WorkoutPage() {
                 </div>
                 {isGuestWorkout ? (
                   <label>
-                    Guest email
+                    Player email
                     <input
                       type="email"
                       value={saveEmail}
@@ -957,7 +957,7 @@ export function WorkoutPage() {
                   </label>
                 )}
                 <label>
-                  {isGuestWorkout ? 'Guest name' : 'Nickname (optional)'}
+                  {isGuestWorkout ? 'Player name' : 'Nickname (optional)'}
                   <input
                     value={saveName}
                     onChange={(event) => setSaveName(event.target.value)}
@@ -985,7 +985,7 @@ export function WorkoutPage() {
             ) : null}
 
             <Link className="button ghost" to={isGuestWorkout ? `/guest/${challengeCode}` : '/challenges'}>
-              {isGuestWorkout ? 'Back to guest challenge' : 'Back to challenges'}
+              {isGuestWorkout ? 'Back to player challenge' : 'Back to challenges'}
             </Link>
           </aside>
         </div>

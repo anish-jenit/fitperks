@@ -12,7 +12,7 @@ export function LandingPage() {
         <p className="minimal-copy">Create, join, or request a managed challenge in a few calm clicks.</p>
         <div className="hero-actions minimal-actions">
           <Link className="button primary" to="/guest-challenge">
-            Create Challenge (Limited Edition)
+            Create Challenge
           </Link>
           <Link className="button ghost" to="/join-challenge">
             Join Challenge

@@ -729,7 +729,7 @@ export async function createGuestChallenge(input: GuestChallengeInput): Promise<
 
     const durationDays = Math.min(7, Math.max(1, input.durationDays))
     const attemptsPerDay = Math.min(5, Math.max(1, input.attemptsPerDay))
-    const code = `${slugify(input.title) || 'challenge'}-${crypto.randomUUID().slice(0, 6)}`
+    const code = crypto.randomUUID().replaceAll('-', '').slice(0, 12).toLowerCase()
     const start = dayjs(input.startDate).isValid() ? dayjs(input.startDate) : dayjs()
     const now = start
     const challenge: GuestChallengeRecord = {
