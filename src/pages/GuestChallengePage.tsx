@@ -305,8 +305,9 @@ export function GuestChallengePage() {
               {created.selectedExercises.map((exercise) => {
                 const workout = CHALLENGES.find((item) => item.id === exercise)
                 return workout ? (
-                  <Link className="button ghost" to={`/guest/${created.code}/workout/${exercise}`} key={exercise}>
-                    Start {workout.name.replace(' Challenge', '')}
+                  <Link className={`button ghost setup-exercise-action setup-exercise-${exercise}`} to={`/guest/${created.code}/workout/${exercise}`} key={exercise}>
+                    <span className="setup-exercise-label">Start</span>
+                    <strong className="setup-exercise-name">{workout.name.replace(' Challenge', '')}</strong>
                   </Link>
                 ) : null
               })}

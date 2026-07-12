@@ -589,6 +589,54 @@
   font-size: 0.9rem;
 }
 
+.setup-exercise-action {
+  position: relative;
+  display: grid;
+  gap: 0.15rem;
+  align-content: center;
+  justify-items: center;
+  border-top: 3px solid var(--exercise-color, var(--line));
+}
+
+.setup-exercise-action::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--exercise-color, var(--accent));
+}
+
+.setup-exercise-label {
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.setup-exercise-name {
+  color: var(--ink-strong);
+  font-size: 0.98rem;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.setup-exercise-squat {
+  --exercise-color: #60a5fa;
+}
+
+.setup-exercise-burpee {
+  --exercise-color: #f59e0b;
+}
+
+.setup-exercise-high-knees {
+  --exercise-color: #34d399;
+}
+
+.setup-exercise-lunges {
+  --exercise-color: #f472b6;
+}
+
 .button {
   border: 1px solid transparent;
   border-radius: var(--radius);
@@ -688,6 +736,7 @@
 .copy-card {
   grid-template-columns: 1fr auto;
   align-items: center;
+  min-width: 0;
 }
 
 .copy-card span,
@@ -698,7 +747,9 @@
 .copy-card code {
   color: var(--accent);
   overflow-wrap: anywhere;
+  word-break: break-word;
   white-space: normal;
+  min-width: 0;
 }
 
 .copy-card button {
@@ -1187,6 +1238,14 @@ th {
   border-radius: var(--radius);
   padding: 0.9rem;
   background: var(--panel-soft);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.stats-cards article p:not(.metric) {
+  margin-bottom: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
 }
 
 .metric {
@@ -1609,6 +1668,10 @@ th {
     padding-inline: 0.2rem;
     font-size: 0.72rem;
     line-height: 1.1;
+  }
+
+  .setup-exercise-name {
+    font-size: 0.78rem;
   }
 
   .stats-cards {
