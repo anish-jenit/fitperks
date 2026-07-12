@@ -401,7 +401,19 @@ export async function getCurrentAdminUser(): Promise<AdminUserRecord | null> {
     }
   }
 
-  const { data, error } = await supabase.from('admin_users').select('*').limit(1).maybeSingle()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session?.user.id) {
+    return null
+  }
+
+  const { data, error } = await supabase
+    .from('admin_users')
+    .select('*')
+    .eq('user_id', session.user.id)
+    .maybeSingle()
 
   if (error) {
     throw error
