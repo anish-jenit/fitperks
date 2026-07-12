@@ -1896,6 +1896,7 @@ select {
   border-radius: 10px;
   background: #050a13;
   color: var(--ink-strong);
+  font-size: 16px;
   min-height: 48px;
 }
 

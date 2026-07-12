@@ -280,7 +280,7 @@ security definer
 set search_path = public, extensions
 as $$
 begin
-  new.code := upper(substr(encode(extensions.gen_random_bytes(9), 'hex'), 1, 12));
+  new.code := lower(substr(encode(extensions.gen_random_bytes(9), 'hex'), 1, 12));
   return new;
 end;
 $$;
@@ -1558,7 +1558,7 @@ begin
 
   select * into v_challenge
   from guest_challenges
-  where code = lower(trim(p_code))
+  where lower(code) = lower(trim(p_code))
     and deleted_at is null
   limit 1;
 
@@ -1699,7 +1699,7 @@ begin
 
   select * into v_challenge
   from guest_challenges
-  where code = lower(trim(p_code))
+  where lower(code) = lower(trim(p_code))
     and deleted_at is null
   limit 1;
 
@@ -1843,7 +1843,7 @@ begin
 
   select * into v_challenge
   from guest_challenges
-  where code = lower(trim(p_code))
+  where lower(code) = lower(trim(p_code))
     and deleted_at is null
   limit 1;
 

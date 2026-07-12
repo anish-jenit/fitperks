@@ -73,7 +73,7 @@ function ShareLinks({ challenge }: { challenge: GuestChallengeRecord }) {
       <CopyableField label="Challenge URL" value={challengeUrl} />
       <article>
         <span>WhatsApp share</span>
-        <a href={`https://wa.me/?text=${whatsappText}`} target="_blank" rel="noreferrer">
+        <a href={`https://api.whatsapp.com/send?text=${whatsappText}`} target="_blank" rel="noreferrer">
           Open WhatsApp
         </a>
       </article>
@@ -217,6 +217,10 @@ export function GuestChallengePage() {
         sessionDurationSeconds,
       })
       setCreated(challenge)
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' })
       saveGuestJoinContext({
         guestName: creatorName,
         guestEmail: creatorEmail,
