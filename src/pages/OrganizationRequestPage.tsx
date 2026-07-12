@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { hasSupabaseConfig, supabase } from '../lib/supabase'
 
 type OrganizationRequest = {
   organizationName: string
@@ -24,30 +25,53 @@ const initialRequest: OrganizationRequest = {
 export function OrganizationRequestPage() {
   const [request, setRequest] = useState<OrganizationRequest>(initialRequest)
   const [sent, setSent] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   function update<K extends keyof OrganizationRequest>(key: K, value: OrganizationRequest[K]) {
     setRequest((current) => ({ ...current, [key]: value }))
   }
 
-  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    setError(null)
 
-    const subject = encodeURIComponent(`Organization challenge request: ${request.organizationName}`)
-    const body = encodeURIComponent(
-      [
-        `Organization: ${request.organizationName}`,
-        `Contact: ${request.contactName}`,
-        `Work email: ${request.workEmail}`,
-        `Country: ${request.country}`,
-        `Expected participants: ${request.expectedPlayers}`,
-        `Preferred window: ${request.preferredWindow}`,
-        '',
-        request.note,
-      ].join('\n'),
-    )
+    if (!hasSupabaseConfig) {
+      setError('The contact email service is not configured yet.')
+      return
+    }
 
-    window.location.href = `mailto:admin@fitperks.org?subject=${subject}&body=${body}`
-    setSent(true)
+    try {
+      setBusy(true)
+
+      const { error: functionError } = await supabase.functions.invoke('send-contact-email', {
+        body: {
+          name: request.contactName.trim(),
+          email: request.workEmail.trim(),
+          subject: `Organization challenge request: ${request.organizationName.trim()}`,
+          message: [
+            `Organization: ${request.organizationName.trim()}`,
+            `Contact: ${request.contactName.trim()}`,
+            `Work email: ${request.workEmail.trim()}`,
+            `Country: ${request.country.trim()}`,
+            `Expected participants: ${request.expectedPlayers}`,
+            `Preferred window: ${request.preferredWindow.trim()}`,
+            '',
+            request.note.trim(),
+          ].join('\n'),
+        },
+      })
+
+      if (functionError) {
+        throw functionError
+      }
+
+      setSent(true)
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Unable to send the organization request.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -107,9 +131,10 @@ export function OrganizationRequestPage() {
             Notes
             <textarea value={request.note} onChange={(event) => update('note', event.target.value)} rows={5} />
           </label>
-          {sent ? <p className="hint">Email draft opened. Send it from your organization email account.</p> : null}
-          <button className="button primary" type="submit">
-            Prepare Email
+          {error ? <p className="error">{error}</p> : null}
+          {sent ? <p className="hint">Your request was sent. We will reply to your organization email.</p> : null}
+          <button className="button primary" type="submit" disabled={busy || sent}>
+            {busy ? 'Sending Request...' : sent ? 'Request Sent' : 'Submit Request'}
           </button>
         </form>
 

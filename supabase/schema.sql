@@ -622,7 +622,7 @@ begin
 end;
 $$;
 
-drop function if exists public.complete_invite_setup(text, text, text, timestamptz, timestamptz, boolean, boolean, text);
+drop function if exists public.complete_invite_setup(text, text, text, timestamptz, timestamptz, boolean, boolean, text, boolean, boolean);
 
 create or replace function public.complete_invite_setup(
   p_token text,
@@ -634,7 +634,8 @@ create or replace function public.complete_invite_setup(
   p_enabled_burpee boolean,
   p_display_message text default null,
   p_enabled_high_knees boolean default true,
-  p_enabled_lunges boolean default true
+  p_enabled_lunges boolean default true,
+  p_timezone text default 'UTC'
 )
 returns jsonb
 language plpgsql
@@ -645,6 +646,7 @@ declare
   v_invite organization_invites%rowtype;
   v_org organizations%rowtype;
   v_challenge challenges%rowtype;
+  v_timezone text;
 begin
   select * into v_invite
   from organization_invites
@@ -668,6 +670,11 @@ begin
   from organizations
   where id = v_invite.organization_id
   limit 1;
+
+  v_timezone := coalesce(nullif(trim(p_timezone), ''), 'UTC');
+  if not exists (select 1 from pg_timezone_names where name = v_timezone) then
+    raise exception 'Invalid timezone';
+  end if;
 
   update organizations
   set name = trim(p_organization_name),
@@ -703,7 +710,7 @@ begin
       coalesce(nullif(trim(p_display_message), ''), ''),
       p_start_date,
       p_end_date,
-      'UTC',
+      v_timezone,
       (case when p_start_date <= now() and p_end_date >= now() then 'active' else 'upcoming' end)::challenge_status,
       p_enabled_squat,
       p_enabled_burpee,
@@ -717,6 +724,7 @@ begin
         description = coalesce(nullif(trim(p_display_message), ''), description),
         start_date = p_start_date,
         end_date = p_end_date,
+        timezone = v_timezone,
         enabled_squat = p_enabled_squat,
         enabled_burpee = p_enabled_burpee,
         enabled_high_knees = p_enabled_high_knees,
@@ -1196,7 +1204,12 @@ begin
     raise exception 'Challenge not found';
   end if;
 
-  if not (is_platform_admin() or is_org_admin(v_challenge.organization_id) or current_organization_id() = v_challenge.organization_id) then
+  if not (
+    v_challenge.status = 'active'
+    or is_platform_admin()
+    or is_org_admin(v_challenge.organization_id)
+    or current_organization_id() = v_challenge.organization_id
+  ) then
     raise exception 'Unauthorized';
   end if;
 
@@ -1285,7 +1298,12 @@ begin
     raise exception 'Challenge not found';
   end if;
 
-  if not (is_platform_admin() or is_org_admin(v_challenge.organization_id) or current_organization_id() = v_challenge.organization_id) then
+  if not (
+    v_challenge.status = 'active'
+    or is_platform_admin()
+    or is_org_admin(v_challenge.organization_id)
+    or current_organization_id() = v_challenge.organization_id
+  ) then
     raise exception 'Unauthorized';
   end if;
 

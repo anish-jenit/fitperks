@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { CommuteWorkoutAnime } from '../components/CommuteWorkoutAnime'
 import { getPublicLaunchContext } from '../lib/supabaseApi'
 import { setConfiguredOrganizationCode } from '../lib/storage'
 import type { PublicLaunchContext } from '../types'
 
 export function PublicLaunchPage() {
-  const navigate = useNavigate()
   const { country: countryParam, organization: orgParam } = useParams()
 
   const country = (countryParam ?? '').toLowerCase()
@@ -27,7 +26,6 @@ export function PublicLaunchPage() {
         setContext(payload)
         if (payload.setupStatus === 'ready') {
           setConfiguredOrganizationCode(payload.organizationCode)
-          navigate('/challenges', { replace: true })
         }
       })
       .catch((err) => {
@@ -36,7 +34,7 @@ export function PublicLaunchPage() {
       .finally(() => {
         setLoading(false)
       })
-  }, [country, navigate, organization])
+  }, [country, organization])
 
   if (!country || !organization) {
     return <Navigate to="/" replace />
@@ -55,20 +53,31 @@ export function PublicLaunchPage() {
   return (
     <main className="page landing-page">
       <section className="hero-panel hero-panel-dark">
-        <p className="hero-kicker">Almost Ready</p>
+        <p className="hero-kicker">{context?.setupStatus === 'ready' ? 'Organization Challenge' : 'Almost Ready'}</p>
         <h1>{context ? context.organizationName : 'Organization Challenge'}</h1>
         <p className="hero-subtitle">
-          Setup is still warming up. Once the organization setup is complete, this challenge link will take everyone
-          straight to the workout choices.
+          {context?.setupStatus === 'ready'
+            ? context.displayMessage || 'Choose a workout, track your reps, and follow the live leaderboard.'
+            : 'Setup is still warming up. Once the organization setup is complete, this challenge link will take everyone straight to the workout choices.'}
         </p>
 
         {error ? <p className="error">{error}</p> : null}
 
         <div className="hero-actions">
-          {context?.setupUrlPath ? (
+          {context?.setupStatus === 'pending' && context.setupUrlPath ? (
             <Link className="button primary" to={context.setupUrlPath}>
               Finish Setup
             </Link>
+          ) : null}
+          {context?.setupStatus === 'ready' ? (
+            <>
+              <Link className="button primary" to="/challenges">
+                Enter Challenge
+              </Link>
+              <Link className="button ghost" to={`/launch/${country}/${organization}/leaderboard`}>
+                View Leaderboard
+              </Link>
+            </>
           ) : null}
           <Link className="button ghost button-small" to="/">
             Back Home

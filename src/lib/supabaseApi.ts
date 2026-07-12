@@ -522,6 +522,7 @@ export async function completeInviteSetup(input: {
   enabledHighKnees: boolean
   enabledLunges: boolean
   displayMessage: string
+  timezone: string
 }): Promise<{ launchUrlPath: string }> {
   if (useFlowStubs) {
     const state = readStubFlowState()
@@ -561,6 +562,7 @@ export async function completeInviteSetup(input: {
     p_display_message: input.displayMessage.trim() || null,
     p_enabled_high_knees: input.enabledHighKnees,
     p_enabled_lunges: input.enabledLunges,
+    p_timezone: input.timezone.trim() || 'UTC',
   })
 
   if (error) {

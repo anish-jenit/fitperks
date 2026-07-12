@@ -14,6 +14,7 @@ type SetupForm = {
   enabledHighKnees: boolean
   enabledLunges: boolean
   displayMessage: string
+  timezone: string
 }
 
 export function InviteSetupPage() {
@@ -31,6 +32,7 @@ export function InviteSetupPage() {
     enabledHighKnees: true,
     enabledLunges: true,
     displayMessage: '',
+    timezone: 'UTC',
   })
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -104,6 +106,7 @@ export function InviteSetupPage() {
         enabledHighKnees: form.enabledHighKnees,
         enabledLunges: form.enabledLunges,
         displayMessage: form.displayMessage,
+        timezone: form.timezone,
       })
 
       setLaunchPath(result.launchUrlPath)
@@ -171,6 +174,17 @@ export function InviteSetupPage() {
                 placeholder="us"
                 required
               />
+            </label>
+
+            <label>
+              Challenge timezone
+              <input
+                value={form.timezone}
+                onChange={(event) => setForm((state) => ({ ...state, timezone: event.target.value }))}
+                placeholder="Asia/Singapore"
+                required
+              />
+              <span className="hint">Use an IANA timezone such as Asia/Singapore or America/New_York.</span>
             </label>
 
             <label>
