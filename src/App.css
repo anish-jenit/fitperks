@@ -1106,6 +1106,20 @@ textarea {
   animation: timer-pulse 1s ease-in-out infinite;
 }
 
+.workout-capture-countdown {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  color: #f8fafc;
+  font-size: clamp(5rem, 16vw, 12rem);
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.85);
+  pointer-events: none;
+}
+
 .camera-control {
   display: inline-flex;
   align-items: center;
@@ -1186,6 +1200,44 @@ textarea {
   background: var(--panel-soft);
 }
 
+.workout-share-card {
+  display: grid;
+  gap: 0.65rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.workout-share-card h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.workout-share-card h2 span {
+  color: var(--ink);
+  font-size: 0.78em;
+  font-weight: 600;
+}
+
+.workout-share-card p {
+  margin: 0;
+}
+
+.workout-share-preview {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #050b16;
+}
+
+.workout-save-reminder {
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .workout-instruction-video {
   width: 100%;
   display: block;
@@ -1206,6 +1258,181 @@ textarea {
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   margin-block: 1rem;
+}
+
+.scoreboard-share {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-top: 1rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+}
+
+.scoreboard-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+}
+
+.scoreboard-share-copy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.scoreboard-share-copy span {
+  color: var(--ink-strong);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.scoreboard-share-copy code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--accent);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scoreboard-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  margin-top: 1rem;
+}
+
+.scoreboard-section {
+  min-width: 0;
+}
+
+.scoreboard-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.scoreboard-heading h2 {
+  margin: 0;
+}
+
+.scoreboard-heading span {
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.scoreboard-list {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+}
+
+.scoreboard-row {
+  display: grid;
+  grid-template-columns: 2.35rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+}
+
+.scoreboard-row-winner {
+  border-color: color-mix(in oklab, var(--accent) 65%, var(--line));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.scoreboard-rank {
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.scoreboard-player {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.scoreboard-player-name {
+  overflow-wrap: anywhere;
+  color: var(--ink-strong);
+  font-size: 1rem;
+}
+
+.scoreboard-player-meta {
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.scoreboard-score {
+  display: grid;
+  justify-items: end;
+  gap: 0.1rem;
+  text-align: right;
+}
+
+.scoreboard-score strong {
+  color: var(--ink-strong);
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.scoreboard-row-winner .scoreboard-score strong {
+  color: var(--accent);
+}
+
+.scoreboard-score span {
+  color: var(--ink);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.scoreboard-exercises {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.scoreboard-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--exercise-color, var(--line));
+  border-radius: 999px;
+  color: var(--ink-strong);
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.scoreboard-chip > span {
+  color: var(--exercise-color, var(--accent));
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.scoreboard-chip-squat { --exercise-color: #60a5fa; }
+.scoreboard-chip-burpee { --exercise-color: #f59e0b; }
+.scoreboard-chip-high-knees { --exercise-color: #34d399; }
+.scoreboard-chip-lunges { --exercise-color: #f472b6; }
+
+.scoreboard-empty {
+  padding: 1rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  text-align: center;
 }
 
 table {
@@ -1688,6 +1915,18 @@ th {
   }
 
   .leaderboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .scoreboard-share {
+    align-items: stretch;
+  }
+
+  .scoreboard-share .button {
+    flex: 0 0 auto;
+  }
+
+  .scoreboard-grid {
     grid-template-columns: 1fr;
   }
 

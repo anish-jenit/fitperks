@@ -34,6 +34,13 @@ function copyText(value: string): Promise<void> {
   return Promise.resolve()
 }
 
+const SCOREBOARD_EXERCISE_META: Record<ExerciseType, { short: string; name: string }> = {
+  squat: { short: 'SQ', name: 'Squat' },
+  burpee: { short: 'JJ', name: 'Jumping Jacks' },
+  'high-knees': { short: 'HK', name: 'High Knees' },
+  lunges: { short: 'LN', name: 'Lunge' },
+}
+
 function CopyableField({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false)
 
@@ -538,80 +545,90 @@ export function GuestScoreboardPage() {
       <section className="panel">
         <p className="hero-kicker">Scoreboard</p>
         <h1>{challenge.title}</h1>
-        <p className="hint">Sharable scoreboard link: {buildUrl(`/guest/${challenge.code}/scoreboard`)}</p>
-        <div className="leaderboard-grid">
-          <section>
-            <h2>Daily</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Rank</th>
-                  <th>Player</th>
-                  <th>Best Score</th>
-                  <th>Attempts</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr>
-                    <td>-</td>
-                    <td>Waiting for players</td>
-                    <td>-</td>
-                    <td>-</td>
-                  </tr>
-                ) : (
-                  rows.map((row) => (
-                    <tr key={row.guestName}>
-                      <td>{row.rank}</td>
-                      <td>{row.guestName}</td>
-                      <td className={row.dailyBestScore === dailyWinningScore && row.dailyBestScore > 0 ? 'winner-score' : undefined}>
-                        {row.dailyBestScore}
-                      </td>
-                      <td>{row.attemptsToday}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </section>
-          <section>
-            <h2>Overall</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Rank</th>
-                  <th>Player</th>
-                  {exerciseColumns.map((exercise) => {
-                    const workout = CHALLENGES.find((item) => item.id === exercise)
-                    return <th key={exercise}>{workout?.name.replace(' Challenge', '') ?? exercise} score</th>
-                  })}
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr>
-                    <td>-</td>
-                    <td>Challenge in progress</td>
-                    {exerciseColumns.map((exercise) => <td key={exercise}>-</td>)}
-                    <td>-</td>
-                  </tr>
-                ) : (
-                  rows.map((row) => (
-                    <tr key={row.guestName}>
-                      <td>{row.rank}</td>
-                      <td>{row.guestName}</td>
-                      {exerciseColumns.map((exercise) => <td key={exercise}>{row.exerciseScores[exercise] ?? 0}</td>)}
-                      <td className={row.overallScore === overallWinningScore && row.overallScore > 0 ? 'winner-score' : undefined}>
-                        {row.overallScore}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </section>
+        <div className="scoreboard-actions">
+          <Link className="button ghost button-small" to="/join-challenge">
+            Browse active challenges
+          </Link>
         </div>
+        {(() => {
+          const scoreboardUrl = buildUrl(`/guest/${challenge.code}/scoreboard`)
+
+          return (
+            <>
+              <div className="scoreboard-share">
+                <div className="scoreboard-share-copy">
+                  <span>Share this scoreboard</span>
+                  <code title={scoreboardUrl}>{scoreboardUrl}</code>
+                </div>
+                <button className="button ghost button-small" type="button" onClick={() => void copyText(scoreboardUrl)}>
+                  Copy
+                </button>
+              </div>
+              <div className="scoreboard-grid">
+                <section className="scoreboard-section">
+                  <div className="scoreboard-heading">
+                    <h2>Today</h2>
+                    <span>Best of 3</span>
+                  </div>
+                  <div className="scoreboard-list">
+                    {rows.length === 0 ? (
+                      <div className="scoreboard-empty">Waiting for players</div>
+                    ) : (
+                      rows.map((row) => (
+                        <article className={`scoreboard-row ${row.dailyBestScore === dailyWinningScore && row.dailyBestScore > 0 ? 'scoreboard-row-winner' : ''}`} key={`daily-${row.guestName}`}>
+                          <div className="scoreboard-rank">#{row.rank}</div>
+                          <div className="scoreboard-player">
+                            <strong className="scoreboard-player-name">{row.guestName}</strong>
+                            <span className="scoreboard-player-meta">{row.attemptsToday} {row.attemptsToday === 1 ? 'attempt' : 'attempts'}</span>
+                          </div>
+                          <div className="scoreboard-score">
+                            <strong>{row.dailyBestScore}</strong>
+                            <span>points</span>
+                          </div>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                </section>
+                <section className="scoreboard-section">
+                  <div className="scoreboard-heading">
+                    <h2>Overall</h2>
+                    <span>{exerciseColumns.map((exercise) => SCOREBOARD_EXERCISE_META[exercise].short).join(' · ')}</span>
+                  </div>
+                  <div className="scoreboard-list">
+                    {rows.length === 0 ? (
+                      <div className="scoreboard-empty">Challenge in progress</div>
+                    ) : (
+                      rows.map((row) => (
+                        <article className={`scoreboard-row scoreboard-row-overall ${row.overallScore === overallWinningScore && row.overallScore > 0 ? 'scoreboard-row-winner' : ''}`} key={`overall-${row.guestName}`}>
+                          <div className="scoreboard-rank">#{row.rank}</div>
+                          <div className="scoreboard-player">
+                            <strong className="scoreboard-player-name">{row.guestName}</strong>
+                            <div className="scoreboard-exercises">
+                              {exerciseColumns.map((exercise) => {
+                                const meta = SCOREBOARD_EXERCISE_META[exercise]
+                                return (
+                                  <span className={`scoreboard-chip scoreboard-chip-${exercise}`} key={exercise} title={meta.name} aria-label={`${meta.name}: ${row.exerciseScores[exercise] ?? 0} points`}>
+                                    <span>{meta.short}</span>
+                                    <strong>{row.exerciseScores[exercise] ?? 0}</strong>
+                                  </span>
+                                )
+                              })}
+                            </div>
+                          </div>
+                          <div className="scoreboard-score">
+                            <strong>{row.overallScore}</strong>
+                            <span>points</span>
+                          </div>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                </section>
+              </div>
+            </>
+          )
+        })()}
       </section>
     </main>
   )

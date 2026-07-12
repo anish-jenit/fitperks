@@ -173,10 +173,11 @@ export function WorkoutPage() {
   const challenge = CHALLENGES.find((item) => item.id === exercise)
   const [activeChallenge, setActiveChallenge] = useState<ChallengeRecord | null>(null)
   const [guestChallenge, setGuestChallenge] = useState<GuestChallengeRecord | null>(null)
-  const [sessionId] = useState(nowSessionId())
+  const [sessionId, setSessionId] = useState(nowSessionId())
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const shareCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const poseRef = useRef<PoseInstance | null>(null)
   const cameraRef = useRef<CameraInstance | null>(null)
 
@@ -196,6 +197,9 @@ export function WorkoutPage() {
   const [showInstructionVideo, setShowInstructionVideo] = useState(true)
   const [cameraAttempt, setCameraAttempt] = useState(0)
   const [hasRequestedCamera, setHasRequestedCamera] = useState(false)
+  const [captureRequested, setCaptureRequested] = useState(false)
+  const [captureCountdown, setCaptureCountdown] = useState<number | null>(null)
+  const [shareImageUrl, setShareImageUrl] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveEmail, setSaveEmail] = useState(() => getLastGuestEmail())
   const [saveName, setSaveName] = useState(() => getLastGuestName())
@@ -396,7 +400,7 @@ export function WorkoutPage() {
   )
 
   useEffect(() => {
-    if (!challenge || isSessionComplete || cameraAttempt === 0) {
+    if (!challenge || (isSessionComplete && !captureRequested) || cameraAttempt === 0) {
       return
     }
 
@@ -497,7 +501,15 @@ export function WorkoutPage() {
       poseRef.current = null
       setIsCameraReady(false)
     }
-  }, [challenge, isSessionComplete, handleRepDetection, cameraAttempt])
+  }, [challenge, isSessionComplete, handleRepDetection, cameraAttempt, captureRequested])
+
+  useEffect(() => {
+    if (!captureRequested || !isCameraReady) {
+      return
+    }
+
+    setCaptureCountdown(3)
+  }, [captureRequested, isCameraReady])
 
   useEffect(() => {
     if (!isWorkoutRunning || isSessionComplete) {
@@ -542,6 +554,72 @@ export function WorkoutPage() {
     }
   }, [countdown])
 
+  useEffect(() => {
+    if (captureCountdown === null) {
+      return
+    }
+
+    if (captureCountdown > 0) {
+      const timeout = window.setTimeout(() => {
+        setCaptureCountdown((current) => (current === null ? null : current - 1))
+      }, 1000)
+
+      return () => window.clearTimeout(timeout)
+    }
+
+    const video = videoRef.current
+    const canvas = shareCanvasRef.current
+    if (!video || !canvas || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+      setCaptureCountdown(null)
+      setError('The camera frame is not ready yet. Please try the capture again.')
+      return
+    }
+
+    const width = video.videoWidth || 720
+    const height = video.videoHeight || 1280
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+
+    if (!context) {
+      setCaptureCountdown(null)
+      setError('Unable to prepare the share image. Please try again.')
+      return
+    }
+
+    context.fillStyle = '#07111f'
+    context.fillRect(0, 0, width, height)
+    context.save()
+    context.translate(width, 0)
+    context.scale(-1, 1)
+    context.drawImage(video, 0, 0, width, height)
+    context.restore()
+
+    const panelHeight = Math.max(230, Math.round(height * 0.24))
+    context.fillStyle = 'rgba(3, 7, 18, 0.86)'
+    context.fillRect(0, height - panelHeight, width, panelHeight)
+    context.fillStyle = '#93c5fd'
+    context.font = `800 ${Math.max(22, Math.round(width * 0.035))}px Arial`
+    context.fillText('FITPERKS', Math.round(width * 0.06), height - panelHeight + Math.round(panelHeight * 0.2))
+    context.fillStyle = '#f8fafc'
+    context.font = `800 ${Math.max(30, Math.round(width * 0.055))}px Arial`
+    context.fillText(challenge?.name.replace(' Challenge', '') ?? 'Workout', Math.round(width * 0.06), height - panelHeight + Math.round(panelHeight * 0.43))
+    context.font = `700 ${Math.max(20, Math.round(width * 0.032))}px Arial`
+    context.fillStyle = '#cbd5e1'
+    context.fillText(`${repCount} reps`, Math.round(width * 0.06), height - panelHeight + Math.round(panelHeight * 0.68))
+    context.fillStyle = '#93c5fd'
+    context.fillText(`${points} points`, Math.round(width * 0.06), height - panelHeight + Math.round(panelHeight * 0.86))
+    context.fillStyle = '#94a3b8'
+    context.font = `600 ${Math.max(16, Math.round(width * 0.022))}px Arial`
+    context.textAlign = 'right'
+    context.fillText('fitperks.org', width - Math.round(width * 0.06), height - panelHeight + Math.round(panelHeight * 0.86))
+    context.textAlign = 'left'
+
+    setShareImageUrl(canvas.toDataURL('image/jpeg', 0.9))
+    setCaptureRequested(false)
+    setCaptureCountdown(null)
+  }, [captureCountdown, challenge, points, repCount])
+
   function startWorkout() {
     if (!isCameraReady) {
       if (!hasRequestedCamera) {
@@ -575,6 +653,65 @@ export function WorkoutPage() {
     setHasRequestedCamera(true)
     setIsCameraReady(false)
     setCameraAttempt((value) => value + 1)
+  }
+
+  function captureWorkoutImage() {
+    setError(null)
+    setShareImageUrl(null)
+    if (isCameraReady) {
+      setCaptureCountdown(3)
+      return
+    }
+
+    setCaptureRequested(true)
+    setHasRequestedCamera(true)
+    setCameraAttempt((value) => value + 1)
+  }
+
+  function retakeWorkout() {
+    setError(null)
+    setSessionId(nowSessionId())
+    setRepCount(0)
+    setPaceFeedback(null)
+    setSecondsLeft(totalSessionSeconds)
+    setIsSessionComplete(false)
+    setIsWorkoutRunning(false)
+    setCaptureRequested(false)
+    setCaptureCountdown(null)
+    setShareImageUrl(null)
+    setIsCameraReady(false)
+    setHasRequestedCamera(true)
+    squatStageRef.current = 'standing'
+    lungeStageRef.current = 'standing'
+    lungeDepthFramesRef.current = 0
+    lungeStandingFramesRef.current = 0
+    lastLungeRepAtRef.current = 0
+    jumpingJackStageRef.current = 'closed'
+    highKneeStageRef.current = 'lowered'
+    lastRepAtRef.current = null
+    lastRepIntervalRef.current = null
+    setCameraAttempt((value) => value + 1)
+  }
+
+  async function shareWorkoutImage() {
+    if (!shareImageUrl) {
+      return
+    }
+
+    const response = await fetch(shareImageUrl)
+    const blob = await response.blob()
+    const file = new File([blob], 'fitperks-workout.jpg', { type: 'image/jpeg' })
+
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({
+        title: `${challenge?.name ?? 'FitPerks workout'} result`,
+        text: `${repCount} reps and ${points} points on FitPerks`,
+        files: [file],
+      })
+      return
+    }
+
+    window.open(shareImageUrl, '_blank', 'noopener,noreferrer')
   }
 
   async function submitWorkout() {
@@ -707,8 +844,11 @@ export function WorkoutPage() {
             </div>
             {halfwayReached || finalTenSeconds ? (
               <div className={`workout-timer-overlay ${finalTenSeconds ? 'workout-timer-overlay-urgent' : ''}`} aria-live="polite">
-                {finalTenSeconds ? `Last ${secondsLeft}s` : 'Halfway'}
+                {finalTenSeconds ? secondsLeft : 'Halfway'}
               </div>
+            ) : null}
+            {captureCountdown !== null ? (
+              <div className="workout-capture-countdown" aria-live="assertive">{captureCountdown || 'POSE'}</div>
             ) : null}
             {!isSessionComplete && countdown === null && !isWorkoutRunning ? (
               <div className="workout-camera-controls">
@@ -755,9 +895,6 @@ export function WorkoutPage() {
               Timer: <strong>{secondsLeft}s</strong>
             </p>
             {halfwayReached ? <p className="workout-timer-status">Halfway point</p> : null}
-            {finalTenSeconds ? <p className="workout-timer-status workout-timer-status-urgent">Last 10 seconds</p> : null}
-            <p className="hint">Camera processing is on-device only. No videos are uploaded.</p>
-
             {!isCameraReady ? (
               <p className="hint">
                 {hasRequestedCamera
@@ -780,6 +917,22 @@ export function WorkoutPage() {
 
             {isSessionComplete ? (
               <div className="stack">
+                <div className="workout-share-card">
+                  <h2>Strike a pose <span>(optional)</span></h2>
+                  <p className="hint">Capture a quick pose with your workout stats. Remember to save your score below afterward.</p>
+                  <button className="button ghost" type="button" onClick={captureWorkoutImage} disabled={captureCountdown !== null || captureRequested}>
+                    {captureCountdown !== null ? 'Get ready...' : shareImageUrl ? 'Retake image' : 'Capture & share'}
+                  </button>
+                  {shareImageUrl ? (
+                    <>
+                      <img className="workout-share-preview" src={shareImageUrl} alt="Workout result preview" />
+                      <button className="button primary" type="button" onClick={() => void shareWorkoutImage()}>
+                        Share image
+                      </button>
+                      <p className="workout-save-reminder">Image ready. Save your score below to add this workout to the challenge.</p>
+                    </>
+                  ) : null}
+                </div>
                 {isGuestWorkout ? (
                   <label>
                     Guest email
@@ -824,6 +977,9 @@ export function WorkoutPage() {
                 )}
                 <button className="button primary" onClick={() => void submitWorkout()} disabled={isSubmitting}>
                   {isSubmitting ? 'Saving...' : isGuestWorkout ? 'Save Score' : 'Save Workout'}
+                </button>
+                <button className="button ghost" type="button" onClick={retakeWorkout} disabled={isSubmitting || captureCountdown !== null || captureRequested}>
+                  Retake workout
                 </button>
               </div>
             ) : null}
