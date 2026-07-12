@@ -1930,6 +1930,10 @@ select:focus {
 }
 
 .setup-exercise-action {
+  display: grid;
+  grid-template-rows: auto auto;
+  align-items: center;
+  justify-items: center;
   border-top-width: 0;
   border-left: 2px solid var(--exercise-color, var(--accent));
   border-radius: var(--radius);
