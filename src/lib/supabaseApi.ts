@@ -410,6 +410,56 @@ export async function getCurrentAdminUser(): Promise<AdminUserRecord | null> {
   return data as AdminUserRecord | null
 }
 
+export async function createOrganization(input: {
+  name: string
+  organizationCode: string
+  countryCode: string
+  pocEmail?: string
+  allowedEmailDomains?: string
+}): Promise<void> {
+  if (useFlowStubs) {
+    return
+  }
+
+  const name = input.name.trim()
+  const organizationCode = input.organizationCode.trim().toUpperCase()
+  const slug = slugify(name)
+  const allowedEmailDomains = (input.allowedEmailDomains ?? '')
+    .split(',')
+    .map((domain) => domain.trim().toLowerCase().replace(/^@/, ''))
+    .filter(Boolean)
+
+  if (!name || !organizationCode || !slug || !input.countryCode.trim()) {
+    throw new Error('Organization name, code, country, and a valid slug are required.')
+  }
+
+  const { data: organization, error } = await supabase
+    .from('organizations')
+    .insert({
+      name,
+      slug,
+      organization_code: organizationCode,
+      country_code: input.countryCode.trim().toLowerCase(),
+      poc_email: input.pocEmail?.trim().toLowerCase() || null,
+      allowed_email_domains: allowedEmailDomains,
+      status: 'active',
+    })
+    .select('id')
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  const { error: settingsError } = await supabase.from('organization_settings').insert({
+    organization_id: organization.id,
+  })
+
+  if (settingsError) {
+    throw settingsError
+  }
+}
+
 export async function createOrganizationInvite(input: {
   organizationCode: string
   pocEmail: string

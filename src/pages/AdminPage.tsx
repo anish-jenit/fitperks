@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
 import { adminSignIn, signOut, supabase, useFlowStubs } from '../lib/supabase'
 import {
+  createOrganization,
   createOrganizationInvite,
   downloadCsv,
   getActiveChallenge,
@@ -24,6 +25,14 @@ type InviteDraft = {
   countryCode: string
 }
 
+type OrganizationDraft = {
+  name: string
+  organizationCode: string
+  countryCode: string
+  pocEmail: string
+  allowedEmailDomains: string
+}
+
 export function AdminPage() {
   const [login, setLogin] = useState<LoginState>({ email: '', password: '' })
   const [authenticated, setAuthenticated] = useState(false)
@@ -37,6 +46,13 @@ export function AdminPage() {
   const [draft, setDraft] = useState<ChallengeRecord | null>(null)
   const [inviteDraft, setInviteDraft] = useState<InviteDraft>({ organizationCode: '', pocEmail: '', countryCode: '' })
   const [generatedInviteUrl, setGeneratedInviteUrl] = useState<string | null>(null)
+  const [organizationDraft, setOrganizationDraft] = useState<OrganizationDraft>({
+    name: '',
+    organizationCode: '',
+    countryCode: '',
+    pocEmail: '',
+    allowedEmailDomains: '',
+  })
 
   useEffect(() => {
     void hydrate()
@@ -184,6 +200,26 @@ export function AdminPage() {
       setMessage('Invite link created. Share it with the organization POC.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to create invite link.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onCreateOrganization() {
+    try {
+      setBusy(true)
+      setError(null)
+      setMessage(null)
+
+      await createOrganization(organizationDraft)
+      setInviteDraft({
+        organizationCode: organizationDraft.organizationCode.trim().toUpperCase(),
+        pocEmail: organizationDraft.pocEmail.trim().toLowerCase(),
+        countryCode: organizationDraft.countryCode.trim().toLowerCase(),
+      })
+      setMessage('Organization created. You can now generate its POC setup invite.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to create organization.')
     } finally {
       setBusy(false)
     }
@@ -560,6 +596,75 @@ export function AdminPage() {
             </div>
           )}
         </section>
+
+        {isPlatformAdmin ? (
+          <section className="panel settings-panel">
+            <h2>Create Organization</h2>
+            <p>Create the organization record before generating a POC setup link.</p>
+
+            <div className="stack">
+              <label>
+                Organization name
+                <input
+                  value={organizationDraft.name}
+                  onChange={(event) => setOrganizationDraft((state) => ({ ...state, name: event.target.value }))}
+                  placeholder="Citi"
+                />
+              </label>
+
+              <label>
+                Organization code
+                <input
+                  value={organizationDraft.organizationCode}
+                  onChange={(event) =>
+                    setOrganizationDraft((state) => ({ ...state, organizationCode: event.target.value }))
+                  }
+                  placeholder="CITI2026"
+                />
+              </label>
+
+              <div className="settings-grid">
+                <label>
+                  Country code
+                  <input
+                    value={organizationDraft.countryCode}
+                    onChange={(event) => setOrganizationDraft((state) => ({ ...state, countryCode: event.target.value }))}
+                    placeholder="sg"
+                  />
+                </label>
+                <label>
+                  POC email
+                  <input
+                    type="email"
+                    value={organizationDraft.pocEmail}
+                    onChange={(event) => setOrganizationDraft((state) => ({ ...state, pocEmail: event.target.value }))}
+                    placeholder="poc@company.com"
+                  />
+                </label>
+              </div>
+
+              <label>
+                Allowed email domains (optional)
+                <input
+                  value={organizationDraft.allowedEmailDomains}
+                  onChange={(event) =>
+                    setOrganizationDraft((state) => ({ ...state, allowedEmailDomains: event.target.value }))
+                  }
+                  placeholder="company.com, subsidiary.com"
+                />
+              </label>
+
+              <button
+                className="button primary"
+                type="button"
+                onClick={() => void onCreateOrganization()}
+                disabled={busy || !organizationDraft.name.trim() || !organizationDraft.organizationCode.trim() || !organizationDraft.countryCode.trim()}
+              >
+                {busy ? 'Creating...' : 'Create Organization'}
+              </button>
+            </div>
+          </section>
+        ) : null}
 
         {isPlatformAdmin ? (
           <section className="panel settings-panel">
