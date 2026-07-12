@@ -553,6 +553,9 @@ export function GuestScoreboardPage() {
         <p className="hero-kicker">Scoreboard</p>
         <h1>{challenge.title}</h1>
         <div className="scoreboard-actions">
+          <Link className="button ghost button-small" to={`/guest/${challenge.code}`}>
+            Back to challenge
+          </Link>
           <Link className="button ghost button-small" to="/join-challenge">
             Browse active challenges
           </Link>

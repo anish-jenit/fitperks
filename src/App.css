@@ -1263,9 +1263,9 @@ textarea {
 }
 
 .scoreboard-share {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 0.8rem;
   margin-top: 1rem;
   padding: 0.8rem 0.9rem;
@@ -1298,6 +1298,11 @@ textarea {
   color: var(--accent);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.scoreboard-share > .button {
+  grid-column: 2;
+  grid-row: 1;
 }
 
 .scoreboard-grid {
@@ -2176,11 +2181,14 @@ select:focus {
   }
 
   .scoreboard-share {
+    grid-template-columns: 1fr;
     align-items: stretch;
   }
 
   .scoreboard-share .button {
-    flex: 0 0 auto;
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
   }
 
   .scoreboard-grid {
