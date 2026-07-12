@@ -1073,6 +1073,25 @@ textarea {
   pointer-events: none;
 }
 
+.workout-positioning-message {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  z-index: 2;
+  max-width: calc(100% - 11rem);
+  padding: 0.5rem 0.8rem;
+  border: 1px solid rgba(17, 201, 244, 0.7);
+  border-radius: 999px;
+  color: #07111f;
+  background: rgba(17, 201, 244, 0.92);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
 .workout-counter-overlay span {
   font-size: 0.9rem;
   font-weight: 700;
@@ -2041,6 +2060,14 @@ select:focus {
 
   .minimal-actions .button {
     min-height: 52px;
+  }
+
+  .workout-back-link {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.65rem;
+    font-size: 0.72rem;
+    white-space: nowrap;
   }
 
   .guest-challenge-panel {

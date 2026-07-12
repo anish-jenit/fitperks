@@ -133,6 +133,38 @@ function getCameraErrorHint(err: unknown): string {
   return 'Unable to access camera. Check browser camera permission/device settings and tap Retry Camera.'
 }
 
+function getPositioningMessage(landmarks: NormalizedLandmark[]): string | null {
+  const requiredLandmarks = [11, 12, 23, 24, 27, 28]
+  const hasReliableLandmarks = requiredLandmarks.every((index) => (landmarks[index]?.visibility ?? 1) >= 0.45)
+
+  if (!hasReliableLandmarks) {
+    return 'Step back so your full body is visible'
+  }
+
+  const shoulderCenterX = (landmarks[11].x + landmarks[12].x) / 2
+  const hipCenterX = (landmarks[23].x + landmarks[24].x) / 2
+  const screenCenterX = 1 - (shoulderCenterX + hipCenterX) / 2
+  const bodyHeight = Math.max(landmarks[27].y, landmarks[28].y) - Math.min(landmarks[11].y, landmarks[12].y)
+
+  if (bodyHeight > 0.86) {
+    return 'Step back'
+  }
+
+  if (bodyHeight < 0.4) {
+    return 'Move closer'
+  }
+
+  if (screenCenterX < 0.43) {
+    return 'Move right'
+  }
+
+  if (screenCenterX > 0.57) {
+    return 'Move left'
+  }
+
+  return null
+}
+
 function drawExerciseGuides(
   context: CanvasRenderingContext2D,
   width: number,
@@ -140,26 +172,63 @@ function drawExerciseGuides(
   landmarks: NormalizedLandmark[] | undefined,
   exercise: ExerciseType,
 ) {
-  const shoulderY = landmarks ? (landmarks[11].y + landmarks[12].y) / 2 : 0.34
-  const hipY = landmarks ? (landmarks[23].y + landmarks[24].y) / 2 : 0.5
-  const guideY = exercise === 'high-knees' ? hipY + 0.12 : shoulderY + 0.18
   const color = exercise === 'high-knees' ? '#facc15' : '#38bdf8'
-  const y = Math.max(0, Math.min(height, guideY * height))
 
-  context.save()
-  context.strokeStyle = color
-  context.fillStyle = color
-  context.lineWidth = 3
-  context.setLineDash([14, 10])
-  context.beginPath()
-  context.moveTo(0, y)
-  context.lineTo(width, y)
-  context.stroke()
-  context.setLineDash([])
-  context.beginPath()
-  context.arc(width / 2, y, 7, 0, Math.PI * 2)
-  context.fill()
-  context.restore()
+  if (!landmarks) {
+    const centerX = width / 2
+    const headY = height * 0.2
+    const shoulderY = height * 0.34
+    const hipY = height * 0.52
+    const kneeY = height * 0.7
+    const ankleY = height * 0.88
+    const shoulderHalfWidth = Math.min(width * 0.1, height * 0.08)
+    const hipHalfWidth = shoulderHalfWidth * 0.58
+    const footHalfWidth = shoulderHalfWidth * 0.72
+
+    context.save()
+    context.strokeStyle = color
+    context.fillStyle = color
+    context.lineWidth = Math.max(3, width * 0.005)
+    context.lineCap = 'round'
+    context.lineJoin = 'round'
+    context.globalAlpha = 0.68
+    context.shadowColor = color
+    context.shadowBlur = 18
+    context.setLineDash([12, 9])
+
+    context.beginPath()
+    context.arc(centerX, headY, Math.min(width * 0.045, height * 0.055), 0, Math.PI * 2)
+    context.stroke()
+
+    const drawLine = (fromX: number, fromY: number, toX: number, toY: number) => {
+      context.moveTo(fromX, fromY)
+      context.lineTo(toX, toY)
+    }
+
+    context.beginPath()
+    drawLine(centerX - shoulderHalfWidth, shoulderY, centerX + shoulderHalfWidth, shoulderY)
+    drawLine(centerX, shoulderY, centerX, hipY)
+    drawLine(centerX - hipHalfWidth, hipY, centerX + hipHalfWidth, hipY)
+    drawLine(centerX - shoulderHalfWidth, shoulderY, centerX - shoulderHalfWidth * 1.18, hipY - height * 0.01)
+    drawLine(centerX + shoulderHalfWidth, shoulderY, centerX + shoulderHalfWidth * 1.18, hipY - height * 0.01)
+    drawLine(centerX - hipHalfWidth, hipY, centerX - shoulderHalfWidth * 0.66, kneeY)
+    drawLine(centerX + hipHalfWidth, hipY, centerX + shoulderHalfWidth * 0.66, kneeY)
+    drawLine(centerX - shoulderHalfWidth * 0.66, kneeY, centerX - shoulderHalfWidth * 0.72, ankleY)
+    drawLine(centerX + shoulderHalfWidth * 0.66, kneeY, centerX + shoulderHalfWidth * 0.72, ankleY)
+    drawLine(centerX - shoulderHalfWidth * 0.72, ankleY, centerX - shoulderHalfWidth * 0.72 - footHalfWidth, ankleY)
+    drawLine(centerX + shoulderHalfWidth * 0.72, ankleY, centerX + shoulderHalfWidth * 0.72 + footHalfWidth, ankleY)
+    context.stroke()
+
+    context.globalAlpha = 0.28
+    context.setLineDash([])
+    context.beginPath()
+    context.ellipse(centerX, height * 0.92, shoulderHalfWidth * 1.8, height * 0.025, 0, 0, Math.PI * 2)
+    context.stroke()
+    context.restore()
+    return
+  }
+
+  // The live pose landmarks provide a more useful guide than the old full-width line.
 }
 
 export function WorkoutPage() {
@@ -199,7 +268,8 @@ export function WorkoutPage() {
   const [hasRequestedCamera, setHasRequestedCamera] = useState(false)
   const [captureRequested, setCaptureRequested] = useState(false)
   const [captureCountdown, setCaptureCountdown] = useState<number | null>(null)
-  const [shareImageUrl, setShareImageUrl] = useState<string | null>(null)
+  const [, setShareImageUrl] = useState<string | null>(null)
+  const [positioningMessage, setPositioningMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveEmail, setSaveEmail] = useState(() => getLastGuestEmail())
   const [saveName, setSaveName] = useState(() => getLastGuestName())
@@ -450,6 +520,8 @@ export function WorkoutPage() {
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height)
 
+        setPositioningMessage(results.poseLandmarks ? getPositioningMessage(results.poseLandmarks) : null)
+
         if (challenge.id === 'squat' || challenge.id === 'lunges' || challenge.id === 'high-knees') {
           drawExerciseGuides(ctx, canvas.width, canvas.height, results.poseLandmarks, challenge.id)
         }
@@ -655,18 +727,19 @@ export function WorkoutPage() {
     setCameraAttempt((value) => value + 1)
   }
 
-  function captureWorkoutImage() {
-    setError(null)
-    setShareImageUrl(null)
-    if (isCameraReady) {
-      setCaptureCountdown(3)
-      return
-    }
-
-    setCaptureRequested(true)
-    setHasRequestedCamera(true)
-    setCameraAttempt((value) => value + 1)
-  }
+  /* Temporarily disabled with the workout post capture flow. */
+  // function captureWorkoutImage() {
+  //   setError(null)
+  //   setShareImageUrl(null)
+  //   if (isCameraReady) {
+  //     setCaptureCountdown(3)
+  //     return
+  //   }
+  //
+  //   setCaptureRequested(true)
+  //   setHasRequestedCamera(true)
+  //   setCameraAttempt((value) => value + 1)
+  // }
 
   function retakeWorkout() {
     setError(null)
@@ -693,26 +766,26 @@ export function WorkoutPage() {
     setCameraAttempt((value) => value + 1)
   }
 
-  async function shareWorkoutImage() {
-    if (!shareImageUrl) {
-      return
-    }
-
-    const response = await fetch(shareImageUrl)
-    const blob = await response.blob()
-    const file = new File([blob], 'fitperks-workout.jpg', { type: 'image/jpeg' })
-
-    if (navigator.share && navigator.canShare?.({ files: [file] })) {
-      await navigator.share({
-        title: `${challenge?.name ?? 'FitPerks workout'} result`,
-        text: `${repCount} reps and ${points} points on FitPerks`,
-        files: [file],
-      })
-      return
-    }
-
-    window.open(shareImageUrl, '_blank', 'noopener,noreferrer')
-  }
+  // async function shareWorkoutImage() {
+  //   if (!shareImageUrl) {
+  //     return
+  //   }
+  //
+  //   const response = await fetch(shareImageUrl)
+  //   const blob = await response.blob()
+  //   const file = new File([blob], 'fitperks-workout.jpg', { type: 'image/jpeg' })
+  //
+  //   if (navigator.share && navigator.canShare?.({ files: [file] })) {
+  //     await navigator.share({
+  //       title: `${challenge?.name ?? 'FitPerks workout'} result`,
+  //       text: `${repCount} reps and ${points} points on FitPerks`,
+  //       files: [file],
+  //     })
+  //     return
+  //   }
+  //
+  //   window.open(shareImageUrl, '_blank', 'noopener,noreferrer')
+  // }
 
   async function submitWorkout() {
     if (!challenge) {
@@ -838,6 +911,11 @@ export function WorkoutPage() {
           <div className="camera-wrapper">
             <video ref={videoRef} className="camera-feed" playsInline muted autoPlay />
             <canvas ref={canvasRef} className="camera-overlay" />
+            {positioningMessage ? (
+              <div className="workout-positioning-message" aria-live="polite">
+                {positioningMessage}
+              </div>
+            ) : null}
             <div className="workout-counter-overlay" aria-live="polite">
               <span>Valid reps</span>
               <strong className={paceFeedback ? 'counter-pulse' : ''}>{repCount}</strong>
@@ -920,22 +998,7 @@ export function WorkoutPage() {
 
             {isSessionComplete ? (
               <div className="stack">
-                <div className="workout-share-card">
-                  <h2>Strike a pose <span>(optional)</span></h2>
-                  <p className="hint">Capture a quick pose with your workout stats. Remember to save your score below afterward.</p>
-                  <button className="button ghost" type="button" onClick={captureWorkoutImage} disabled={captureCountdown !== null || captureRequested}>
-                    {captureCountdown !== null ? 'Get ready...' : shareImageUrl ? 'Retake image' : 'Capture & share'}
-                  </button>
-                  {shareImageUrl ? (
-                    <>
-                      <img className="workout-share-preview" src={shareImageUrl} alt="Workout result preview" />
-                      <button className="button primary" type="button" onClick={() => void shareWorkoutImage()}>
-                        Share image
-                      </button>
-                      <p className="workout-save-reminder">Image ready. Save your score below to add this workout to the challenge.</p>
-                    </>
-                  ) : null}
-                </div>
+                {/* Temporarily disabled while the workout post capture flow is being fixed. */}
                 {isGuestWorkout ? (
                   <label>
                     Player email
@@ -987,7 +1050,7 @@ export function WorkoutPage() {
               </div>
             ) : null}
 
-            <Link className="button ghost" to={isGuestWorkout ? `/guest/${challengeCode}` : '/challenges'}>
+            <Link className="button ghost workout-back-link" to={isGuestWorkout ? `/guest/${challengeCode}` : '/challenges'}>
               {isGuestWorkout ? 'Back to player challenge' : 'Back to challenges'}
             </Link>
           </aside>

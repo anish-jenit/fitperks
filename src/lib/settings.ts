@@ -34,8 +34,8 @@ export const DEFAULT_CALIBRATION: CalibrationSettings = {
   squat: {
     standingKneeMin: 160,
     standingHipMin: 150,
-    squatKneeMax: 115,
-    squatHipDropMax: 0.1,
+    squatKneeMax: 130,
+    squatHipDropMax: 0.16,
   },
   burpee: {
     handsDownHipMax: 120,
