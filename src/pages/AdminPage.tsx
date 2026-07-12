@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
 import { adminSignIn, signOut, supabase, useFlowStubs } from '../lib/supabase'
 import {
-  createOrganization,
-  createOrganizationInvite,
+  createOrganizationWithInvite,
   downloadCsv,
   getActiveChallenge,
   getChallengeHistory,
@@ -21,12 +20,6 @@ import type { ApplicationSettings, ChallengeRecord, OrganizationInviteRecord, Or
 type LoginState = {
   email: string
   password: string
-}
-
-type InviteDraft = {
-  organizationCode: string
-  pocEmail: string
-  countryCode: string
 }
 
 type OrganizationDraft = {
@@ -69,7 +62,6 @@ export function AdminPage() {
   const [applicationSettings, setApplicationSettings] = useState<ApplicationSettings | null>(null)
   const [organizations, setOrganizations] = useState<OrganizationRecord[]>([])
   const [organizationInvites, setOrganizationInvites] = useState<OrganizationInviteRecord[]>([])
-  const [inviteDraft, setInviteDraft] = useState<InviteDraft>({ organizationCode: '', pocEmail: '', countryCode: '' })
   const [generatedInviteUrl, setGeneratedInviteUrl] = useState<string | null>(null)
   const [organizationDraft, setOrganizationDraft] = useState<OrganizationDraft>({
     name: '',
@@ -246,49 +238,21 @@ export function AdminPage() {
     }
   }
 
-  async function onGenerateInvite() {
+  async function onCreateOrganizationWithInvite() {
     try {
       setBusy(true)
       setError(null)
       setMessage(null)
 
-      const result = await createOrganizationInvite({
-        organizationCode: inviteDraft.organizationCode,
-        pocEmail: inviteDraft.pocEmail,
-        countryCode: inviteDraft.countryCode,
-      })
-
-      const absoluteUrl = `${window.location.origin}${result.inviteUrlPath}`
-      setGeneratedInviteUrl(absoluteUrl)
-      if (isPlatformAdmin) {
-        setOrganizationInvites(await getOrganizationInvites())
-      }
-      setMessage('Invite link created. Share it with the organization POC.')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to create invite link.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function onCreateOrganization() {
-    try {
-      setBusy(true)
-      setError(null)
-      setMessage(null)
-
-      await createOrganization(organizationDraft)
+      const result = await createOrganizationWithInvite(organizationDraft)
+      setGeneratedInviteUrl(`${window.location.origin}${result.inviteUrlPath}`)
       if (isPlatformAdmin) {
         setOrganizations(await getOrganizations())
+        setOrganizationInvites(await getOrganizationInvites())
       }
-      setInviteDraft({
-        organizationCode: organizationDraft.organizationCode.trim().toUpperCase(),
-        pocEmail: organizationDraft.pocEmail.trim().toLowerCase(),
-        countryCode: organizationDraft.countryCode.trim().toLowerCase(),
-      })
-      setMessage('Organization created. You can now generate its POC setup invite.')
+      setMessage('Organization created and POC setup URL generated.')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to create organization.')
+      setError(err instanceof Error ? err.message : 'Unable to create organization and invite.')
     } finally {
       setBusy(false)
     }
@@ -449,12 +413,12 @@ export function AdminPage() {
             ) : (
               <section className="panel settings-panel">
                 <h2>Organizations & Invites</h2>
-                <p>Create organizations, generate POC setup links, and review every organization onboarding record.</p>
+                <p>Create the organization record and its POC setup URL in one step.</p>
 
-                <div className="admin-management-grid">
-                  <div className="admin-management-block">
-                    <h3 className="admin-subsection-title">Create organization</h3>
-                    <div className="stack">
+                <div className="admin-management-block admin-management-block-wide">
+                  <h3 className="admin-subsection-title">New organization</h3>
+                  <div className="stack">
+                    <div className="settings-grid admin-organization-grid">
                       <label>
                         Organization name
                         <input
@@ -471,82 +435,46 @@ export function AdminPage() {
                           placeholder="CITI2026"
                         />
                       </label>
-                      <div className="settings-grid admin-window-grid">
-                        <label>
-                          Country code
-                          <input
-                            value={organizationDraft.countryCode}
-                            onChange={(event) => setOrganizationDraft((state) => ({ ...state, countryCode: event.target.value }))}
-                            placeholder="sg"
-                          />
-                        </label>
-                        <label>
-                          POC email
-                          <input
-                            type="email"
-                            value={organizationDraft.pocEmail}
-                            onChange={(event) => setOrganizationDraft((state) => ({ ...state, pocEmail: event.target.value }))}
-                            placeholder="poc@company.com"
-                          />
-                        </label>
-                      </div>
                       <label>
-                        Allowed email domains
+                        Country code
                         <input
-                          value={organizationDraft.allowedEmailDomains}
-                          onChange={(event) => setOrganizationDraft((state) => ({ ...state, allowedEmailDomains: event.target.value }))}
-                          placeholder="company.com, subsidiary.com"
-                        />
-                      </label>
-                      <button
-                        className="button primary"
-                        type="button"
-                        onClick={() => void onCreateOrganization()}
-                        disabled={busy || !organizationDraft.name.trim() || !organizationDraft.organizationCode.trim() || !organizationDraft.countryCode.trim()}
-                      >
-                        {busy ? 'Creating...' : 'Create Organization'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="admin-management-block">
-                    <h3 className="admin-subsection-title">Generate POC setup URL</h3>
-                    <div className="stack">
-                      <label>
-                        Organization code
-                        <input
-                          value={inviteDraft.organizationCode}
-                          onChange={(event) => setInviteDraft((state) => ({ ...state, organizationCode: event.target.value }))}
-                          placeholder="CITI2026"
+                          value={organizationDraft.countryCode}
+                          onChange={(event) => setOrganizationDraft((state) => ({ ...state, countryCode: event.target.value }))}
+                          placeholder="sg"
                         />
                       </label>
                       <label>
                         POC email
                         <input
                           type="email"
-                          value={inviteDraft.pocEmail}
-                          onChange={(event) => setInviteDraft((state) => ({ ...state, pocEmail: event.target.value }))}
+                          value={organizationDraft.pocEmail}
+                          onChange={(event) => setOrganizationDraft((state) => ({ ...state, pocEmail: event.target.value }))}
                           placeholder="poc@company.com"
                         />
                       </label>
-                      <label>
-                        Country code
-                        <input
-                          value={inviteDraft.countryCode}
-                          onChange={(event) => setInviteDraft((state) => ({ ...state, countryCode: event.target.value }))}
-                          placeholder="sg"
-                        />
-                      </label>
-                      <button className="button primary" type="button" onClick={() => void onGenerateInvite()} disabled={busy || !inviteDraft.organizationCode.trim() || !inviteDraft.pocEmail.trim() || !inviteDraft.countryCode.trim()}>
-                        {busy ? 'Generating...' : 'Generate Invite URL'}
-                      </button>
-                      {generatedInviteUrl ? (
-                        <label>
-                          Latest setup URL
-                          <input value={generatedInviteUrl} readOnly />
-                        </label>
-                      ) : null}
                     </div>
+                    <label>
+                      Allowed email domains
+                      <input
+                        value={organizationDraft.allowedEmailDomains}
+                        onChange={(event) => setOrganizationDraft((state) => ({ ...state, allowedEmailDomains: event.target.value }))}
+                        placeholder="company.com, subsidiary.com"
+                      />
+                    </label>
+                    <button
+                      className="button primary"
+                      type="button"
+                      onClick={() => void onCreateOrganizationWithInvite()}
+                      disabled={busy || !organizationDraft.name.trim() || !organizationDraft.organizationCode.trim() || !organizationDraft.countryCode.trim() || !organizationDraft.pocEmail.trim()}
+                    >
+                      {busy ? 'Creating...' : 'Create Organization & Generate URL'}
+                    </button>
+                    {generatedInviteUrl ? (
+                      <label>
+                        Latest POC setup URL
+                        <input value={generatedInviteUrl} readOnly />
+                      </label>
+                    ) : null}
                   </div>
                 </div>
 

@@ -1651,6 +1651,10 @@ th {
     align-items: start;
   }
 
+  .admin-organization-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   .admin-window-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -2214,6 +2218,10 @@ select:focus {
 }
 
 @media (max-width: 900px) {
+  .admin-organization-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .admin-window-grid,
   .admin-scoring-grid,
   .admin-rules-grid {
@@ -2253,6 +2261,10 @@ select:focus {
 }
 
 @media (max-width: 640px) {
+  .admin-organization-grid {
+    grid-template-columns: 1fr;
+  }
+
   .admin-window-grid,
   .admin-scoring-grid,
   .admin-rules-grid {

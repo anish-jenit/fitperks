@@ -563,6 +563,42 @@ export async function createOrganization(input: {
   }
 }
 
+export async function createOrganizationWithInvite(input: {
+  name: string
+  organizationCode: string
+  countryCode: string
+  pocEmail: string
+  allowedEmailDomains?: string
+}): Promise<{ token: string; inviteUrlPath: string }> {
+  if (useFlowStubs) {
+    return createOrganizationInvite({
+      organizationCode: input.organizationCode,
+      pocEmail: input.pocEmail,
+      countryCode: input.countryCode,
+    })
+  }
+
+  const allowedEmailDomains = (input.allowedEmailDomains ?? '')
+    .split(',')
+    .map((domain) => domain.trim().toLowerCase().replace(/^@/, ''))
+    .filter(Boolean)
+
+  const { data, error } = await supabase.rpc('create_organization_with_invite', {
+    p_name: input.name.trim(),
+    p_organization_code: input.organizationCode.trim().toUpperCase(),
+    p_country_code: input.countryCode.trim().toLowerCase(),
+    p_poc_email: input.pocEmail.trim().toLowerCase(),
+    p_allowed_email_domains: allowedEmailDomains,
+  })
+
+  if (error) {
+    throw error
+  }
+
+  const payload = data as { token: string; invite_url_path: string }
+  return { token: payload.token, inviteUrlPath: payload.invite_url_path }
+}
+
 export async function createOrganizationInvite(input: {
   organizationCode: string
   pocEmail: string

@@ -657,6 +657,90 @@ begin
 end;
 $$;
 
+create or replace function public.create_organization_with_invite(
+  p_name text,
+  p_organization_code text,
+  p_country_code text,
+  p_poc_email text,
+  p_allowed_email_domains text[] default '{}'
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org organizations%rowtype;
+  v_token text;
+  v_slug text;
+begin
+  if not is_platform_admin() then
+    raise exception 'Only platform admins can create organizations';
+  end if;
+
+  if nullif(trim(p_name), '') is null
+    or nullif(trim(p_organization_code), '') is null
+    or nullif(trim(p_country_code), '') is null
+    or nullif(trim(p_poc_email), '') is null then
+    raise exception 'Organization name, code, country, and POC email are required';
+  end if;
+
+  v_slug := lower(regexp_replace(trim(p_name), '[^a-zA-Z0-9]+', '-', 'g'));
+  if nullif(v_slug, '') is null then
+    raise exception 'Organization name must contain letters or numbers';
+  end if;
+
+  insert into organizations (
+    name,
+    slug,
+    organization_code,
+    country_code,
+    poc_email,
+    allowed_email_domains,
+    status
+  )
+  values (
+    trim(p_name),
+    v_slug,
+    upper(trim(p_organization_code)),
+    lower(trim(p_country_code)),
+    lower(trim(p_poc_email)),
+    coalesce(p_allowed_email_domains, '{}'),
+    'active'
+  )
+  returning * into v_org;
+
+  insert into organization_settings (organization_id)
+  values (v_org.id);
+
+  v_token := encode(extensions.gen_random_bytes(18), 'hex');
+  insert into organization_invites (
+    token,
+    organization_id,
+    poc_email,
+    status,
+    expires_at,
+    created_by_user_id
+  )
+  values (
+    v_token,
+    v_org.id,
+    v_org.poc_email,
+    'pending',
+    now() + interval '10 days',
+    auth.uid()
+  );
+
+  return jsonb_build_object(
+    'organization_id', v_org.id,
+    'organization_name', v_org.name,
+    'organization_code', v_org.organization_code,
+    'token', v_token,
+    'invite_url_path', '/setup/' || v_token
+  );
+end;
+$$;
+
 create or replace function public.get_invite_setup_context(p_token text)
 returns jsonb
 language plpgsql
