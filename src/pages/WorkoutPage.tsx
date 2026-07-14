@@ -77,6 +77,18 @@ type PaceFeedback = {
   label: string
 }
 
+function getTrialCameraStorageKey(trialCode: string): string {
+  return `fitperks:trial-camera-enabled:${trialCode.trim().toLowerCase()}`
+}
+
+function hasEnabledTrialCamera(trialCode: string): boolean {
+  return sessionStorage.getItem(getTrialCameraStorageKey(trialCode)) === 'true'
+}
+
+function rememberEnabledTrialCamera(trialCode: string): void {
+  sessionStorage.setItem(getTrialCameraStorageKey(trialCode), 'true')
+}
+
 function getPointsPerRep(challenge: ChallengeRecord, exercise: ExerciseType): number {
   if (exercise === 'squat') {
     return challenge.squat_points_per_rep
@@ -240,7 +252,7 @@ export function WorkoutPage() {
 
   const isGuestWorkout = Boolean(challengeCode)
   const isTrialWorkout = Boolean(trialCode)
-  const shouldAutoEnableCamera = isTrialWorkout && searchParams.get('camera') === '1'
+  const shouldAutoEnableCamera = isTrialWorkout && (searchParams.get('camera') === '1' || hasEnabledTrialCamera(trialCode))
   const configuredOrgCode = getConfiguredOrganizationCode()
   const { settings, loading: settingsLoading } = useEventSettings()
   const exercise = (exerciseParam ?? '') as ExerciseType
@@ -608,6 +620,9 @@ export function WorkoutPage() {
 
       cameraRef.current = camera
       await camera.start()
+      if (isTrialWorkout) {
+        rememberEnabledTrialCamera(trialCode)
+      }
       setIsCameraReady(true)
     }
 
@@ -624,7 +639,7 @@ export function WorkoutPage() {
       poseRef.current = null
       setIsCameraReady(false)
     }
-  }, [challenge, isSessionComplete, handleRepDetection, cameraAttempt, captureRequested])
+  }, [challenge, isSessionComplete, handleRepDetection, cameraAttempt, captureRequested, isTrialWorkout, trialCode])
 
   useEffect(() => {
     if (!captureRequested || !isCameraReady) {
