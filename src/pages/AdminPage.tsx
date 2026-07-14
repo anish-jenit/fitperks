@@ -37,10 +37,25 @@ type TrialDraft = {
   organizationCode: string
   countryCode: string
   displayMessage: string
-  accessDurationMinutes: number
+  accessDuration: string
 }
 
 type PlatformTab = 'defaults' | 'organizations' | 'trials'
+
+const MIN_TRIAL_DURATION_MINUTES = 5
+const MAX_TRIAL_DURATION_MINUTES = 24 * 60
+
+function parseTrialDuration(value: string): number | null {
+  const match = /^(\d{1,2}):([0-5]\d)$/.exec(value.trim())
+  if (!match) return null
+
+  const minutes = Number(match[1]) * 60 + Number(match[2])
+  return minutes >= MIN_TRIAL_DURATION_MINUTES && minutes <= MAX_TRIAL_DURATION_MINUTES ? minutes : null
+}
+
+function formatTrialDuration(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+}
 
 function getAdminErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim()) {
@@ -87,7 +102,7 @@ export function AdminPage() {
     organizationCode: '',
     countryCode: '',
     displayMessage: '',
-    accessDurationMinutes: 30,
+    accessDuration: '00:30',
   })
 
   useEffect(() => {
@@ -281,11 +296,23 @@ export function AdminPage() {
   }
 
   async function onCreateOrganizationTrial() {
+    const accessDurationMinutes = parseTrialDuration(trialDraft.accessDuration)
+    if (accessDurationMinutes === null) {
+      setError('Enter a trial duration from 00:05 through 24:00 in HH:MM format.')
+      return
+    }
+
     try {
       setBusy(true)
       setError(null)
       setMessage(null)
-      const trial = await createOrganizationTrial(trialDraft)
+      const trial = await createOrganizationTrial({
+        organizationName: trialDraft.organizationName,
+        organizationCode: trialDraft.organizationCode,
+        countryCode: trialDraft.countryCode,
+        displayMessage: trialDraft.displayMessage,
+        accessDurationMinutes,
+      })
       setGeneratedTrial(trial)
       setOrganizationTrials(await getOrganizationTrials())
       setMessage('Organization trial created. Share the entry code or either trial URL.')
@@ -575,8 +602,9 @@ export function AdminPage() {
                       <label>Organization name<input value={trialDraft.organizationName} onChange={(event) => setTrialDraft((state) => ({ ...state, organizationName: event.target.value }))} placeholder="Citi" /></label>
                       <label>Organization code<input value={trialDraft.organizationCode} onChange={(event) => setTrialDraft((state) => ({ ...state, organizationCode: event.target.value }))} placeholder="CITI2026" /></label>
                       <label>Country code<input value={trialDraft.countryCode} onChange={(event) => setTrialDraft((state) => ({ ...state, countryCode: event.target.value }))} placeholder="sg" /></label>
-                      <label>Trial access duration (minutes)<input type="number" min={5} max={1440} value={trialDraft.accessDurationMinutes} onChange={(event) => setTrialDraft((state) => ({ ...state, accessDurationMinutes: Number(event.target.value) }))} /></label>
+                      <label>Trial access duration (HH:MM)<input value={trialDraft.accessDuration} onChange={(event) => setTrialDraft((state) => ({ ...state, accessDuration: event.target.value }))} inputMode="numeric" pattern="\\d{1,2}:[0-5]\\d" placeholder="00:30" aria-describedby="trial-duration-hint" /></label>
                     </div>
+                    <p className="hint" id="trial-duration-hint">Minimum 00:05. Maximum 24:00.</p>
                     <label>Organization message<textarea value={trialDraft.displayMessage} onChange={(event) => setTrialDraft((state) => ({ ...state, displayMessage: event.target.value }))} placeholder="Welcome to the FitPerks trial." /></label>
                     <button className="button primary" type="button" onClick={() => void onCreateOrganizationTrial()} disabled={busy || !trialDraft.organizationName.trim() || !trialDraft.organizationCode.trim() || !trialDraft.countryCode.trim()}>
                       {busy ? 'Creating...' : 'Create Trial Code & URLs'}
@@ -595,7 +623,7 @@ export function AdminPage() {
                 <div className="admin-list-block">
                   <h3 className="admin-subsection-title">Created trials</h3>
                   {organizationTrials.length === 0 ? <p>No trial codes created yet.</p> : (
-                    <div className="table-scroll"><table><thead><tr><th>Organization</th><th>Code</th><th>Duration</th><th>Expires</th><th>Workout URL</th><th>Scoreboard URL</th></tr></thead><tbody>{organizationTrials.map((trial) => <tr key={trial.id}><td>{trial.organizationName} <span className="table-muted">({trial.organizationCode})</span></td><td>{trial.code}</td><td>{trial.accessDurationMinutes} min</td><td>{dayjs(trial.expiresAt).format('YYYY-MM-DD HH:mm')}</td><td><a href={`${window.location.origin}${trial.workoutUrlPath}`}>Open</a></td><td><a href={`${window.location.origin}${trial.scoreboardUrlPath}`}>Open</a></td></tr>)}</tbody></table></div>
+                    <div className="table-scroll"><table><thead><tr><th>Organization</th><th>Code</th><th>Duration</th><th>Expires</th><th>Workout URL</th><th>Scoreboard URL</th></tr></thead><tbody>{organizationTrials.map((trial) => <tr key={trial.id}><td>{trial.organizationName} <span className="table-muted">({trial.organizationCode})</span></td><td>{trial.code}</td><td>{formatTrialDuration(trial.accessDurationMinutes)}</td><td>{dayjs(trial.expiresAt).format('YYYY-MM-DD HH:mm')}</td><td><a href={`${window.location.origin}${trial.workoutUrlPath}`}>Open</a></td><td><a href={`${window.location.origin}${trial.scoreboardUrlPath}`}>Open</a></td></tr>)}</tbody></table></div>
                   )}
                 </div>
               </section>

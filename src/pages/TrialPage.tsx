@@ -9,9 +9,10 @@ function buildUrl(path: string): string {
 
 function formatTimeRemaining(expiresAt: string): string {
   const remaining = Math.max(0, new Date(expiresAt).getTime() - Date.now())
-  const minutes = Math.floor(remaining / 60000)
+  const hours = Math.floor(remaining / 3600000)
+  const minutes = Math.floor((remaining % 3600000) / 60000)
   const seconds = Math.floor((remaining % 60000) / 1000)
-  return `${minutes}:${String(seconds).padStart(2, '0')}`
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
 function TrialUrls({ trial }: { trial: OrganizationTrialRecord }) {
