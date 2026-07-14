@@ -1225,7 +1225,18 @@ export async function createOrganizationTrial(input: {
 
 export async function getOrganizationTrial(code: string): Promise<OrganizationTrialRecord> {
   if (useFlowStubs) {
-    const trial = readStubFlowState().organizationTrials?.find((item) => item.code === code.trim().toLowerCase())
+    const normalizedCode = code.trim().toLowerCase()
+    const trial = (readStubFlowState().organizationTrials ?? [])
+      .filter((item) => item.code === normalizedCode || item.organizationCode.toLowerCase() === normalizedCode)
+      .sort((left, right) => {
+        const leftIsExactCode = left.code === normalizedCode ? 0 : 1
+        const rightIsExactCode = right.code === normalizedCode ? 0 : 1
+        if (leftIsExactCode !== rightIsExactCode) return leftIsExactCode - rightIsExactCode
+
+        const leftIsActive = dayjs(left.expiresAt).isAfter(dayjs()) ? 0 : 1
+        const rightIsActive = dayjs(right.expiresAt).isAfter(dayjs()) ? 0 : 1
+        return leftIsActive - rightIsActive
+      })[0]
     if (!trial || dayjs(trial.expiresAt).isBefore(dayjs())) {
       throw new Error('This organization trial has ended or the code is invalid.')
     }

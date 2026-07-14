@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEventSettings } from '../hooks/useEventSettings'
 import { CHALLENGES, CHALLENGE_VIDEO_PATH } from '../lib/constants'
 import { analyzePose } from '../lib/poseUtils'
@@ -236,9 +236,11 @@ function drawExerciseGuides(
 export function WorkoutPage() {
   const { challengeCode = '', trialCode = '', exercise: exerciseParam } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const isGuestWorkout = Boolean(challengeCode)
   const isTrialWorkout = Boolean(trialCode)
+  const shouldAutoEnableCamera = isTrialWorkout && searchParams.get('camera') === '1'
   const configuredOrgCode = getConfiguredOrganizationCode()
   const { settings, loading: settingsLoading } = useEventSettings()
   const exercise = (exerciseParam ?? '') as ExerciseType
@@ -421,6 +423,15 @@ export function WorkoutPage() {
   useEffect(() => {
     setSecondsLeft(guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds)
   }, [guestChallenge?.sessionDurationSeconds, settings.sessionDurationSeconds])
+
+  useEffect(() => {
+    if (!shouldAutoEnableCamera || !activeChallenge || !challenge || cameraAttempt > 0 || isSessionComplete) {
+      return
+    }
+
+    setHasRequestedCamera(true)
+    setCameraAttempt(1)
+  }, [activeChallenge, cameraAttempt, challenge, isSessionComplete, shouldAutoEnableCamera])
 
   const recordRep = useCallback(() => {
     const now = performance.now()

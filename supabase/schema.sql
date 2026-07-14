@@ -2298,6 +2298,11 @@ begin
   select * into v_trial
   from organization_trials
   where lower(code) = lower(trim(p_code))
+    or upper(organization_code) = upper(trim(p_code))
+  order by
+    case when lower(code) = lower(trim(p_code)) then 0 else 1 end,
+    case when expires_at >= now() then 0 else 1 end,
+    created_at desc
   limit 1;
 
   if v_trial.id is null then
@@ -2381,6 +2386,11 @@ begin
   select * into v_trial
   from organization_trials
   where lower(code) = lower(trim(p_code))
+    or upper(organization_code) = upper(trim(p_code))
+  order by
+    case when lower(code) = lower(trim(p_code)) then 0 else 1 end,
+    case when expires_at >= now() then 0 else 1 end,
+    created_at desc
   limit 1;
 
   if v_trial.id is null then
@@ -2440,6 +2450,11 @@ begin
   select * into v_trial
   from organization_trials
   where lower(code) = lower(trim(p_code))
+    or upper(organization_code) = upper(trim(p_code))
+  order by
+    case when lower(code) = lower(trim(p_code)) then 0 else 1 end,
+    case when expires_at >= now() then 0 else 1 end,
+    created_at desc
   limit 1;
 
   if v_trial.id is null then

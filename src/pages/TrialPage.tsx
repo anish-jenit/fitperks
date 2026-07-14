@@ -77,7 +77,7 @@ export function TrialCodePage() {
         {error ? <p className="error">{error}</p> : null}
         <form className="stack" onSubmit={(event) => void submit(event)}>
           <label>
-            Trial code
+            Trial or organization code
             <input value={code} onChange={(event) => setCode(event.target.value)} autoCapitalize="none" autoCorrect="off" required />
           </label>
           <button className="button primary" type="submit">Open demo</button>
@@ -137,8 +137,8 @@ export function TrialExperiencePage() {
             <h2>Quick-start workout</h2>
             <p>Choose an exercise. Your nickname is requested after you complete the workout.</p>
             <div className="hero-actions trial-workout-actions">
-              <Link className="button primary" to={`/trial/${trial.code}/workout/squat`}>Start squats</Link>
-              <Link className="button ghost" to={`/trial/${trial.code}/workout/burpee`}>Start jumping jacks</Link>
+              <Link className="button primary" to={`/trial/${trial.code}/workout/squat?camera=1`}>Start squats</Link>
+              <Link className="button ghost" to={`/trial/${trial.code}/workout/burpee?camera=1`}>Start jumping jacks</Link>
             </div>
             <Link className="inline-link" to={`/trial/${trial.code}`}>View trial details and URLs</Link>
           </div>
