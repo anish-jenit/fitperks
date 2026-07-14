@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { CHALLENGES } from '../lib/constants'
 import { createGuestChallenge, getGuestChallenge, getGuestChallengeForCreator, getGuestChallengesForEmail, getGuestScoreboard } from '../lib/supabaseApi'
-import { getLastGuestChallengeCode, getLastGuestName, getOrCreateGuestCreatorKey, saveGuestJoinContext } from '../lib/storage'
+import { getLastGuestChallengeCode, getLastGuestEmail, getLastGuestName, getOrCreateGuestCreatorKey, saveGuestJoinContext } from '../lib/storage'
 import type { ExerciseType, GuestChallengeRecord, GuestChallengeSummary, GuestScoreboardRow } from '../types'
 
 function dateInputValue(date: Date): string {
@@ -32,6 +32,47 @@ function copyText(value: string): Promise<void> {
   document.execCommand('copy')
   document.body.removeChild(input)
   return Promise.resolve()
+}
+
+function ShareIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 16V4" />
+      <path d="m7 9 5-5 5 5" />
+      <path d="M5 13v6h14v-6" />
+    </svg>
+  )
+}
+
+function ShareChallengeButton({ challenge }: { challenge: GuestChallengeRecord }) {
+  const [shared, setShared] = useState(false)
+  const challengeUrl = buildUrl(`/guest/${challenge.code}`)
+
+  async function shareChallenge() {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: challenge.title,
+          text: 'Join my FitPerks challenge',
+          url: challengeUrl,
+        })
+      } else {
+        await copyText(challengeUrl)
+      }
+
+      setShared(true)
+      window.setTimeout(() => setShared(false), 1600)
+    } catch {
+      return
+    }
+  }
+
+  return (
+    <button className="button ghost icon-button" type="button" onClick={() => void shareChallenge()} aria-label="Share challenge" title="Share challenge">
+      <ShareIcon />
+      <span>{shared ? 'Copied' : 'Share'}</span>
+    </button>
+  )
 }
 
 const SCOREBOARD_EXERCISE_META: Record<ExerciseType, { short: string; name: string }> = {
@@ -84,7 +125,7 @@ function ShareLinks({ challenge }: { challenge: GuestChallengeRecord }) {
 export function JoinChallengePage() {
   const navigate = useNavigate()
   const [guestName, setGuestName] = useState(() => getLastGuestName())
-  const [guestEmail, setGuestEmail] = useState('')
+  const [guestEmail, setGuestEmail] = useState(() => getLastGuestEmail())
   const [challengeCode, setChallengeCode] = useState(() => getLastGuestChallengeCode())
   const [challenges, setChallenges] = useState<GuestChallengeSummary[]>([])
   const [searched, setSearched] = useState(false)
@@ -425,6 +466,7 @@ export function GuestChallengeLandingPage() {
 
     saveGuestJoinContext({
       guestName: getLastGuestName(),
+      guestEmail: getLastGuestEmail(),
       challengeCode,
     })
 
@@ -501,6 +543,7 @@ export function GuestChallengeLandingPage() {
           <Link className="button ghost" to={`/guest/${challenge.code}/scoreboard`}>
             Scoreboard
           </Link>
+          <ShareChallengeButton challenge={challenge} />
         </div>
       </section>
     </main>

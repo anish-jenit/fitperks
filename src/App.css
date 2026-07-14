@@ -1324,6 +1324,49 @@ textarea {
   grid-row: 1;
 }
 
+.trial-panel {
+  max-width: 760px;
+}
+
+.trial-org-meta {
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.trial-url-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.trial-url-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  margin-top: 0.35rem;
+}
+
+.trial-scoreboard-list {
+  margin: 1rem 0;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.icon-button svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
 .scoreboard-grid {
   display: grid;
   gap: 1rem;
@@ -2418,6 +2461,10 @@ select:focus {
     grid-column: 1;
     grid-row: auto;
     width: 100%;
+  }
+
+  .trial-url-row {
+    grid-template-columns: 1fr;
   }
 
   .scoreboard-grid {

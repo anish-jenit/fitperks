@@ -17,6 +17,9 @@ export function LandingPage() {
           <Link className="button ghost" to="/join-challenge">
             Join Challenge
           </Link>
+          <Link className="button ghost" to="/demo">
+            Organization Demo
+          </Link>
           <Link className="button ghost" to="/organization-request">
             Organization Challenge Request
           </Link>

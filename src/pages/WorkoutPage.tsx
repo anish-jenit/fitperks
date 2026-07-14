@@ -6,14 +6,16 @@ import { analyzePose } from '../lib/poseUtils'
 import {
   getActiveChallenge,
   getGuestChallenge,
+  getOrganizationTrial,
   joinOrganizationAndRegister,
   nowSessionId,
   submitGuestAttempt,
+  submitOrganizationTrialAttempt,
   submitWorkoutSecure,
 } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
 import { clearParticipantProfile, getConfiguredOrganizationCode, getLastGuestChallengeCode, getLastGuestEmail, getLastGuestName, saveGuestJoinContext, saveParticipantProfile } from '../lib/storage'
-import type { ChallengeRecord, ExerciseType, GuestChallengeRecord } from '../types'
+import type { ChallengeRecord, ExerciseType, GuestChallengeRecord, OrganizationTrialRecord } from '../types'
 
 type NormalizedLandmark = {
   x: number
@@ -232,16 +234,18 @@ function drawExerciseGuides(
 }
 
 export function WorkoutPage() {
-  const { challengeCode = '', exercise: exerciseParam } = useParams()
+  const { challengeCode = '', trialCode = '', exercise: exerciseParam } = useParams()
   const navigate = useNavigate()
 
   const isGuestWorkout = Boolean(challengeCode)
+  const isTrialWorkout = Boolean(trialCode)
   const configuredOrgCode = getConfiguredOrganizationCode()
   const { settings, loading: settingsLoading } = useEventSettings()
   const exercise = (exerciseParam ?? '') as ExerciseType
   const challenge = CHALLENGES.find((item) => item.id === exercise)
   const [activeChallenge, setActiveChallenge] = useState<ChallengeRecord | null>(null)
   const [guestChallenge, setGuestChallenge] = useState<GuestChallengeRecord | null>(null)
+  const [organizationTrial, setOrganizationTrial] = useState<OrganizationTrialRecord | null>(null)
   const [sessionId, setSessionId] = useState(nowSessionId())
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -292,6 +296,42 @@ export function WorkoutPage() {
   }, [activeChallenge, challenge, repCount])
 
   useEffect(() => {
+    if (isTrialWorkout) {
+      void getOrganizationTrial(trialCode)
+        .then((payload) => {
+          setOrganizationTrial(payload)
+          setActiveChallenge({
+            id: payload.id,
+            organization_id: 'trial',
+            name: payload.organizationName,
+            description: payload.displayMessage,
+            start_date: payload.createdAt,
+            end_date: payload.expiresAt,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+            status: 'active',
+            squat_points_per_rep: 1,
+            burpee_points_per_rep: 2,
+            high_knees_points_per_rep: 1,
+            lunges_points_per_rep: 2,
+            daily_streak_bonus: 0,
+            team_streak_bonus: 0,
+            max_sessions_per_day: 999,
+            enabled_squat: true,
+            enabled_burpee: true,
+            enabled_high_knees: false,
+            enabled_lunges: false,
+            qualifying_threshold_type: 'total_points',
+            qualifying_threshold_value: 0,
+            team_qualification_type: 'fixed_count',
+            team_required_unique_members: 1,
+            team_required_participation_percent: 0,
+            created_at: payload.createdAt,
+          })
+        })
+        .catch((err) => setError(err instanceof Error ? err.message : 'Unable to load organization trial.'))
+      return
+    }
+
     if (isGuestWorkout) {
       void getGuestChallenge(challengeCode)
         .then((payload) => {
@@ -376,7 +416,7 @@ export function WorkoutPage() {
       .catch((err) => {
         setError(err instanceof Error ? err.message : 'Unable to load active challenge.')
       })
-  }, [challengeCode, configuredOrgCode, isGuestWorkout])
+  }, [challengeCode, configuredOrgCode, isGuestWorkout, isTrialWorkout, trialCode])
 
   useEffect(() => {
     setSecondsLeft(guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds)
@@ -800,6 +840,30 @@ export function WorkoutPage() {
         return
       }
 
+      if (isTrialWorkout) {
+        if (!trialCode) {
+          throw new Error('Organization trial code is missing.')
+        }
+
+        if (!saveName.trim()) {
+          throw new Error('Nickname is required to save your score.')
+        }
+
+        if (challenge.id !== 'squat' && challenge.id !== 'burpee') {
+          throw new Error('Only squats and jumping jacks are available in this trial.')
+        }
+
+        await submitOrganizationTrialAttempt({
+          code: trialCode,
+          nickname: saveName.trim(),
+          sessionId,
+          exercise: challenge.id,
+          reps: repCount,
+        })
+        navigate(`/trial/${trialCode}/workout`)
+        return
+      }
+
       if (isGuestWorkout) {
         if (!challengeCode) {
           throw new Error('Player challenge code is missing.')
@@ -882,7 +946,7 @@ export function WorkoutPage() {
     )
   }
 
-  if (!settings.enabledChallenges[challenge.id] || (activeChallenge && !isExerciseEnabled(activeChallenge, challenge.id)) || (isGuestWorkout && guestChallenge && !guestChallenge.selectedExercises.includes(challenge.id))) {
+  if ((!isTrialWorkout && !settings.enabledChallenges[challenge.id]) || (activeChallenge && !isExerciseEnabled(activeChallenge, challenge.id)) || (isGuestWorkout && guestChallenge && !guestChallenge.selectedExercises.includes(challenge.id)) || (isTrialWorkout && challenge.id !== 'squat' && challenge.id !== 'burpee')) {
     return (
       <main className="page">
         <section className="panel">
@@ -899,7 +963,7 @@ export function WorkoutPage() {
   return (
     <main className="page">
       <section className="panel workout-panel">
-        <h1>{guestChallenge?.title ?? challenge.name}</h1>
+        <h1>{organizationTrial?.organizationName ?? guestChallenge?.title ?? challenge.name}</h1>
 
         {!hasSupabaseConfig && !isGuestWorkout ? (
           <p className="hint">Demo mode active: camera and rep counting work locally, results are not saved.</p>
@@ -999,7 +1063,7 @@ export function WorkoutPage() {
             {isSessionComplete ? (
               <div className="stack">
                 {/* Temporarily disabled while the workout post capture flow is being fixed. */}
-                {isGuestWorkout ? (
+                {isTrialWorkout ? null : isGuestWorkout ? (
                   <label>
                     Player email
                     <input
@@ -1023,15 +1087,15 @@ export function WorkoutPage() {
                   </label>
                 )}
                 <label>
-                  {isGuestWorkout ? 'Player name' : 'Nickname (optional)'}
+                  {isTrialWorkout || isGuestWorkout ? 'Nickname' : 'Nickname (optional)'}
                   <input
                     value={saveName}
                     onChange={(event) => setSaveName(event.target.value)}
                     placeholder="Alex"
-                    required={isGuestWorkout}
+                    required={isTrialWorkout || isGuestWorkout}
                   />
                 </label>
-                {isGuestWorkout ? null : (
+                {isGuestWorkout || isTrialWorkout ? null : (
                   <label>
                     Team (optional)
                     <input
@@ -1042,7 +1106,7 @@ export function WorkoutPage() {
                   </label>
                 )}
                 <button className="button primary" onClick={() => void submitWorkout()} disabled={isSubmitting}>
-                  {isSubmitting ? 'Saving...' : isGuestWorkout ? 'Save Score' : 'Save Workout'}
+                  {isSubmitting ? 'Saving...' : isGuestWorkout || isTrialWorkout ? 'Save Score' : 'Save Workout'}
                 </button>
                 <button className="button ghost" type="button" onClick={retakeWorkout} disabled={isSubmitting || captureCountdown !== null || captureRequested}>
                   Retake workout
@@ -1050,8 +1114,8 @@ export function WorkoutPage() {
               </div>
             ) : null}
 
-            <Link className="button ghost workout-back-link" to={isGuestWorkout ? `/guest/${challengeCode}` : '/challenges'}>
-              {isGuestWorkout ? 'Back to player challenge' : 'Back to challenges'}
+            <Link className="button ghost workout-back-link" to={isTrialWorkout ? `/trial/${trialCode}/workout` : isGuestWorkout ? `/guest/${challengeCode}` : '/challenges'}>
+              {isTrialWorkout ? 'Back to trial workout' : isGuestWorkout ? 'Back to player challenge' : 'Back to challenges'}
             </Link>
           </aside>
         </div>

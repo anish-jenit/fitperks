@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import { adminSignIn, signOut, supabase, useFlowStubs } from '../lib/supabase'
 import {
   createOrganizationWithInvite,
+  createOrganizationTrial,
   downloadCsv,
   getActiveChallenge,
   getChallengeHistory,
@@ -10,12 +11,13 @@ import {
   getIndividualLeaderboard,
   getApplicationSettings,
   getOrganizationInvites,
+  getOrganizationTrials,
   getOrganizations,
   toCsv,
   updateApplicationSettings,
   updateChallengeConfig,
 } from '../lib/supabaseApi'
-import type { ApplicationSettings, ChallengeRecord, OrganizationInviteRecord, OrganizationRecord } from '../types'
+import type { ApplicationSettings, ChallengeRecord, OrganizationInviteRecord, OrganizationRecord, OrganizationTrialRecord } from '../types'
 
 type LoginState = {
   email: string
@@ -30,7 +32,15 @@ type OrganizationDraft = {
   allowedEmailDomains: string
 }
 
-type PlatformTab = 'defaults' | 'organizations'
+type TrialDraft = {
+  organizationName: string
+  organizationCode: string
+  countryCode: string
+  displayMessage: string
+  accessDurationMinutes: number
+}
+
+type PlatformTab = 'defaults' | 'organizations' | 'trials'
 
 function getAdminErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim()) {
@@ -62,13 +72,22 @@ export function AdminPage() {
   const [applicationSettings, setApplicationSettings] = useState<ApplicationSettings | null>(null)
   const [organizations, setOrganizations] = useState<OrganizationRecord[]>([])
   const [organizationInvites, setOrganizationInvites] = useState<OrganizationInviteRecord[]>([])
+  const [organizationTrials, setOrganizationTrials] = useState<OrganizationTrialRecord[]>([])
   const [generatedInviteUrl, setGeneratedInviteUrl] = useState<string | null>(null)
+  const [generatedTrial, setGeneratedTrial] = useState<OrganizationTrialRecord | null>(null)
   const [organizationDraft, setOrganizationDraft] = useState<OrganizationDraft>({
     name: '',
     organizationCode: '',
     countryCode: '',
     pocEmail: '',
     allowedEmailDomains: '',
+  })
+  const [trialDraft, setTrialDraft] = useState<TrialDraft>({
+    organizationName: '',
+    organizationCode: '',
+    countryCode: '',
+    displayMessage: '',
+    accessDurationMinutes: 30,
   })
 
   useEffect(() => {
@@ -85,6 +104,7 @@ export function AdminPage() {
         setApplicationSettings(await getApplicationSettings())
         setOrganizations([])
         setOrganizationInvites([])
+        setOrganizationTrials([])
         setMessage('Stub mode active: admin and POC invite flow is running locally without Supabase.')
         setError(null)
         return
@@ -107,15 +127,17 @@ export function AdminPage() {
       setIsPlatformAdmin(admin.role === 'platform_admin')
 
       if (admin.role === 'platform_admin') {
-        const [nextSettings, nextOrganizations, nextInvites, nextHistory] = await Promise.all([
+        const [nextSettings, nextOrganizations, nextInvites, nextTrials, nextHistory] = await Promise.all([
           getApplicationSettings(),
           getOrganizations(),
           getOrganizationInvites(),
+          getOrganizationTrials(),
           getChallengeHistory(),
         ])
         setApplicationSettings(nextSettings)
         setOrganizations(nextOrganizations)
         setOrganizationInvites(nextInvites)
+        setOrganizationTrials(nextTrials)
         setChallengeHistory(nextHistory)
         setActiveChallenge(null)
         setDraft(null)
@@ -258,6 +280,22 @@ export function AdminPage() {
     }
   }
 
+  async function onCreateOrganizationTrial() {
+    try {
+      setBusy(true)
+      setError(null)
+      setMessage(null)
+      const trial = await createOrganizationTrial(trialDraft)
+      setGeneratedTrial(trial)
+      setOrganizationTrials(await getOrganizationTrials())
+      setMessage('Organization trial created. Share the entry code or either trial URL.')
+    } catch (err) {
+      setError(getAdminErrorMessage(err, 'Unable to create organization trial.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const readOnlyHistory = useMemo(
     () => challengeHistory.filter((c) => c.status === 'completed' || c.status === 'archived'),
     [challengeHistory],
@@ -367,6 +405,15 @@ export function AdminPage() {
               >
                 Organizations & Invites
               </button>
+              <button
+                className={`admin-tab ${platformTab === 'trials' ? 'active' : ''}`}
+                type="button"
+                role="tab"
+                aria-selected={platformTab === 'trials'}
+                onClick={() => setPlatformTab('trials')}
+              >
+                Organization Trials
+              </button>
             </div>
 
             {platformTab === 'defaults' ? (
@@ -410,7 +457,7 @@ export function AdminPage() {
                   <p>Application defaults are unavailable.</p>
                 )}
               </section>
-            ) : (
+            ) : platformTab === 'organizations' ? (
               <section className="panel settings-panel">
                 <h2>Organizations & Invites</h2>
                 <p>Create the organization record and its POC setup URL in one step.</p>
@@ -513,6 +560,42 @@ export function AdminPage() {
                   <h3 className="admin-subsection-title">Challenge history</h3>
                   {readOnlyHistory.length === 0 ? <p>No completed or archived challenges yet.</p> : (
                     <div className="table-scroll"><table><thead><tr><th>Organization</th><th>Challenge</th><th>Status</th><th>Window</th></tr></thead><tbody>{readOnlyHistory.map((item) => <tr key={item.id}><td>{organizations.find((organization) => organization.id === item.organization_id)?.name ?? item.organization_id}</td><td>{item.name}</td><td>{item.status}</td><td>{dayjs(item.start_date).format('YYYY-MM-DD')} to {dayjs(item.end_date).format('YYYY-MM-DD')}</td></tr>)}</tbody></table></div>
+                  )}
+                </div>
+              </section>
+            ) : (
+              <section className="panel settings-panel">
+                <h2>Organization Trial</h2>
+                <p>Create a time-limited demo code. Trial participants can use only squats and jumping jacks; their scores update live until the access window ends.</p>
+
+                <div className="admin-management-block admin-management-block-wide">
+                  <h3 className="admin-subsection-title">New trial code</h3>
+                  <div className="stack">
+                    <div className="settings-grid admin-organization-grid">
+                      <label>Organization name<input value={trialDraft.organizationName} onChange={(event) => setTrialDraft((state) => ({ ...state, organizationName: event.target.value }))} placeholder="Citi" /></label>
+                      <label>Organization code<input value={trialDraft.organizationCode} onChange={(event) => setTrialDraft((state) => ({ ...state, organizationCode: event.target.value }))} placeholder="CITI2026" /></label>
+                      <label>Country code<input value={trialDraft.countryCode} onChange={(event) => setTrialDraft((state) => ({ ...state, countryCode: event.target.value }))} placeholder="sg" /></label>
+                      <label>Trial access duration (minutes)<input type="number" min={5} max={1440} value={trialDraft.accessDurationMinutes} onChange={(event) => setTrialDraft((state) => ({ ...state, accessDurationMinutes: Number(event.target.value) }))} /></label>
+                    </div>
+                    <label>Organization message<textarea value={trialDraft.displayMessage} onChange={(event) => setTrialDraft((state) => ({ ...state, displayMessage: event.target.value }))} placeholder="Welcome to the FitPerks trial." /></label>
+                    <button className="button primary" type="button" onClick={() => void onCreateOrganizationTrial()} disabled={busy || !trialDraft.organizationName.trim() || !trialDraft.organizationCode.trim() || !trialDraft.countryCode.trim()}>
+                      {busy ? 'Creating...' : 'Create Trial Code & URLs'}
+                    </button>
+                    {generatedTrial ? (
+                      <div className="trial-url-list">
+                        <label>Trial code<input value={generatedTrial.code} readOnly /></label>
+                        <label>Demo entry URL<input value={`${window.location.origin}${generatedTrial.entryUrlPath}`} readOnly /></label>
+                        <label>Quick-start workout URL<input value={`${window.location.origin}${generatedTrial.workoutUrlPath}`} readOnly /></label>
+                        <label>Live scoreboard URL<input value={`${window.location.origin}${generatedTrial.scoreboardUrlPath}`} readOnly /></label>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="admin-list-block">
+                  <h3 className="admin-subsection-title">Created trials</h3>
+                  {organizationTrials.length === 0 ? <p>No trial codes created yet.</p> : (
+                    <div className="table-scroll"><table><thead><tr><th>Organization</th><th>Code</th><th>Duration</th><th>Expires</th><th>Workout URL</th><th>Scoreboard URL</th></tr></thead><tbody>{organizationTrials.map((trial) => <tr key={trial.id}><td>{trial.organizationName} <span className="table-muted">({trial.organizationCode})</span></td><td>{trial.code}</td><td>{trial.accessDurationMinutes} min</td><td>{dayjs(trial.expiresAt).format('YYYY-MM-DD HH:mm')}</td><td><a href={`${window.location.origin}${trial.workoutUrlPath}`}>Open</a></td><td><a href={`${window.location.origin}${trial.scoreboardUrlPath}`}>Open</a></td></tr>)}</tbody></table></div>
                   )}
                 </div>
               </section>

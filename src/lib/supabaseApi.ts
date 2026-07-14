@@ -15,6 +15,8 @@ import type {
   IndividualLeaderboardRow,
   OrganizationInviteRecord,
   OrganizationRecord,
+  OrganizationTrialRecord,
+  OrganizationTrialScoreboardRow,
   ParticipantInput,
   ParticipantProfile,
   PublicLaunchContext,
@@ -35,6 +37,14 @@ type StubInviteState = {
 type StubFlowState = {
   invites: StubInviteState[]
   guestChallenges?: GuestChallengeRecord[]
+  organizationTrials?: OrganizationTrialRecord[]
+  organizationTrialAttempts?: Array<{
+    trialCode: string
+    nickname: string
+    sessionId: string
+    exercise: 'squat' | 'burpee'
+    score: number
+  }>
 }
 
 const STUB_FLOW_STORAGE_KEY = 'fitperk.flow.stub.state.v1'
@@ -70,7 +80,7 @@ function titleFromCode(organizationCode: string): string {
 function readStubFlowState(): StubFlowState {
   const raw = localStorage.getItem(STUB_FLOW_STORAGE_KEY)
   if (!raw) {
-    return { invites: [POC_INVITE], guestChallenges: [] }
+    return { invites: [POC_INVITE], guestChallenges: [], organizationTrials: [], organizationTrialAttempts: [] }
   }
 
   try {
@@ -79,9 +89,14 @@ function readStubFlowState(): StubFlowState {
     if (!invites.some((invite) => invite.token === POC_INVITE_TOKEN)) {
       invites.push(POC_INVITE)
     }
-    return { invites, guestChallenges: parsed.guestChallenges ?? [] }
+    return {
+      invites,
+      guestChallenges: parsed.guestChallenges ?? [],
+      organizationTrials: parsed.organizationTrials ?? [],
+      organizationTrialAttempts: parsed.organizationTrialAttempts ?? [],
+    }
   } catch {
-    return { invites: [POC_INVITE], guestChallenges: [] }
+    return { invites: [POC_INVITE], guestChallenges: [], organizationTrials: [], organizationTrialAttempts: [] }
   }
 }
 
@@ -1131,6 +1146,177 @@ export async function submitGuestAttempt(input: {
     playerId: payload.player_id,
     score: payload.score,
   }
+}
+
+function mapOrganizationTrial(payload: {
+  id: string
+  code: string
+  organization_name: string
+  organization_code: string
+  country_code: string
+  display_message: string
+  access_duration_minutes: number
+  expires_at: string
+  created_at: string
+  entry_url_path?: string
+  workout_url_path?: string
+  scoreboard_url_path?: string
+}): OrganizationTrialRecord {
+  return {
+    id: payload.id,
+    code: payload.code,
+    organizationName: payload.organization_name,
+    organizationCode: payload.organization_code,
+    countryCode: payload.country_code,
+    displayMessage: payload.display_message,
+    accessDurationMinutes: Number(payload.access_duration_minutes),
+    expiresAt: payload.expires_at,
+    createdAt: payload.created_at,
+    entryUrlPath: payload.entry_url_path,
+    workoutUrlPath: payload.workout_url_path ?? `/trial/${payload.code}/workout`,
+    scoreboardUrlPath: payload.scoreboard_url_path ?? `/trial/${payload.code}/scoreboard`,
+  }
+}
+
+export async function createOrganizationTrial(input: {
+  organizationName: string
+  organizationCode: string
+  countryCode: string
+  displayMessage: string
+  accessDurationMinutes: number
+}): Promise<OrganizationTrialRecord> {
+  if (useFlowStubs) {
+    const state = readStubFlowState()
+    const code = crypto.randomUUID().replaceAll('-', '').slice(0, 10).toLowerCase()
+    const now = dayjs()
+    const trial: OrganizationTrialRecord = {
+      id: `stub-trial-${code}`,
+      code,
+      organizationName: input.organizationName.trim(),
+      organizationCode: input.organizationCode.trim().toUpperCase(),
+      countryCode: input.countryCode.trim().toLowerCase(),
+      displayMessage: input.displayMessage.trim(),
+      accessDurationMinutes: input.accessDurationMinutes,
+      expiresAt: now.add(input.accessDurationMinutes, 'minute').toISOString(),
+      createdAt: now.toISOString(),
+      entryUrlPath: `/demo?code=${code}`,
+      workoutUrlPath: `/trial/${code}/workout`,
+      scoreboardUrlPath: `/trial/${code}/scoreboard`,
+    }
+    state.organizationTrials = [trial, ...(state.organizationTrials ?? [])]
+    writeStubFlowState(state)
+    return trial
+  }
+
+  const { data, error } = await supabase.rpc('create_organization_trial', {
+    p_organization_name: input.organizationName.trim(),
+    p_organization_code: input.organizationCode.trim().toUpperCase(),
+    p_country_code: input.countryCode.trim().toLowerCase(),
+    p_display_message: input.displayMessage.trim(),
+    p_access_duration_minutes: input.accessDurationMinutes,
+  })
+
+  if (error) {
+    throw error
+  }
+
+  return mapOrganizationTrial(data as Parameters<typeof mapOrganizationTrial>[0])
+}
+
+export async function getOrganizationTrial(code: string): Promise<OrganizationTrialRecord> {
+  if (useFlowStubs) {
+    const trial = readStubFlowState().organizationTrials?.find((item) => item.code === code.trim().toLowerCase())
+    if (!trial || dayjs(trial.expiresAt).isBefore(dayjs())) {
+      throw new Error('This organization trial has ended or the code is invalid.')
+    }
+    return trial
+  }
+
+  const { data, error } = await supabase.rpc('get_organization_trial', { p_code: code.trim().toLowerCase() })
+  if (error) {
+    throw error
+  }
+  return mapOrganizationTrial(data as Parameters<typeof mapOrganizationTrial>[0])
+}
+
+export async function getOrganizationTrials(): Promise<OrganizationTrialRecord[]> {
+  if (useFlowStubs) {
+    return readStubFlowState().organizationTrials ?? []
+  }
+
+  const { data, error } = await supabase.rpc('get_organization_trials')
+  if (error) {
+    throw error
+  }
+  return ((data ?? []) as any[]).map((item) => mapOrganizationTrial(item))
+}
+
+export async function submitOrganizationTrialAttempt(input: {
+  code: string
+  nickname: string
+  sessionId: string
+  exercise: 'squat' | 'burpee'
+  reps: number
+}): Promise<{ attemptId: string; score: number }> {
+  if (useFlowStubs) {
+    const state = readStubFlowState()
+    const trial = await getOrganizationTrial(input.code)
+    const score = input.reps * (input.exercise === 'burpee' ? 2 : 1)
+    const attempts = state.organizationTrialAttempts ?? []
+    const existingIndex = attempts.findIndex((attempt) => attempt.trialCode === trial.code && attempt.sessionId === input.sessionId)
+    const attempt = { trialCode: trial.code, nickname: input.nickname.trim(), sessionId: input.sessionId, exercise: input.exercise, score }
+    if (existingIndex >= 0) {
+      attempts[existingIndex] = attempt
+    } else {
+      attempts.push(attempt)
+    }
+    state.organizationTrialAttempts = attempts
+    writeStubFlowState(state)
+    return { attemptId: `stub-attempt-${input.sessionId}`, score }
+  }
+
+  const { data, error } = await supabase.rpc('submit_organization_trial_attempt', {
+    p_code: input.code.trim().toLowerCase(),
+    p_nickname: input.nickname.trim(),
+    p_session_id: input.sessionId,
+    p_exercise: input.exercise,
+    p_reps: input.reps,
+  })
+  if (error) {
+    throw error
+  }
+  const payload = data as { attempt_id: string; score: number }
+  return { attemptId: payload.attempt_id, score: Number(payload.score) }
+}
+
+export async function getOrganizationTrialScoreboard(code: string): Promise<OrganizationTrialScoreboardRow[]> {
+  if (useFlowStubs) {
+    const trial = await getOrganizationTrial(code)
+    const totals = new Map<string, { squatScore: number; jumpingJacksScore: number }>()
+    for (const attempt of readStubFlowState().organizationTrialAttempts ?? []) {
+      if (attempt.trialCode !== trial.code) continue
+      const current = totals.get(attempt.nickname) ?? { squatScore: 0, jumpingJacksScore: 0 }
+      if (attempt.exercise === 'squat') current.squatScore += attempt.score
+      else current.jumpingJacksScore += attempt.score
+      totals.set(attempt.nickname, current)
+    }
+    return [...totals.entries()]
+      .map(([nickname, score]) => ({ nickname, ...score, totalScore: score.squatScore + score.jumpingJacksScore }))
+      .sort((a, b) => b.totalScore - a.totalScore || a.nickname.localeCompare(b.nickname))
+      .map((row, index) => ({ ...row, rank: index + 1 }))
+  }
+
+  const { data, error } = await supabase.rpc('get_organization_trial_scoreboard', { p_code: code.trim().toLowerCase() })
+  if (error) {
+    throw error
+  }
+  return ((data ?? []) as any[]).map((row) => ({
+    rank: Number(row.rank),
+    nickname: row.nickname,
+    squatScore: Number(row.squat_score),
+    jumpingJacksScore: Number(row.jumping_jacks_score),
+    totalScore: Number(row.total_score),
+  }))
 }
 
 export function toCsv(rows: IndividualLeaderboardRow[]): string {

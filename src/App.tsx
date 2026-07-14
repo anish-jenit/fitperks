@@ -11,11 +11,12 @@ import { PublicLeaderboardPage } from './pages/PublicLeaderboardPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { WorkoutPage } from './pages/WorkoutPage'
 import { InviteSetupPage } from './pages/InviteSetupPage'
+import { TrialCodePage, TrialExperiencePage, TrialScoreboardPage } from './pages/TrialPage'
 
 function App() {
   const location = useLocation()
   const isPublicHome = location.pathname === '/' || location.pathname === '/home'
-  const isWorkoutRoute = /^\/workout\/[^/]+$/.test(location.pathname) || /^\/guest\/[^/]+\/workout\/[^/]+$/.test(location.pathname)
+  const isWorkoutRoute = /^\/workout\/[^/]+$/.test(location.pathname) || /^\/guest\/[^/]+\/workout\/[^/]+$/.test(location.pathname) || /^\/trial\/[^/]+\/workout\/[^/]+$/.test(location.pathname)
 
   return (
     <div className="app-shell">
@@ -33,6 +34,11 @@ function App() {
         <Route path="/guest/:challengeCode" element={<GuestChallengeLandingPage />} />
         <Route path="/guest/:challengeCode/workout/:exercise" element={<WorkoutPage />} />
         <Route path="/guest/:challengeCode/scoreboard" element={<GuestScoreboardPage />} />
+        <Route path="/demo" element={<TrialCodePage />} />
+        <Route path="/trial/:trialCode" element={<TrialExperiencePage />} />
+        <Route path="/trial/:trialCode/workout" element={<TrialExperiencePage />} />
+        <Route path="/trial/:trialCode/workout/:exercise" element={<WorkoutPage />} />
+        <Route path="/trial/:trialCode/scoreboard" element={<TrialScoreboardPage />} />
         <Route path="/organization-request" element={<OrganizationRequestPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/challenges" element={<ChallengeSelectPage />} />

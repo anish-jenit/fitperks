@@ -252,3 +252,26 @@ export type GuestChallengeSummary = GuestChallengeRecord & {
   playerCount: number
   joined: boolean
 }
+
+export type OrganizationTrialRecord = {
+  id: string
+  code: string
+  organizationName: string
+  organizationCode: string
+  countryCode: string
+  displayMessage: string
+  accessDurationMinutes: number
+  expiresAt: string
+  createdAt: string
+  entryUrlPath?: string
+  workoutUrlPath: string
+  scoreboardUrlPath: string
+}
+
+export type OrganizationTrialScoreboardRow = {
+  rank: number
+  nickname: string
+  squatScore: number
+  jumpingJacksScore: number
+  totalScore: number
+}

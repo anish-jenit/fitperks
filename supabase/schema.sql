@@ -331,6 +331,31 @@ create table if not exists guest_challenge_attempts (
 alter table guest_challenge_attempts drop constraint if exists guest_challenge_attempts_exercise_check;
 alter table guest_challenge_attempts add constraint guest_challenge_attempts_exercise_check check (exercise in ('squat', 'burpee', 'high-knees', 'lunges'));
 
+create table if not exists organization_trials (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  organization_name text not null,
+  organization_code text not null,
+  country_code text not null,
+  display_message text not null default '',
+  access_duration_minutes int not null check (access_duration_minutes between 5 and 1440),
+  expires_at timestamptz not null,
+  created_by_user_id uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists organization_trial_attempts (
+  id uuid primary key default gen_random_uuid(),
+  trial_id uuid not null references organization_trials(id) on delete cascade,
+  nickname text not null,
+  session_id uuid not null,
+  exercise text not null check (exercise in ('squat', 'burpee')),
+  reps int not null check (reps >= 0),
+  score int not null check (score >= 0),
+  created_at timestamptz not null default now(),
+  unique (trial_id, session_id)
+);
+
 create table if not exists audit_logs (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid references organizations(id) on delete set null,
@@ -359,6 +384,8 @@ create index if not exists idx_guest_challenge_players_email on guest_challenge_
 drop index if exists idx_guest_challenges_creator_email_active;
 create index if not exists idx_guest_challenges_creator_email on guest_challenges(lower(creator_email)) where deleted_at is null and creator_email <> '';
 create index if not exists idx_guest_challenge_attempts_challenge_created on guest_challenge_attempts(challenge_id, created_at desc);
+create index if not exists idx_organization_trials_code on organization_trials(code);
+create index if not exists idx_organization_trial_attempts_trial_created on organization_trial_attempts(trial_id, created_at desc);
 
 create or replace function public.current_organization_id()
 returns uuid
@@ -2181,6 +2208,270 @@ begin
 end;
 $$;
 
+create or replace function public.create_organization_trial(
+  p_organization_name text,
+  p_organization_code text,
+  p_country_code text,
+  p_display_message text,
+  p_access_duration_minutes int
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_trial organization_trials%rowtype;
+  v_code text;
+begin
+  if not is_platform_admin() then
+    raise exception 'Only platform admins can create organization trials';
+  end if;
+
+  if nullif(trim(p_organization_name), '') is null
+    or nullif(trim(p_organization_code), '') is null
+    or nullif(trim(p_country_code), '') is null then
+    raise exception 'Organization name, code, and country are required';
+  end if;
+
+  if p_access_duration_minutes not between 5 and 1440 then
+    raise exception 'Trial access duration must be between 5 and 1440 minutes';
+  end if;
+
+  loop
+    v_code := lower(substr(encode(extensions.gen_random_bytes(9), 'hex'), 1, 10));
+
+    begin
+      insert into organization_trials (
+        code,
+        organization_name,
+        organization_code,
+        country_code,
+        display_message,
+        access_duration_minutes,
+        expires_at,
+        created_by_user_id
+      )
+      values (
+        v_code,
+        trim(p_organization_name),
+        upper(trim(p_organization_code)),
+        lower(trim(p_country_code)),
+        coalesce(trim(p_display_message), ''),
+        p_access_duration_minutes,
+        now() + make_interval(mins => p_access_duration_minutes),
+        auth.uid()
+      )
+      returning * into v_trial;
+      exit;
+    exception when unique_violation then
+      null;
+    end;
+  end loop;
+
+  return jsonb_build_object(
+    'id', v_trial.id,
+    'code', v_trial.code,
+    'organization_name', v_trial.organization_name,
+    'organization_code', v_trial.organization_code,
+    'country_code', v_trial.country_code,
+    'display_message', v_trial.display_message,
+    'access_duration_minutes', v_trial.access_duration_minutes,
+    'expires_at', v_trial.expires_at,
+    'created_at', v_trial.created_at,
+    'entry_url_path', '/demo?code=' || v_trial.code,
+    'workout_url_path', '/trial/' || v_trial.code || '/workout',
+    'scoreboard_url_path', '/trial/' || v_trial.code || '/scoreboard'
+  );
+end;
+$$;
+
+create or replace function public.get_organization_trial(p_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_trial organization_trials%rowtype;
+begin
+  select * into v_trial
+  from organization_trials
+  where lower(code) = lower(trim(p_code))
+  limit 1;
+
+  if v_trial.id is null then
+    raise exception 'Trial code not found';
+  end if;
+
+  if v_trial.expires_at < now() then
+    raise exception 'This organization trial has ended';
+  end if;
+
+  return jsonb_build_object(
+    'id', v_trial.id,
+    'code', v_trial.code,
+    'organization_name', v_trial.organization_name,
+    'organization_code', v_trial.organization_code,
+    'country_code', v_trial.country_code,
+    'display_message', v_trial.display_message,
+    'access_duration_minutes', v_trial.access_duration_minutes,
+    'expires_at', v_trial.expires_at,
+    'created_at', v_trial.created_at,
+    'workout_url_path', '/trial/' || v_trial.code || '/workout',
+    'scoreboard_url_path', '/trial/' || v_trial.code || '/scoreboard'
+  );
+end;
+$$;
+
+create or replace function public.get_organization_trials()
+returns table(
+  id uuid,
+  code text,
+  organization_name text,
+  organization_code text,
+  country_code text,
+  display_message text,
+  access_duration_minutes int,
+  expires_at timestamptz,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not is_platform_admin() then
+    raise exception 'Only platform admins can view organization trials';
+  end if;
+
+  return query
+  select t.id, t.code, t.organization_name, t.organization_code, t.country_code,
+    t.display_message, t.access_duration_minutes, t.expires_at, t.created_at
+  from organization_trials t
+  order by t.created_at desc;
+end;
+$$;
+
+create or replace function public.submit_organization_trial_attempt(
+  p_code text,
+  p_nickname text,
+  p_session_id uuid,
+  p_exercise text,
+  p_reps int
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_trial organization_trials%rowtype;
+  v_attempt organization_trial_attempts%rowtype;
+  v_score int;
+begin
+  if nullif(trim(p_nickname), '') is null then
+    raise exception 'Nickname is required';
+  end if;
+
+  if p_exercise not in ('squat', 'burpee') or p_reps < 0 then
+    raise exception 'Invalid trial workout';
+  end if;
+
+  select * into v_trial
+  from organization_trials
+  where lower(code) = lower(trim(p_code))
+  limit 1;
+
+  if v_trial.id is null then
+    raise exception 'Trial code not found';
+  end if;
+
+  if v_trial.expires_at < now() then
+    raise exception 'This organization trial has ended';
+  end if;
+
+  v_score := p_reps * case when p_exercise = 'burpee' then 2 else 1 end;
+
+  insert into organization_trial_attempts (
+    trial_id,
+    nickname,
+    session_id,
+    exercise,
+    reps,
+    score
+  )
+  values (
+    v_trial.id,
+    trim(p_nickname),
+    p_session_id,
+    p_exercise,
+    p_reps,
+    v_score
+  )
+  on conflict (trial_id, session_id) do update
+  set nickname = excluded.nickname,
+      reps = excluded.reps,
+      score = excluded.score
+  returning * into v_attempt;
+
+  return jsonb_build_object(
+    'attempt_id', v_attempt.id,
+    'score', v_attempt.score
+  );
+end;
+$$;
+
+create or replace function public.get_organization_trial_scoreboard(p_code text)
+returns table(
+  rank bigint,
+  nickname text,
+  squat_score int,
+  jumping_jacks_score int,
+  total_score int
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_trial organization_trials%rowtype;
+begin
+  select * into v_trial
+  from organization_trials
+  where lower(code) = lower(trim(p_code))
+  limit 1;
+
+  if v_trial.id is null then
+    raise exception 'Trial code not found';
+  end if;
+
+  if v_trial.expires_at < now() then
+    raise exception 'This organization trial has ended';
+  end if;
+
+  return query
+  with totals as (
+    select
+      a.nickname,
+      coalesce(sum(a.score) filter (where a.exercise = 'squat'), 0)::int as squat_score,
+      coalesce(sum(a.score) filter (where a.exercise = 'burpee'), 0)::int as jumping_jacks_score,
+      coalesce(sum(a.score), 0)::int as total_score
+    from organization_trial_attempts a
+    where a.trial_id = v_trial.id
+    group by a.nickname
+  )
+  select
+    dense_rank() over (order by t.total_score desc, t.nickname asc) as rank,
+    t.nickname,
+    t.squat_score,
+    t.jumping_jacks_score,
+    t.total_score
+  from totals t
+  order by rank;
+end;
+$$;
+
 alter table application_settings enable row level security;
 alter table organizations enable row level security;
 alter table organization_settings enable row level security;
@@ -2200,6 +2491,8 @@ alter table point_transactions enable row level security;
 alter table guest_challenges enable row level security;
 alter table guest_challenge_players enable row level security;
 alter table guest_challenge_attempts enable row level security;
+alter table organization_trials enable row level security;
+alter table organization_trial_attempts enable row level security;
 alter table audit_logs enable row level security;
 
 drop policy if exists "Organizations tenant read" on organizations;
