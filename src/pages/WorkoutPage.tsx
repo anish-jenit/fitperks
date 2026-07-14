@@ -773,6 +773,10 @@ export function WorkoutPage() {
 
   function retryCamera() {
     setError(null)
+    cameraRef.current?.stop()
+    poseRef.current?.close()
+    cameraRef.current = null
+    poseRef.current = null
     setHasRequestedCamera(true)
     setIsCameraReady(false)
     setCameraAttempt((value) => value + 1)
@@ -992,7 +996,7 @@ export function WorkoutPage() {
               onClick={() => setIsVideoMaximized((value) => !value)}
               aria-pressed={isVideoMaximized}
             >
-              {isVideoMaximized ? 'Minimize video' : 'Maximize video'}
+              {isVideoMaximized ? 'Minimize self view' : 'Maximize self view'}
             </button>
             {positioningMessage ? (
               <div className="workout-positioning-message" aria-live="polite">
