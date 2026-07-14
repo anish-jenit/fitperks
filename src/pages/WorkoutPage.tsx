@@ -269,6 +269,7 @@ export function WorkoutPage() {
   const [isWorkoutRunning, setIsWorkoutRunning] = useState(false)
   const [isSessionComplete, setIsSessionComplete] = useState(false)
   const [isCameraReady, setIsCameraReady] = useState(false)
+  const [isVideoMaximized, setIsVideoMaximized] = useState(false)
   const [showInstructionVideo, setShowInstructionVideo] = useState(true)
   const [cameraAttempt, setCameraAttempt] = useState(0)
   const [hasRequestedCamera, setHasRequestedCamera] = useState(false)
@@ -429,7 +430,6 @@ export function WorkoutPage() {
       return
     }
 
-    setHasRequestedCamera(true)
     setCameraAttempt(1)
   }, [activeChallenge, cameraAttempt, challenge, isSessionComplete, shouldAutoEnableCamera])
 
@@ -983,9 +983,17 @@ export function WorkoutPage() {
         {error ? <p className="error">{error}</p> : null}
 
         <div className="workout-grid">
-          <div className="camera-wrapper">
+          <div className={`camera-wrapper ${isVideoMaximized ? 'camera-wrapper-maximized' : ''}`}>
             <video ref={videoRef} className="camera-feed" playsInline muted autoPlay />
             <canvas ref={canvasRef} className="camera-overlay" />
+            <button
+              className="video-size-toggle"
+              type="button"
+              onClick={() => setIsVideoMaximized((value) => !value)}
+              aria-pressed={isVideoMaximized}
+            >
+              {isVideoMaximized ? 'Minimize video' : 'Maximize video'}
+            </button>
             {positioningMessage ? (
               <div className="workout-positioning-message" aria-live="polite">
                 {positioningMessage}

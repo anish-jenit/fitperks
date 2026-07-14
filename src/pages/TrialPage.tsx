@@ -61,8 +61,8 @@ export function TrialCodePage() {
 
     try {
       setError(null)
-      await getOrganizationTrial(normalized)
-      navigate(`/trial/${normalized}`)
+      const trial = await getOrganizationTrial(normalized)
+      navigate(`/trial/${trial.code}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'This trial code is not available.')
     }

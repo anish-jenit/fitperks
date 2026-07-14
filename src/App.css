@@ -1052,6 +1052,33 @@ textarea {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
+.camera-wrapper.camera-wrapper-maximized {
+  position: fixed;
+  inset: 1rem;
+  z-index: 20;
+  min-height: 0;
+  max-height: none;
+  width: auto;
+}
+
+.video-size-toggle {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 3;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius);
+  color: #f8fafc;
+  background: rgba(3, 7, 18, 0.78);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+
 .workout-camera-controls {
   position: absolute;
   inset: auto 1rem 1rem;
@@ -1108,7 +1135,7 @@ textarea {
 .workout-timer-overlay {
   position: absolute;
   top: 1rem;
-  right: 1rem;
+  right: 8.7rem;
   z-index: 2;
   padding: 0.4rem 0.65rem;
   border: 1px solid rgba(253, 230, 138, 0.75);
