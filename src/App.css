@@ -1034,6 +1034,16 @@ textarea {
   grid-template-columns: minmax(700px, 3fr) minmax(280px, 1fr);
 }
 
+.workout-live-view {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.camera-privacy-note {
+  margin: 0;
+}
+
 .workout-panel,
 .workout-panel h1,
 .workout-panel p,

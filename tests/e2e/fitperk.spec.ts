@@ -58,6 +58,20 @@ test.beforeEach(async ({ page }) => {
     created_at: new Date().toISOString(),
   }
   let innoBlazeSetupStatus: 'pending' | 'ready' = 'pending'
+  const organizationTrial = {
+    id: 'trial-1',
+    code: 'trial-demo-1',
+    organization_name: 'Acme Wellness',
+    organization_code: 'ACME2026',
+    country_code: 'us',
+    display_message: 'A live FitPerks trial.',
+    access_duration_minutes: 30,
+    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    created_at: new Date().toISOString(),
+    entry_url_path: '/demo?code=trial-demo-1',
+    workout_url_path: '/trial/trial-demo-1/workout',
+    scoreboard_url_path: '/trial/trial-demo-1/scoreboard',
+  }
 
   await page.route('http://127.0.0.1:54321/auth/v1/**', async (route) => {
     const request = route.request()
@@ -226,6 +240,14 @@ test.beforeEach(async ({ page }) => {
       return json([])
     }
 
+    if (path.endsWith('/rpc/get_organization_trial') && method === 'POST') {
+      return json(organizationTrial)
+    }
+
+    if (path.endsWith('/rpc/get_organization_trial_scoreboard') && method === 'POST') {
+      return json([])
+    }
+
     if (path.endsWith('/rpc/get_individual_leaderboard') && method === 'POST') {
       return json(individualRows)
     }
@@ -260,14 +282,17 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
-test('launch start, challenge list, leaderboards, and admin dashboard render correctly', async ({ page }) => {
+test('launch start, challenge list, leaderboards, and admin login render correctly', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Every Move Deserves a Perk.' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Create Challenge (Limited Edition)' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Create Challenge' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Join Challenge' })).toHaveAttribute('href', '/join-challenge')
   await expect(page.getByRole('link', { name: 'Organization Challenge Request' })).toBeVisible()
 
   await page.goto('/launch/us/company-a')
+  await expect(page.getByRole('heading', { name: 'Company A' })).toBeVisible()
+  await page.getByRole('link', { name: 'Enter Challenge' }).click()
+  await expect(page).toHaveURL(/\/challenges$/)
   await expect(page.getByRole('heading', { name: 'Choose a Challenge' })).toBeVisible()
   await expect(page.getByText(/to .*\(.+\)/)).toBeVisible()
   await expect(page.getByRole('link', { name: /^(Let's Go|Start Now|Let's Move|Game On|Bring It On)$/ })).toHaveCount(4)
@@ -279,7 +304,7 @@ test('launch start, challenge list, leaderboards, and admin dashboard render cor
   await expect(page.locator('.winner-score').first()).toBeVisible()
 
   await page.goto('/admin')
-  await expect(page.getByRole('heading', { name: 'Organization Admin Dashboard' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Admin Login' })).toBeVisible()
 })
 
 test('guest limited challenge creates shareable challenge and scoreboard links', async ({ page }) => {
@@ -333,9 +358,12 @@ test('organization request prepares email draft', async ({ page }) => {
   await expect(page.getByText('Email draft opened.')).toBeVisible()
 })
 
-test('ready public challenge URL opens challenge selection directly', async ({ page }) => {
+test('ready public challenge URL links to challenge selection', async ({ page }) => {
   await page.goto('/launch/us/company-a')
 
+  await expect(page.getByRole('heading', { name: 'Company A' })).toBeVisible()
+  await page.getByRole('link', { name: 'Enter Challenge' }).click()
+  await expect(page).toHaveURL(/\/challenges$/)
   await expect(page.getByRole('heading', { name: 'Choose a Challenge' })).toBeVisible()
 })
 
@@ -360,8 +388,34 @@ test('POC setup, launch, and scoreboard URLs resolve', async ({ page }) => {
   await expect(page.getByText('Scoreboard URL', { exact: true })).toBeVisible()
 
   await page.goto('/launch/us/innoblaze')
+  await expect(page.getByRole('heading', { name: 'InnoBlaze' })).toBeVisible()
+  await page.getByRole('link', { name: 'Enter Challenge' }).click()
+  await expect(page).toHaveURL(/\/challenges$/)
   await expect(page.getByRole('heading', { name: 'Choose a Challenge' })).toBeVisible()
 
   await page.goto('/launch/us/innoblaze/leaderboard')
   await expect(page.getByRole('heading', { name: 'Leaderboards' })).toBeVisible()
+})
+
+test('organization trial entry, workout, and scoreboard links resolve', async ({ page }) => {
+  await page.goto('/demo?code=trial-demo-1')
+
+  await expect(page.getByRole('heading', { name: 'Enter trial code' })).toBeVisible()
+  await page.getByRole('button', { name: 'Open demo' }).click()
+  await expect(page).toHaveURL(/\/trial\/trial-demo-1$/)
+  await expect(page.getByRole('heading', { name: 'Acme Wellness' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Open quick-start workout' })).toHaveAttribute('href', '/trial/trial-demo-1/workout')
+  await expect(page.getByRole('link', { name: 'Open live scoreboard' })).toHaveAttribute('href', '/trial/trial-demo-1/scoreboard')
+
+  await page.getByRole('link', { name: 'Open quick-start workout' }).click()
+  await expect(page).toHaveURL(/\/trial\/trial-demo-1\/workout$/)
+  await expect(page.getByRole('link', { name: 'Start squats' })).toHaveAttribute(
+    'href',
+    '/trial/trial-demo-1/workout/squat?camera=1',
+  )
+
+  await page.goto('/trial/trial-demo-1/scoreboard')
+  await expect(page.getByRole('heading', { name: 'Acme Wellness' })).toBeVisible()
+  await expect(page.getByText('Waiting for the first workout')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Open workout' })).toHaveAttribute('href', '/trial/trial-demo-1/workout')
 })

@@ -77,6 +77,21 @@ type PaceFeedback = {
   label: string
 }
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim()) {
+      return message
+    }
+  }
+
+  return fallback
+}
+
 type TrialExercise = 'squat' | 'burpee'
 
 type TrialWorkoutResult = {
@@ -1035,7 +1050,7 @@ export function WorkoutPage() {
       clearParticipantProfile()
       navigate('/challenges')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to submit workout.')
+      setError(getErrorMessage(err, 'Unable to submit workout.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -1091,52 +1106,57 @@ export function WorkoutPage() {
         {error ? <p className="error">{error}</p> : null}
 
         <div className="workout-grid">
-          <div className={`camera-wrapper ${isVideoMaximized ? 'camera-wrapper-maximized' : ''}`}>
-            <video ref={videoRef} className="camera-feed" playsInline muted autoPlay />
-            <canvas ref={canvasRef} className="camera-overlay" />
-            <button
-              className="video-size-toggle"
-              type="button"
-              onClick={() => setIsVideoMaximized((value) => !value)}
-              aria-pressed={isVideoMaximized}
-            >
-              {isVideoMaximized ? 'Minimize self view' : 'Maximize self view'}
-            </button>
-            {positioningMessage ? (
-              <div className="workout-positioning-message" aria-live="polite">
-                {positioningMessage}
+          <div className="workout-live-view">
+            <div className={`camera-wrapper ${isVideoMaximized ? 'camera-wrapper-maximized' : ''}`}>
+              <video ref={videoRef} className="camera-feed" playsInline muted autoPlay />
+              <canvas ref={canvasRef} className="camera-overlay" />
+              <button
+                className="video-size-toggle"
+                type="button"
+                onClick={() => setIsVideoMaximized((value) => !value)}
+                aria-pressed={isVideoMaximized}
+              >
+                {isVideoMaximized ? 'Minimize self view' : 'Maximize self view'}
+              </button>
+              {positioningMessage ? (
+                <div className="workout-positioning-message" aria-live="polite">
+                  {positioningMessage}
+                </div>
+              ) : null}
+              <div className="workout-counter-overlay" aria-live="polite">
+                <span>Valid reps</span>
+                <strong className={paceFeedback ? 'counter-pulse' : ''}>{repCount}</strong>
               </div>
-            ) : null}
-            <div className="workout-counter-overlay" aria-live="polite">
-              <span>Valid reps</span>
-              <strong className={paceFeedback ? 'counter-pulse' : ''}>{repCount}</strong>
+              {isWorkoutRunning ? (
+                <div className={`workout-timer-overlay ${finalTenSeconds ? 'workout-timer-overlay-urgent' : ''}`} aria-live="polite">
+                  {secondsLeft}s
+                </div>
+              ) : null}
+              {captureCountdown !== null ? (
+                <div className="workout-capture-countdown" aria-live="assertive">{captureCountdown || 'POSE'}</div>
+              ) : null}
+              {countdown !== null ? (
+                <div className="workout-start-countdown" aria-live="assertive">{countdown || 'GO!'}</div>
+              ) : null}
+              {!isSessionComplete && countdown === null && !isWorkoutRunning ? (
+                <div className="workout-camera-controls">
+                  {!isCameraReady ? (
+                    <button className="camera-control" type="button" onClick={retryCamera} aria-label={hasRequestedCamera ? 'Retry camera' : 'Enable camera'}>
+                      <span className="camera-control-icon" aria-hidden="true">◉</span>
+                      <span className="camera-control-label">{hasRequestedCamera ? 'Retry Camera' : 'Enable Camera'}</span>
+                    </button>
+                  ) : (
+                    <button className="camera-control camera-control-primary" type="button" onClick={startWorkout} aria-label="Start workout">
+                      <span className="camera-control-icon" aria-hidden="true">▶</span>
+                      <span className="camera-control-label">Start Workout</span>
+                    </button>
+                  )}
+                </div>
+              ) : null}
             </div>
-            {isWorkoutRunning ? (
-              <div className={`workout-timer-overlay ${finalTenSeconds ? 'workout-timer-overlay-urgent' : ''}`} aria-live="polite">
-                {secondsLeft}s
-              </div>
-            ) : null}
-            {captureCountdown !== null ? (
-              <div className="workout-capture-countdown" aria-live="assertive">{captureCountdown || 'POSE'}</div>
-            ) : null}
-            {countdown !== null ? (
-              <div className="workout-start-countdown" aria-live="assertive">{countdown || 'GO!'}</div>
-            ) : null}
-            {!isSessionComplete && countdown === null && !isWorkoutRunning ? (
-              <div className="workout-camera-controls">
-                {!isCameraReady ? (
-                  <button className="camera-control" type="button" onClick={retryCamera} aria-label={hasRequestedCamera ? 'Retry camera' : 'Enable camera'}>
-                    <span className="camera-control-icon" aria-hidden="true">◉</span>
-                    <span className="camera-control-label">{hasRequestedCamera ? 'Retry Camera' : 'Enable Camera'}</span>
-                  </button>
-                ) : (
-                  <button className="camera-control camera-control-primary" type="button" onClick={startWorkout} aria-label="Start workout">
-                    <span className="camera-control-icon" aria-hidden="true">▶</span>
-                    <span className="camera-control-label">Start Workout</span>
-                  </button>
-                )}
-              </div>
-            ) : null}
+            <p className="hint camera-privacy-note">
+              Camera video and images are used only to track your workout. FitPerks does not store them.
+            </p>
           </div>
 
           <aside className="stats-panel">
@@ -1170,10 +1190,6 @@ export function WorkoutPage() {
                   : 'Tap Enable Camera to allow browser camera permission.'}
               </p>
             ) : null}
-            <p className="hint camera-privacy-note">
-              Camera video and images are used only to track your workout. FitPerks does not store them.
-            </p>
-
             {!isSessionComplete && countdown === null && !isWorkoutRunning ? <p className="hint">Step into frame, then use the camera control to begin.</p> : null}
 
             {isWorkoutRunning ? <p className="hint">Workout in progress.</p> : null}
