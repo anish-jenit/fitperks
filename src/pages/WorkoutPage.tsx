@@ -538,9 +538,7 @@ export function WorkoutPage() {
     [challenge, isSessionComplete, isWorkoutRunning, recordRep, settings.calibration],
   )
 
-  useEffect(() => {
-    handleRepDetectionRef.current = handleRepDetection
-  }, [handleRepDetection])
+  handleRepDetectionRef.current = handleRepDetection
 
   useEffect(() => {
     if (!challenge || (isSessionComplete && !captureRequested) || cameraAttempt === 0) {
