@@ -9,6 +9,7 @@ import {
   getOrganizationTrial,
   joinOrganizationAndRegister,
   nowSessionId,
+  resetOrganizationTrialPlayerToken,
   submitGuestAttempt,
   submitOrganizationTrialResults,
   submitWorkoutSecure,
@@ -318,6 +319,7 @@ export function WorkoutPage() {
   const [countdown, setCountdown] = useState<number | null>(null)
   const [isWorkoutRunning, setIsWorkoutRunning] = useState(false)
   const [isSessionComplete, setIsSessionComplete] = useState(false)
+  const [wasFinishedEarly, setWasFinishedEarly] = useState(false)
   const [isCameraReady, setIsCameraReady] = useState(false)
   const [isVideoMaximized, setIsVideoMaximized] = useState(false)
   const [showInstructionVideo, setShowInstructionVideo] = useState(true)
@@ -830,6 +832,7 @@ export function WorkoutPage() {
     setPaceFeedback(null)
     setSecondsLeft(guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds)
     setIsSessionComplete(false)
+    setWasFinishedEarly(false)
     setIsWorkoutRunning(false)
     squatStageRef.current = 'standing'
     lungeStageRef.current = 'standing'
@@ -844,6 +847,20 @@ export function WorkoutPage() {
     lastRepAtRef.current = null
     lastRepIntervalRef.current = null
     setCountdown(3)
+  }
+
+  function finishWorkoutEarly() {
+    if (!isWorkoutRunning) {
+      return
+    }
+
+    setError(null)
+    setCountdown(null)
+    setPaceFeedback(null)
+    setWasFinishedEarly(true)
+    setIsWorkoutRunning(false)
+    setIsSessionComplete(true)
+    cameraRef.current?.stop()
   }
 
   function retryCamera() {
@@ -884,6 +901,7 @@ export function WorkoutPage() {
     setPaceFeedback(null)
     setSecondsLeft(totalSessionSeconds)
     setIsSessionComplete(false)
+    setWasFinishedEarly(false)
     setIsWorkoutRunning(false)
     setCaptureRequested(false)
     setCaptureCountdown(null)
@@ -993,6 +1011,7 @@ export function WorkoutPage() {
           squat: progress.squat,
           burpee: progress.burpee,
         })
+        resetOrganizationTrialPlayerToken(trialCode)
         clearTrialWorkoutProgress(trialCode)
         navigate(`/trial/${trialCode}/scoreboard`)
         return
@@ -1050,7 +1069,11 @@ export function WorkoutPage() {
       clearParticipantProfile()
       navigate('/challenges')
     } catch (err) {
-      setError(getErrorMessage(err, 'Unable to submit workout.'))
+      const message = getErrorMessage(err, 'Unable to submit workout.')
+      if (isTrialWorkout && trialCode && message.includes('nickname has already completed')) {
+        resetOrganizationTrialPlayerToken(trialCode)
+      }
+      setError(message)
     } finally {
       setIsSubmitting(false)
     }
@@ -1192,10 +1215,18 @@ export function WorkoutPage() {
             ) : null}
             {!isSessionComplete && countdown === null && !isWorkoutRunning ? <p className="hint">Step into frame, then use the camera control to begin.</p> : null}
 
-            {isWorkoutRunning ? <p className="hint">Workout in progress.</p> : null}
+            {isWorkoutRunning ? (
+              <div className="workout-finish-actions">
+                <p className="hint">Workout in progress.</p>
+                <button className="button ghost workout-finish-button" type="button" onClick={finishWorkoutEarly}>
+                  Finish workout
+                </button>
+              </div>
+            ) : null}
 
             {isSessionComplete ? (
               <div className="stack">
+                {wasFinishedEarly ? <p className="hint">Workout stopped. Your latest score is ready to save.</p> : null}
                 {isTrialWorkout && !showTrialSaveForm ? (
                   <>
                     <p className="hint">Workout {trialCompletedWorkouts + 1}/2 complete. Continue for a combined score, or save this result now.</p>

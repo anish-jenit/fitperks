@@ -118,6 +118,10 @@ function getOrganizationTrialPlayerToken(code: string): string {
   return token
 }
 
+export function resetOrganizationTrialPlayerToken(code: string): void {
+  localStorage.removeItem(`${TRIAL_PLAYER_TOKEN_STORAGE_PREFIX}${code.trim().toLowerCase()}`)
+}
+
 function buildStubChallenge(organizationCode = 'SAMPLECO2026'): ChallengeRecord {
   return {
     id: `stub-challenge-${organizationCode.toLowerCase()}`,

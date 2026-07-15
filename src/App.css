@@ -2815,3 +2815,124 @@ select:focus {
     font-size: 0.76rem;
   }
 }
+
+/* Shared surface treatment inspired by the organization trial experience. */
+.page:not(.public-home):not(.trial-experience-page) {
+  padding-top: 1.5rem;
+  padding-bottom: 2.5rem;
+}
+
+.page:not(.public-home):not(.trial-experience-page) > .panel,
+.page:not(.public-home):not(.trial-experience-page) > .hero-panel {
+  border-color: rgba(177, 208, 214, 0.16);
+  border-radius: 12px;
+  background: linear-gradient(145deg, #151b1d, #101516);
+  box-shadow: 0 28px 64px -48px rgba(0, 0, 0, 0.95);
+}
+
+.form-panel:not(.trial-experience-panel) {
+  border-top: 2px solid rgba(17, 201, 244, 0.62);
+}
+
+.form-panel:not(.trial-experience-panel) .hero-kicker,
+.hero-panel .hero-kicker {
+  margin-bottom: 0.8rem;
+  color: #11c9f4;
+  letter-spacing: 0.08em;
+}
+
+.form-panel:not(.trial-experience-panel) h1,
+.hero-panel h1 {
+  line-height: 1;
+}
+
+.form-panel:not(.trial-experience-panel) > h1 + p,
+.hero-panel h1 + p {
+  max-width: 58ch;
+  color: #b8c5ca;
+}
+
+.hero-actions {
+  align-items: stretch;
+}
+
+.hero-actions .button {
+  min-height: 3.35rem;
+}
+
+.stats-panel,
+.scoreboard-section,
+.settings-panel {
+  border-color: rgba(177, 208, 214, 0.14);
+  border-radius: 10px;
+  background: #151b1d;
+}
+
+.scoreboard-section {
+  padding: 1.1rem;
+}
+
+.scoreboard-heading {
+  align-items: center;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid rgba(177, 208, 214, 0.12);
+}
+
+.scoreboard-row {
+  border-color: rgba(177, 208, 214, 0.12);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.scoreboard-row-winner {
+  border-color: rgba(17, 201, 244, 0.48);
+  background: rgba(17, 201, 244, 0.08);
+}
+
+.setup-exercise,
+.workout-choice {
+  border-color: rgba(177, 208, 214, 0.14);
+  background: #151b1d;
+}
+
+.setup-exercise:hover,
+.workout-choice:hover {
+  border-color: rgba(17, 201, 244, 0.58);
+}
+
+.admin-tabs {
+  gap: 0.45rem;
+  padding: 0.35rem;
+  border: 1px solid rgba(177, 208, 214, 0.12);
+  border-radius: 10px;
+  background: #101516;
+}
+
+.admin-tabs button {
+  border-radius: 7px;
+}
+
+.workout-finish-actions {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.15rem;
+}
+
+.workout-finish-actions .hint {
+  margin: 0;
+}
+
+.workout-finish-button {
+  border-color: rgba(174, 239, 253, 0.4);
+  color: #c6f5ff;
+}
+
+@media (max-width: 640px) {
+  .page:not(.public-home):not(.trial-experience-page) {
+    padding-top: 1rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .scoreboard-section {
+    padding: 0.85rem;
+  }
+}
