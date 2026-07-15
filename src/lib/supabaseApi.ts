@@ -41,6 +41,7 @@ type StubFlowState = {
   organizationTrialAttempts?: Array<{
     trialCode: string
     nickname: string
+    playerToken?: string
     sessionId: string
     exercise: 'squat' | 'burpee'
     score: number
@@ -48,6 +49,7 @@ type StubFlowState = {
 }
 
 const STUB_FLOW_STORAGE_KEY = 'fitperk.flow.stub.state.v1'
+const TRIAL_PLAYER_TOKEN_STORAGE_PREFIX = 'fitperk.trial.player.v1.'
 const POC_INVITE_TOKEN = 'INNOSETUP2026'
 const POC_INVITE: StubInviteState = {
   token: POC_INVITE_TOKEN,
@@ -102,6 +104,18 @@ function readStubFlowState(): StubFlowState {
 
 function writeStubFlowState(state: StubFlowState): void {
   localStorage.setItem(STUB_FLOW_STORAGE_KEY, JSON.stringify(state))
+}
+
+function getOrganizationTrialPlayerToken(code: string): string {
+  const key = `${TRIAL_PLAYER_TOKEN_STORAGE_PREFIX}${code.trim().toLowerCase()}`
+  const existing = localStorage.getItem(key)
+  if (existing) {
+    return existing
+  }
+
+  const token = crypto.randomUUID()
+  localStorage.setItem(key, token)
+  return token
 }
 
 function buildStubChallenge(organizationCode = 'SAMPLECO2026'): ChallengeRecord {
@@ -1269,13 +1283,24 @@ export async function submitOrganizationTrialAttempt(input: {
   exercise: 'squat' | 'burpee'
   reps: number
 }): Promise<{ attemptId: string; score: number }> {
+  const playerToken = getOrganizationTrialPlayerToken(input.code)
+
   if (useFlowStubs) {
     const state = readStubFlowState()
     const trial = await getOrganizationTrial(input.code)
-    const score = input.reps * (input.exercise === 'burpee' ? 2 : 1)
+    const score = input.reps * 2
     const attempts = state.organizationTrialAttempts ?? []
+    const normalizedNickname = input.nickname.trim().toLocaleLowerCase()
+    const nicknameOwner = attempts.find((attempt) => (
+      attempt.trialCode === trial.code
+      && attempt.nickname.toLocaleLowerCase() === normalizedNickname
+      && attempt.playerToken !== playerToken
+    ))
+    if (nicknameOwner) {
+      throw new Error('That nickname is already in use for this trial')
+    }
     const existingIndex = attempts.findIndex((attempt) => attempt.trialCode === trial.code && attempt.sessionId === input.sessionId)
-    const attempt = { trialCode: trial.code, nickname: input.nickname.trim(), sessionId: input.sessionId, exercise: input.exercise, score }
+    const attempt = { trialCode: trial.code, nickname: input.nickname.trim(), playerToken, sessionId: input.sessionId, exercise: input.exercise, score }
     if (existingIndex >= 0) {
       attempts[existingIndex] = attempt
     } else {
@@ -1292,6 +1317,7 @@ export async function submitOrganizationTrialAttempt(input: {
     p_session_id: input.sessionId,
     p_exercise: input.exercise,
     p_reps: input.reps,
+    p_player_token: playerToken,
   })
   if (error) {
     throw error

@@ -356,6 +356,37 @@ create table if not exists organization_trial_attempts (
   unique (trial_id, session_id)
 );
 
+create table if not exists organization_trial_players (
+  id uuid primary key default gen_random_uuid(),
+  trial_id uuid not null references organization_trials(id) on delete cascade,
+  nickname text not null,
+  player_token text not null,
+  created_at timestamptz not null default now(),
+  unique (trial_id, player_token)
+);
+
+create unique index if not exists idx_organization_trial_players_nickname_unique
+  on organization_trial_players(trial_id, lower(nickname));
+
+alter table organization_trial_attempts
+  add column if not exists player_id uuid references organization_trial_players(id) on delete set null;
+
+insert into organization_trial_players (trial_id, nickname, player_token)
+select
+  trial_id,
+  min(nickname),
+  'legacy-' || md5(trial_id::text || lower(nickname))
+from organization_trial_attempts
+group by trial_id, lower(nickname)
+on conflict do nothing;
+
+update organization_trial_attempts a
+set player_id = p.id
+from organization_trial_players p
+where a.player_id is null
+  and p.trial_id = a.trial_id
+  and lower(p.nickname) = lower(a.nickname);
+
 create table if not exists audit_logs (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid references organizations(id) on delete set null,
@@ -386,6 +417,7 @@ create index if not exists idx_guest_challenges_creator_email on guest_challenge
 create index if not exists idx_guest_challenge_attempts_challenge_created on guest_challenge_attempts(challenge_id, created_at desc);
 create index if not exists idx_organization_trials_code on organization_trials(code);
 create index if not exists idx_organization_trial_attempts_trial_created on organization_trial_attempts(trial_id, created_at desc);
+create index if not exists idx_organization_trial_attempts_player on organization_trial_attempts(player_id);
 
 create or replace function public.current_organization_id()
 returns uuid
@@ -2363,7 +2395,8 @@ create or replace function public.submit_organization_trial_attempt(
   p_nickname text,
   p_session_id uuid,
   p_exercise text,
-  p_reps int
+  p_reps int,
+  p_player_token text
 )
 returns jsonb
 language plpgsql
@@ -2372,11 +2405,16 @@ set search_path = public
 as $$
 declare
   v_trial organization_trials%rowtype;
+  v_player organization_trial_players%rowtype;
   v_attempt organization_trial_attempts%rowtype;
   v_score int;
 begin
   if nullif(trim(p_nickname), '') is null then
     raise exception 'Nickname is required';
+  end if;
+
+  if nullif(trim(p_player_token), '') is null then
+    raise exception 'Trial player identity is required';
   end if;
 
   if p_exercise not in ('squat', 'burpee') or p_reps < 0 then
@@ -2401,10 +2439,29 @@ begin
     raise exception 'This organization trial has ended';
   end if;
 
-  v_score := p_reps * case when p_exercise = 'burpee' then 2 else 1 end;
+  select * into v_player
+  from organization_trial_players
+  where trial_id = v_trial.id
+    and player_token = trim(p_player_token)
+  limit 1;
+
+  if v_player.id is null then
+    begin
+      insert into organization_trial_players (trial_id, nickname, player_token)
+      values (v_trial.id, trim(p_nickname), trim(p_player_token))
+      returning * into v_player;
+    exception when unique_violation then
+      raise exception 'That nickname is already in use for this trial';
+    end;
+  elsif lower(v_player.nickname) <> lower(trim(p_nickname)) then
+    raise exception 'Continue with your existing trial nickname: %', v_player.nickname;
+  end if;
+
+  v_score := p_reps * 2;
 
   insert into organization_trial_attempts (
     trial_id,
+    player_id,
     nickname,
     session_id,
     exercise,
@@ -2413,14 +2470,16 @@ begin
   )
   values (
     v_trial.id,
-    trim(p_nickname),
+    v_player.id,
+    v_player.nickname,
     p_session_id,
     p_exercise,
     p_reps,
     v_score
   )
   on conflict (trial_id, session_id) do update
-  set nickname = excluded.nickname,
+  set player_id = excluded.player_id,
+      nickname = excluded.nickname,
       reps = excluded.reps,
       score = excluded.score
   returning * into v_attempt;
@@ -2428,6 +2487,34 @@ begin
   return jsonb_build_object(
     'attempt_id', v_attempt.id,
     'score', v_attempt.score
+  );
+end;
+$$;
+
+create or replace function public.submit_organization_trial_attempt(
+  p_code text,
+  p_nickname text,
+  p_session_id uuid,
+  p_exercise text,
+  p_reps int
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_trial organization_trials%rowtype;
+  v_attempt organization_trial_attempts%rowtype;
+  v_score int;
+begin
+  return public.submit_organization_trial_attempt(
+    p_code,
+    p_nickname,
+    p_session_id,
+    p_exercise,
+    p_reps,
+    p_session_id::text
   );
 end;
 $$;
@@ -2508,6 +2595,7 @@ alter table guest_challenge_players enable row level security;
 alter table guest_challenge_attempts enable row level security;
 alter table organization_trials enable row level security;
 alter table organization_trial_attempts enable row level security;
+alter table organization_trial_players enable row level security;
 alter table audit_logs enable row level security;
 
 drop policy if exists "Organizations tenant read" on organizations;
