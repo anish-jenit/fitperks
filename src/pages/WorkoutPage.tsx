@@ -288,7 +288,6 @@ export function WorkoutPage() {
   const lastRepAtRef = useRef<number | null>(null)
   const lastRepIntervalRef = useRef<number | null>(null)
   const totalSessionSeconds = guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds
-  const halfwayReached = isWorkoutRunning && secondsLeft <= Math.ceil(totalSessionSeconds / 2) && secondsLeft > 10
   const finalTenSeconds = isWorkoutRunning && secondsLeft > 0 && secondsLeft <= 10
 
   const points = useMemo(() => {
@@ -1031,9 +1030,9 @@ export function WorkoutPage() {
               <span>Valid reps</span>
               <strong className={paceFeedback ? 'counter-pulse' : ''}>{repCount}</strong>
             </div>
-            {halfwayReached || finalTenSeconds ? (
+            {isWorkoutRunning ? (
               <div className={`workout-timer-overlay ${finalTenSeconds ? 'workout-timer-overlay-urgent' : ''}`} aria-live="polite">
-                {finalTenSeconds ? secondsLeft : 'Halfway'}
+                {secondsLeft}s
               </div>
             ) : null}
             {captureCountdown !== null ? (
@@ -1083,10 +1082,6 @@ export function WorkoutPage() {
                 {points}
               </strong>
             </p>
-            <p className={`workout-timer ${finalTenSeconds ? 'workout-timer-urgent' : ''}`}>
-              Timer: <strong>{secondsLeft}s</strong>
-            </p>
-            {halfwayReached ? <p className="workout-timer-status">Halfway point</p> : null}
             {!isCameraReady ? (
               <p className="hint">
                 {hasRequestedCamera
@@ -1099,14 +1094,6 @@ export function WorkoutPage() {
             </p>
 
             {!isSessionComplete && countdown === null && !isWorkoutRunning ? <p className="hint">Step into frame, then use the camera control to begin.</p> : null}
-
-            {countdown !== null ? (
-              <div className="stack">
-                <p>
-                  Starting in <strong>{countdown > 0 ? countdown : 'Go!'}</strong>
-                </p>
-              </div>
-            ) : null}
 
             {isWorkoutRunning ? <p className="hint">Workout in progress.</p> : null}
 

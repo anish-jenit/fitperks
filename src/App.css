@@ -1063,7 +1063,7 @@ textarea {
 
 .video-size-toggle {
   position: absolute;
-  top: 1rem;
+  top: 3.8rem;
   right: 1rem;
   z-index: 3;
   min-height: 2.25rem;
@@ -1135,8 +1135,8 @@ textarea {
 .workout-timer-overlay {
   position: absolute;
   top: 1rem;
-  right: 8.7rem;
-  z-index: 2;
+  right: 1rem;
+  z-index: 4;
   padding: 0.4rem 0.65rem;
   border: 1px solid rgba(253, 230, 138, 0.75);
   border-radius: var(--radius);
@@ -1158,10 +1158,11 @@ textarea {
 .workout-start-countdown {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 5;
   display: grid;
   place-items: center;
   color: #f8fafc;
+  background: rgba(2, 6, 23, 0.42);
   font-size: clamp(5rem, 16vw, 12rem);
   font-weight: 900;
   line-height: 1;
@@ -1202,25 +1203,6 @@ textarea {
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
-}
-
-.workout-timer {
-  font-variant-numeric: tabular-nums;
-}
-
-.workout-timer-urgent {
-  color: #b91c1c;
-}
-
-.workout-timer-status {
-  margin: -0.35rem 0 0;
-  color: #a16207;
-  font-size: 0.85rem;
-  font-weight: 800;
-}
-
-.workout-timer-status-urgent {
-  color: #b91c1c;
 }
 
 @keyframes timer-pulse {
