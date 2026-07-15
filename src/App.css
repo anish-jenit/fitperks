@@ -1360,6 +1360,34 @@ textarea {
   margin: 1rem 0;
 }
 
+.trial-best-scores {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 1rem 0;
+}
+
+.trial-best-scores > div {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+}
+
+.trial-best-scores span {
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.trial-best-scores strong {
+  color: var(--accent);
+  font-size: 1.35rem;
+}
+
 .icon-button {
   display: inline-flex;
   align-items: center;
@@ -2474,6 +2502,10 @@ select:focus {
   }
 
   .trial-url-row {
+    grid-template-columns: 1fr;
+  }
+
+  .trial-best-scores {
     grid-template-columns: 1fr;
   }
 

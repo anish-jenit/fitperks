@@ -135,7 +135,7 @@ export function TrialExperiencePage() {
         {isWorkoutStart ? (
           <div className="stack">
             <h2>Quick-start workout</h2>
-            <p>Choose an exercise. Your nickname is requested after you complete the workout.</p>
+            <p>Complete both exercises for a combined score, or save one completed exercise when you are ready.</p>
             <div className="hero-actions trial-workout-actions">
               <Link className="button primary" to={`/trial/${trial.code}/workout/squat?camera=1`}>Start squats</Link>
               <Link className="button ghost" to={`/trial/${trial.code}/workout/burpee?camera=1`}>Start jumping jacks</Link>
@@ -186,6 +186,11 @@ export function TrialScoreboardPage() {
   }, [trialCode])
 
   const topScore = useMemo(() => Math.max(...rows.map((row) => row.totalScore), 0), [rows])
+  const bestScores = useMemo(() => ({
+    squat: Math.max(...rows.map((row) => row.squatScore ?? 0), 0),
+    jumpingJacks: Math.max(...rows.map((row) => row.jumpingJacksScore ?? 0), 0),
+    overall: topScore,
+  }), [rows, topScore])
 
   if (!trialCode) return <Navigate to="/demo" replace />
   if (error && !trial) return <main className="page"><section className="panel form-panel"><h1>Trial unavailable</h1><p className="hint">{error}</p></section></main>
@@ -197,11 +202,16 @@ export function TrialScoreboardPage() {
         <h1>{trial?.organizationName ?? 'Organization trial'}</h1>
         <p className="hint">Updates automatically while the trial is active.</p>
         {error ? <p className="error">{error}</p> : null}
+        <div className="trial-best-scores" aria-label="Best scores">
+          <div><span>Best squat</span><strong>{bestScores.squat}</strong></div>
+          <div><span>Best jumping jacks</span><strong>{bestScores.jumpingJacks}</strong></div>
+          <div><span>Best overall</span><strong>{bestScores.overall}</strong></div>
+        </div>
         <div className="scoreboard-list trial-scoreboard-list">
           {rows.length === 0 ? <div className="scoreboard-empty">Waiting for the first workout</div> : rows.map((row) => (
             <article className={`scoreboard-row ${row.totalScore === topScore && topScore > 0 ? 'scoreboard-row-winner' : ''}`} key={row.nickname}>
               <div className="scoreboard-rank">#{row.rank}</div>
-              <div className="scoreboard-player"><strong className="scoreboard-player-name">{row.nickname}</strong><span className="scoreboard-player-meta">SQ {row.squatScore} · JJ {row.jumpingJacksScore}</span></div>
+              <div className="scoreboard-player"><strong className="scoreboard-player-name">{row.nickname}</strong><span className="scoreboard-player-meta">SQ {row.squatScore ?? '-'} · JJ {row.jumpingJacksScore ?? '-'}</span></div>
               <div className="scoreboard-score"><strong>{row.totalScore}</strong><span>points</span></div>
             </article>
           ))}

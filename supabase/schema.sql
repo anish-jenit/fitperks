@@ -2519,6 +2519,137 @@ begin
 end;
 $$;
 
+create or replace function public.submit_organization_trial_attempt(
+  p_code text,
+  p_nickname text,
+  p_session_id uuid,
+  p_exercise text,
+  p_reps int,
+  p_player_token text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  raise exception 'Use submit_organization_trial_results to save a completed trial result';
+end;
+$$;
+
+create or replace function public.submit_organization_trial_attempt(
+  p_code text,
+  p_nickname text,
+  p_session_id uuid,
+  p_exercise text,
+  p_reps int
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  raise exception 'Use submit_organization_trial_results to save a completed trial result';
+end;
+$$;
+
+create or replace function public.submit_organization_trial_results(
+  p_code text,
+  p_nickname text,
+  p_player_token text,
+  p_squat_session_id uuid,
+  p_squat_reps int,
+  p_burpee_session_id uuid,
+  p_burpee_reps int
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_trial organization_trials%rowtype;
+  v_player organization_trial_players%rowtype;
+  v_squat_score int;
+  v_burpee_score int;
+begin
+  if nullif(trim(p_nickname), '') is null then
+    raise exception 'Nickname is required';
+  end if;
+
+  if nullif(trim(p_player_token), '') is null then
+    raise exception 'Trial player identity is required';
+  end if;
+
+  if (p_squat_session_id is null and p_squat_reps is not null)
+    or (p_squat_session_id is not null and p_squat_reps is null)
+    or (p_burpee_session_id is null and p_burpee_reps is not null)
+    or (p_burpee_session_id is not null and p_burpee_reps is null)
+    or (p_squat_session_id is null and p_burpee_session_id is null)
+    or coalesce(p_squat_reps, 0) < 0
+    or coalesce(p_burpee_reps, 0) < 0
+    or (p_squat_session_id is not null and p_squat_session_id = p_burpee_session_id) then
+    raise exception 'Complete at least one valid trial workout before saving your score';
+  end if;
+
+  select * into v_trial
+  from organization_trials
+  where lower(code) = lower(trim(p_code))
+    or upper(organization_code) = upper(trim(p_code))
+  order by
+    case when lower(code) = lower(trim(p_code)) then 0 else 1 end,
+    case when expires_at >= now() then 0 else 1 end,
+    created_at desc
+  limit 1;
+
+  if v_trial.id is null then
+    raise exception 'Trial code not found';
+  end if;
+
+  if v_trial.expires_at < now() then
+    raise exception 'This organization trial has ended';
+  end if;
+
+  select * into v_player
+  from organization_trial_players
+  where trial_id = v_trial.id
+    and player_token = trim(p_player_token)
+  limit 1;
+
+  if v_player.id is not null then
+    raise exception 'This nickname has already completed the trial. Please use a new nickname.';
+  else
+    begin
+      insert into organization_trial_players (trial_id, nickname, player_token)
+      values (v_trial.id, trim(p_nickname), trim(p_player_token))
+      returning * into v_player;
+    exception when unique_violation then
+      raise exception 'This nickname has already completed the trial. Please use a new nickname.';
+    end;
+  end if;
+
+  v_squat_score := coalesce(p_squat_reps, 0) * 2;
+  v_burpee_score := coalesce(p_burpee_reps, 0);
+
+  if p_squat_session_id is not null then
+    insert into organization_trial_attempts (trial_id, player_id, nickname, session_id, exercise, reps, score)
+    values (v_trial.id, v_player.id, v_player.nickname, p_squat_session_id, 'squat', p_squat_reps, v_squat_score);
+  end if;
+
+  if p_burpee_session_id is not null then
+    insert into organization_trial_attempts (trial_id, player_id, nickname, session_id, exercise, reps, score)
+    values (v_trial.id, v_player.id, v_player.nickname, p_burpee_session_id, 'burpee', p_burpee_reps, v_burpee_score);
+  end if;
+
+  return jsonb_build_object(
+    'squat_score', case when p_squat_session_id is null then null else v_squat_score end,
+    'jumping_jacks_score', case when p_burpee_session_id is null then null else v_burpee_score end,
+    'total_score', v_squat_score + v_burpee_score
+  );
+end;
+$$;
+
 create or replace function public.get_organization_trial_scoreboard(p_code text)
 returns table(
   rank bigint,
@@ -2556,8 +2687,8 @@ begin
   with totals as (
     select
       a.nickname,
-      coalesce(sum(a.score) filter (where a.exercise = 'squat'), 0)::int as squat_score,
-      coalesce(sum(a.score) filter (where a.exercise = 'burpee'), 0)::int as jumping_jacks_score,
+      sum(a.score) filter (where a.exercise = 'squat')::int as squat_score,
+      sum(a.score) filter (where a.exercise = 'burpee')::int as jumping_jacks_score,
       coalesce(sum(a.score), 0)::int as total_score
     from organization_trial_attempts a
     where a.trial_id = v_trial.id

@@ -1276,69 +1276,68 @@ export async function getOrganizationTrials(): Promise<OrganizationTrialRecord[]
   return ((data ?? []) as any[]).map((item) => mapOrganizationTrial(item))
 }
 
-export async function submitOrganizationTrialAttempt(input: {
+export async function submitOrganizationTrialResults(input: {
   code: string
   nickname: string
-  sessionId: string
-  exercise: 'squat' | 'burpee'
-  reps: number
-}): Promise<{ attemptId: string; score: number }> {
+  squat?: { sessionId: string; reps: number }
+  burpee?: { sessionId: string; reps: number }
+}): Promise<{ totalScore: number }> {
   const playerToken = getOrganizationTrialPlayerToken(input.code)
 
   if (useFlowStubs) {
     const state = readStubFlowState()
     const trial = await getOrganizationTrial(input.code)
-    const score = input.reps * 2
     const attempts = state.organizationTrialAttempts ?? []
     const normalizedNickname = input.nickname.trim().toLocaleLowerCase()
-    const nicknameOwner = attempts.find((attempt) => (
+    const completedNickname = attempts.some((attempt) => (
       attempt.trialCode === trial.code
       && attempt.nickname.toLocaleLowerCase() === normalizedNickname
-      && attempt.playerToken !== playerToken
     ))
-    if (nicknameOwner) {
-      throw new Error('That nickname is already in use for this trial')
+    if (completedNickname) {
+      throw new Error('This nickname has already completed the trial. Please use a new nickname.')
     }
-    const existingIndex = attempts.findIndex((attempt) => attempt.trialCode === trial.code && attempt.sessionId === input.sessionId)
-    const attempt = { trialCode: trial.code, nickname: input.nickname.trim(), playerToken, sessionId: input.sessionId, exercise: input.exercise, score }
-    if (existingIndex >= 0) {
-      attempts[existingIndex] = attempt
-    } else {
-      attempts.push(attempt)
+    const nickname = input.nickname.trim()
+    if (!input.squat && !input.burpee) {
+      throw new Error('Complete at least one workout before saving your trial score.')
     }
+    const squatScore = input.squat ? input.squat.reps * 2 : 0
+    const burpeeScore = input.burpee ? input.burpee.reps : 0
+    if (input.squat) attempts.push({ trialCode: trial.code, nickname, playerToken, sessionId: input.squat.sessionId, exercise: 'squat', score: squatScore })
+    if (input.burpee) attempts.push({ trialCode: trial.code, nickname, playerToken, sessionId: input.burpee.sessionId, exercise: 'burpee', score: burpeeScore })
     state.organizationTrialAttempts = attempts
     writeStubFlowState(state)
-    return { attemptId: `stub-attempt-${input.sessionId}`, score }
+    return { totalScore: squatScore + burpeeScore }
   }
 
-  const { data, error } = await supabase.rpc('submit_organization_trial_attempt', {
+  const { data, error } = await supabase.rpc('submit_organization_trial_results', {
     p_code: input.code.trim().toLowerCase(),
     p_nickname: input.nickname.trim(),
-    p_session_id: input.sessionId,
-    p_exercise: input.exercise,
-    p_reps: input.reps,
     p_player_token: playerToken,
+    p_squat_session_id: input.squat?.sessionId ?? null,
+    p_squat_reps: input.squat?.reps ?? null,
+    p_burpee_session_id: input.burpee?.sessionId ?? null,
+    p_burpee_reps: input.burpee?.reps ?? null,
   })
   if (error) {
     throw error
   }
-  const payload = data as { attempt_id: string; score: number }
-  return { attemptId: payload.attempt_id, score: Number(payload.score) }
+  const payload = data as { total_score: number }
+  return { totalScore: Number(payload.total_score) }
 }
 
 export async function getOrganizationTrialScoreboard(code: string): Promise<OrganizationTrialScoreboardRow[]> {
   if (useFlowStubs) {
     const trial = await getOrganizationTrial(code)
-    const totals = new Map<string, { squatScore: number; jumpingJacksScore: number }>()
+    const totals = new Map<string, { squatScore: number | null; jumpingJacksScore: number | null }>()
     for (const attempt of readStubFlowState().organizationTrialAttempts ?? []) {
       if (attempt.trialCode !== trial.code) continue
-      const current = totals.get(attempt.nickname) ?? { squatScore: 0, jumpingJacksScore: 0 }
-      if (attempt.exercise === 'squat') current.squatScore += attempt.score
-      else current.jumpingJacksScore += attempt.score
+      const current = totals.get(attempt.nickname) ?? { squatScore: null, jumpingJacksScore: null }
+      if (attempt.exercise === 'squat') current.squatScore = (current.squatScore ?? 0) + attempt.score
+      else current.jumpingJacksScore = (current.jumpingJacksScore ?? 0) + attempt.score
       totals.set(attempt.nickname, current)
     }
     return [...totals.entries()]
-      .map(([nickname, score]) => ({ nickname, ...score, totalScore: score.squatScore + score.jumpingJacksScore }))
+      .map(([nickname, score]) => ({ nickname, ...score, totalScore: (score.squatScore ?? 0) + (score.jumpingJacksScore ?? 0) }))
       .sort((a, b) => b.totalScore - a.totalScore || a.nickname.localeCompare(b.nickname))
       .map((row, index) => ({ ...row, rank: index + 1 }))
   }
@@ -1350,8 +1349,8 @@ export async function getOrganizationTrialScoreboard(code: string): Promise<Orga
   return ((data ?? []) as any[]).map((row) => ({
     rank: Number(row.rank),
     nickname: row.nickname,
-    squatScore: Number(row.squat_score),
-    jumpingJacksScore: Number(row.jumping_jacks_score),
+    squatScore: row.squat_score === null ? null : Number(row.squat_score),
+    jumpingJacksScore: row.jumping_jacks_score === null ? null : Number(row.jumping_jacks_score),
     totalScore: Number(row.total_score),
   }))
 }
