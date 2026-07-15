@@ -254,6 +254,7 @@ export function WorkoutPage() {
   const shareCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const poseRef = useRef<PoseInstance | null>(null)
   const cameraRef = useRef<CameraInstance | null>(null)
+  const handleRepDetectionRef = useRef<(landmarks: NormalizedLandmark[]) => void>(() => undefined)
 
   const squatStageRef = useRef<SquatStage>('standing')
   const lungeStageRef = useRef<SquatStage>('standing')
@@ -538,6 +539,10 @@ export function WorkoutPage() {
   )
 
   useEffect(() => {
+    handleRepDetectionRef.current = handleRepDetection
+  }, [handleRepDetection])
+
+  useEffect(() => {
     if (!challenge || (isSessionComplete && !captureRequested) || cameraAttempt === 0) {
       return
     }
@@ -604,7 +609,7 @@ export function WorkoutPage() {
             lineWidth: 2,
             radius: 3,
           })
-          handleRepDetection(results.poseLandmarks)
+          handleRepDetectionRef.current(results.poseLandmarks)
         }
 
         ctx.restore()
@@ -641,7 +646,7 @@ export function WorkoutPage() {
       poseRef.current = null
       setIsCameraReady(false)
     }
-  }, [challenge, isSessionComplete, handleRepDetection, cameraAttempt, captureRequested])
+  }, [challenge, isSessionComplete, cameraAttempt, captureRequested])
 
   useEffect(() => {
     if (!captureRequested || !isCameraReady) {
