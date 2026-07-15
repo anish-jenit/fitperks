@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useEventSettings } from '../hooks/useEventSettings'
 import { CHALLENGES, CHALLENGE_VIDEO_PATH } from '../lib/constants'
 import { analyzePose } from '../lib/poseUtils'
@@ -75,18 +75,6 @@ type PaceFeedback = {
   id: number
   tone: 'fast' | 'slow'
   label: string
-}
-
-function getTrialCameraStorageKey(trialCode: string): string {
-  return `fitperks:trial-camera-enabled:${trialCode.trim().toLowerCase()}`
-}
-
-function hasEnabledTrialCamera(trialCode: string): boolean {
-  return sessionStorage.getItem(getTrialCameraStorageKey(trialCode)) === 'true'
-}
-
-function rememberEnabledTrialCamera(trialCode: string): void {
-  sessionStorage.setItem(getTrialCameraStorageKey(trialCode), 'true')
 }
 
 function getPointsPerRep(challenge: ChallengeRecord, exercise: ExerciseType): number {
@@ -248,11 +236,10 @@ function drawExerciseGuides(
 export function WorkoutPage() {
   const { challengeCode = '', trialCode = '', exercise: exerciseParam } = useParams()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
 
   const isGuestWorkout = Boolean(challengeCode)
   const isTrialWorkout = Boolean(trialCode)
-  const shouldAutoEnableCamera = isTrialWorkout && (searchParams.get('camera') === '1' || hasEnabledTrialCamera(trialCode))
+  const shouldAutoEnableCamera = isTrialWorkout
   const configuredOrgCode = getConfiguredOrganizationCode()
   const { settings, loading: settingsLoading } = useEventSettings()
   const exercise = (exerciseParam ?? '') as ExerciseType
@@ -639,9 +626,6 @@ export function WorkoutPage() {
 
       cameraRef.current = camera
       await camera.start()
-      if (isTrialWorkout) {
-        rememberEnabledTrialCamera(trialCode)
-      }
       setIsCameraReady(true)
     }
 
@@ -658,7 +642,7 @@ export function WorkoutPage() {
       poseRef.current = null
       setIsCameraReady(false)
     }
-  }, [challenge, isSessionComplete, handleRepDetection, cameraAttempt, captureRequested, isTrialWorkout, trialCode])
+  }, [challenge, isSessionComplete, handleRepDetection, cameraAttempt, captureRequested])
 
   useEffect(() => {
     if (!captureRequested || !isCameraReady) {
@@ -1054,6 +1038,9 @@ export function WorkoutPage() {
             ) : null}
             {captureCountdown !== null ? (
               <div className="workout-capture-countdown" aria-live="assertive">{captureCountdown || 'POSE'}</div>
+            ) : null}
+            {countdown !== null ? (
+              <div className="workout-start-countdown" aria-live="assertive">{countdown || 'GO!'}</div>
             ) : null}
             {!isSessionComplete && countdown === null && !isWorkoutRunning ? (
               <div className="workout-camera-controls">

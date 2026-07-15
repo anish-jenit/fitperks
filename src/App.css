@@ -1154,7 +1154,8 @@ textarea {
   animation: timer-pulse 1s ease-in-out infinite;
 }
 
-.workout-capture-countdown {
+.workout-capture-countdown,
+.workout-start-countdown {
   position: absolute;
   inset: 0;
   z-index: 3;
