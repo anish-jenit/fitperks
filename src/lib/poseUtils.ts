@@ -74,9 +74,14 @@ export function analyzePose(landmarks: NormalizedLandmark[], calibration: Calibr
     avgHipAngle > calibration.burpee.plankHipMin &&
     shoulderHipDelta < calibration.burpee.plankShoulderHipMax &&
     avgWristY < avgAnkleY
-  const handsAboveHead = avgWristY < avgShoulderY - 0.04
-  const isJumpingJackOpen = handsAboveHead && ankleWidth > shoulderWidth * 1.35
-  const isJumpingJackClosed = !handsAboveHead && ankleWidth < shoulderWidth * 0.95 && isStanding
+  const bothHandsAboveHead =
+    leftWrist.y < avgShoulderY - 0.12 &&
+    rightWrist.y < avgShoulderY - 0.12
+  const bothHandsDown =
+    leftWrist.y > avgShoulderY + 0.02 &&
+    rightWrist.y > avgShoulderY + 0.02
+  const isJumpingJackOpen = bothHandsAboveHead && ankleWidth > shoulderWidth * 1.5
+  const isJumpingJackClosed = bothHandsDown && ankleWidth < shoulderWidth * 0.85 && isStanding
   const leftKneeRaised = leftKnee.y < avgHipY + 0.12 && rightKneeAngle > 130
   const rightKneeRaised = rightKnee.y < avgHipY + 0.12 && leftKneeAngle > 130
   const isHighKneeRaised = leftKneeRaised || rightKneeRaised

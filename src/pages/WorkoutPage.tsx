@@ -274,6 +274,9 @@ export function WorkoutPage() {
   const lungeStandingFramesRef = useRef(0)
   const lastLungeRepAtRef = useRef(0)
   const jumpingJackStageRef = useRef<JumpingJackStage>('closed')
+  const jumpingJackOpenFramesRef = useRef(0)
+  const jumpingJackClosedFramesRef = useRef(0)
+  const lastJumpingJackRepAtRef = useRef(0)
   const highKneeStageRef = useRef<HighKneeStage>('lowered')
   const [repCount, setRepCount] = useState(0)
   const [secondsLeft, setSecondsLeft] = useState(settings.sessionDurationSeconds)
@@ -489,11 +492,27 @@ export function WorkoutPage() {
       }
 
       if (challenge.id === 'burpee') {
+        const now = performance.now()
         if (jumpingJackStageRef.current === 'closed' && pose.isJumpingJackOpen) {
-          jumpingJackStageRef.current = 'open'
-        } else if (jumpingJackStageRef.current === 'open' && pose.isJumpingJackClosed) {
-          jumpingJackStageRef.current = 'closed'
-          recordRep()
+          jumpingJackOpenFramesRef.current += 1
+          if (jumpingJackOpenFramesRef.current >= 5) {
+            jumpingJackStageRef.current = 'open'
+            jumpingJackOpenFramesRef.current = 0
+            jumpingJackClosedFramesRef.current = 0
+          }
+        } else if (jumpingJackStageRef.current === 'closed') {
+          jumpingJackOpenFramesRef.current = 0
+        } else if (pose.isJumpingJackClosed) {
+          jumpingJackClosedFramesRef.current += 1
+          if (jumpingJackClosedFramesRef.current >= 5 && now - lastJumpingJackRepAtRef.current >= 900) {
+            jumpingJackStageRef.current = 'closed'
+            jumpingJackOpenFramesRef.current = 0
+            jumpingJackClosedFramesRef.current = 0
+            lastJumpingJackRepAtRef.current = now
+            recordRep()
+          }
+        } else {
+          jumpingJackClosedFramesRef.current = 0
         }
       }
 
@@ -780,6 +799,9 @@ export function WorkoutPage() {
     lungeStandingFramesRef.current = 0
     lastLungeRepAtRef.current = 0
     jumpingJackStageRef.current = 'closed'
+    jumpingJackOpenFramesRef.current = 0
+    jumpingJackClosedFramesRef.current = 0
+    lastJumpingJackRepAtRef.current = 0
     highKneeStageRef.current = 'lowered'
     lastRepAtRef.current = null
     lastRepIntervalRef.current = null
@@ -830,6 +852,9 @@ export function WorkoutPage() {
     lungeStandingFramesRef.current = 0
     lastLungeRepAtRef.current = 0
     jumpingJackStageRef.current = 'closed'
+    jumpingJackOpenFramesRef.current = 0
+    jumpingJackClosedFramesRef.current = 0
+    lastJumpingJackRepAtRef.current = 0
     highKneeStageRef.current = 'lowered'
     lastRepAtRef.current = null
     lastRepIntervalRef.current = null
