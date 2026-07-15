@@ -1183,7 +1183,7 @@ export function WorkoutPage() {
                 {points}
               </strong>
             </p>
-            {!isCameraReady ? (
+            {!isCameraReady && !isSessionComplete ? (
               <p className="hint">
                 {hasRequestedCamera
                   ? 'Waiting for camera access...'

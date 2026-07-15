@@ -125,22 +125,26 @@ export function TrialExperiencePage() {
   }
 
   return (
-    <main className="page">
-      <section className="panel form-panel trial-panel">
+    <main className="page trial-experience-page">
+      <section className="panel form-panel trial-panel trial-experience-panel">
         <p className="hero-kicker">Organization trial</p>
         <h1>{trial.organizationName}</h1>
-        <p className="trial-org-meta">{trial.organizationCode} · {trial.countryCode.toUpperCase()} · Session ends in {remaining}</p>
-        {trial.displayMessage ? <p>{trial.displayMessage}</p> : null}
+        <div className="trial-org-meta">
+          <span>{trial.organizationCode} · {trial.countryCode.toUpperCase()}</span>
+          <span className="trial-session-status">Session ends in <strong>{remaining}</strong></span>
+        </div>
+        <div className="trial-accent-rule" aria-hidden="true" />
+        {trial.displayMessage ? <p className="trial-display-message">{trial.displayMessage}</p> : null}
 
         {isWorkoutStart ? (
-          <div className="stack">
+          <div className="stack trial-quick-start">
             <h2>Quick-start workout</h2>
             <p>Complete both exercises for a combined score, or save one completed exercise when you are ready.</p>
             <div className="hero-actions trial-workout-actions">
               <Link className="button primary" to={`/trial/${trial.code}/workout/squat?camera=1`}>Start squats</Link>
               <Link className="button ghost" to={`/trial/${trial.code}/workout/burpee?camera=1`}>Start jumping jacks</Link>
             </div>
-            <Link className="inline-link" to={`/trial/${trial.code}`}>View trial details and URLs</Link>
+            <Link className="inline-link trial-details-link" to={`/trial/${trial.code}`}>View trial details and URLs</Link>
           </div>
         ) : (
           <div className="stack">
@@ -202,11 +206,14 @@ export function TrialScoreboardPage() {
         <h1>{trial?.organizationName ?? 'Organization trial'}</h1>
         <p className="hint">Updates automatically while the trial is active.</p>
         {error ? <p className="error">{error}</p> : null}
-        <div className="trial-best-scores" aria-label="Best scores">
-          <div><span>Best squat</span><strong>{bestScores.squat}</strong></div>
-          <div><span>Best jumping jacks</span><strong>{bestScores.jumpingJacks}</strong></div>
-          <div><span>Best overall</span><strong>{bestScores.overall}</strong></div>
-        </div>
+        <section className="trial-score-summary" aria-labelledby="trial-leading-scores">
+          <h2 id="trial-leading-scores">Leading scores</h2>
+          <dl>
+            <div><dt>Squat</dt><dd>{bestScores.squat}<span>pts</span></dd></div>
+            <div><dt>Jumping jacks</dt><dd>{bestScores.jumpingJacks}<span>pts</span></dd></div>
+            <div><dt>Overall</dt><dd>{bestScores.overall}<span>pts</span></dd></div>
+          </dl>
+        </section>
         <div className="scoreboard-list trial-scoreboard-list">
           {rows.length === 0 ? <div className="scoreboard-empty">Waiting for the first workout</div> : rows.map((row) => (
             <article className={`scoreboard-row ${row.totalScore === topScore && topScore > 0 ? 'scoreboard-row-winner' : ''}`} key={row.nickname}>
