@@ -1528,6 +1528,29 @@ textarea {
   margin: 1rem 0;
 }
 
+.trial-session-score {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+}
+
+.trial-session-score p {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0;
+  color: var(--ink);
+}
+
+.trial-session-score strong {
+  color: var(--accent);
+  white-space: nowrap;
+}
+
 .trial-score-summary {
   margin: 1rem 0;
   border: 1px solid var(--line);

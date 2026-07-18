@@ -7,11 +7,11 @@ import {
   getActiveChallenge,
   getGuestChallenge,
   getOrganizationTrial,
+  getOrganizationTrialScoreboard,
   joinOrganizationAndRegister,
   nowSessionId,
-  resetOrganizationTrialPlayerToken,
   submitGuestAttempt,
-  submitOrganizationTrialResults,
+  submitOrganizationTrialResult,
   submitWorkoutSecure,
 } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
@@ -91,34 +91,6 @@ function getErrorMessage(error: unknown, fallback: string): string {
   }
 
   return fallback
-}
-
-type TrialExercise = 'squat' | 'burpee'
-
-type TrialWorkoutResult = {
-  sessionId: string
-  reps: number
-}
-
-type TrialWorkoutProgress = Partial<Record<TrialExercise, TrialWorkoutResult>>
-
-const TRIAL_WORKOUT_PROGRESS_STORAGE_PREFIX = 'fitperk.trial.workout-progress.v1.'
-
-function getTrialWorkoutProgress(code: string): TrialWorkoutProgress {
-  try {
-    const raw = localStorage.getItem(`${TRIAL_WORKOUT_PROGRESS_STORAGE_PREFIX}${code.trim().toLowerCase()}`)
-    return raw ? JSON.parse(raw) as TrialWorkoutProgress : {}
-  } catch {
-    return {}
-  }
-}
-
-function saveTrialWorkoutProgress(code: string, progress: TrialWorkoutProgress): void {
-  localStorage.setItem(`${TRIAL_WORKOUT_PROGRESS_STORAGE_PREFIX}${code.trim().toLowerCase()}`, JSON.stringify(progress))
-}
-
-function clearTrialWorkoutProgress(code: string): void {
-  localStorage.removeItem(`${TRIAL_WORKOUT_PROGRESS_STORAGE_PREFIX}${code.trim().toLowerCase()}`)
 }
 
 function getPointsPerRep(challenge: ChallengeRecord, exercise: ExerciseType): number {
@@ -292,10 +264,7 @@ export function WorkoutPage() {
   const [guestChallenge, setGuestChallenge] = useState<GuestChallengeRecord | null>(null)
   const [organizationTrial, setOrganizationTrial] = useState<OrganizationTrialRecord | null>(null)
   const [sessionId, setSessionId] = useState(nowSessionId())
-  const [trialWorkoutProgress, setTrialWorkoutProgress] = useState<TrialWorkoutProgress>(() => (
-    trialCode ? getTrialWorkoutProgress(trialCode) : {}
-  ))
-  const [isTrialSaveRequested, setIsTrialSaveRequested] = useState(false)
+  const [trialBestScore, setTrialBestScore] = useState<number | null>(null)
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -339,9 +308,6 @@ export function WorkoutPage() {
   const lastRepIntervalRef = useRef<number | null>(null)
   const totalSessionSeconds = guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds
   const finalTenSeconds = isWorkoutRunning && secondsLeft > 0 && secondsLeft <= 10
-  const trialCompletedWorkouts = Number(Boolean(trialWorkoutProgress.squat)) + Number(Boolean(trialWorkoutProgress.burpee))
-  const hasCompletedTrialWorkoutSet = Boolean(trialWorkoutProgress.squat && trialWorkoutProgress.burpee)
-  const showTrialSaveForm = isTrialWorkout && (hasCompletedTrialWorkoutSet || isTrialSaveRequested)
 
   const points = useMemo(() => {
     if (!challenge || !activeChallenge) {
@@ -354,8 +320,6 @@ export function WorkoutPage() {
 
   useEffect(() => {
     if (isTrialWorkout) {
-      setTrialWorkoutProgress(getTrialWorkoutProgress(trialCode))
-      setIsTrialSaveRequested(false)
       void getOrganizationTrial(trialCode)
         .then((payload) => {
           setOrganizationTrial(payload)
@@ -476,6 +440,16 @@ export function WorkoutPage() {
         setError(err instanceof Error ? err.message : 'Unable to load active challenge.')
       })
   }, [challengeCode, configuredOrgCode, isGuestWorkout, isTrialWorkout, trialCode])
+
+  useEffect(() => {
+    if (!isTrialWorkout || !trialCode || !isSessionComplete) {
+      return
+    }
+
+    void getOrganizationTrialScoreboard(trialCode)
+      .then((rows) => setTrialBestScore(Math.max(0, ...rows.map((row) => row.totalScore))))
+      .catch(() => setTrialBestScore(0))
+  }, [isSessionComplete, isTrialWorkout, trialCode])
 
   useEffect(() => {
     setSecondsLeft(guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds)
@@ -830,6 +804,7 @@ export function WorkoutPage() {
     setError(null)
     setRepCount(0)
     setPaceFeedback(null)
+    setTrialBestScore(null)
     setSecondsLeft(guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds)
     setIsSessionComplete(false)
     setWasFinishedEarly(false)
@@ -890,15 +865,10 @@ export function WorkoutPage() {
 
   function retakeWorkout() {
     setError(null)
-    if (isTrialWorkout && trialCode && (challenge?.id === 'squat' || challenge?.id === 'burpee')) {
-      const nextProgress = { ...getTrialWorkoutProgress(trialCode) }
-      delete nextProgress[challenge.id]
-      saveTrialWorkoutProgress(trialCode, nextProgress)
-      setTrialWorkoutProgress(nextProgress)
-    }
     setSessionId(nowSessionId())
     setRepCount(0)
     setPaceFeedback(null)
+    setTrialBestScore(null)
     setSecondsLeft(totalSessionSeconds)
     setIsSessionComplete(false)
     setWasFinishedEarly(false)
@@ -921,40 +891,6 @@ export function WorkoutPage() {
     lastRepAtRef.current = null
     lastRepIntervalRef.current = null
     setCameraAttempt((value) => value + 1)
-  }
-
-  function recordTrialExercise(): TrialWorkoutProgress | null {
-    if (!isTrialWorkout || !trialCode || (challenge?.id !== 'squat' && challenge?.id !== 'burpee')) {
-      return null
-    }
-
-    const nextProgress: TrialWorkoutProgress = {
-      ...getTrialWorkoutProgress(trialCode),
-      [challenge.id]: { sessionId, reps: repCount },
-    }
-    saveTrialWorkoutProgress(trialCode, nextProgress)
-    setTrialWorkoutProgress(nextProgress)
-    setError(null)
-
-    return nextProgress
-  }
-
-  function completeTrialExercise() {
-    const nextProgress = recordTrialExercise()
-    if (!nextProgress || !challenge) {
-      return
-    }
-
-    const nextExercise: TrialExercise = challenge.id === 'squat' ? 'burpee' : 'squat'
-    if (!nextProgress[nextExercise]) {
-      navigate(`/trial/${trialCode}/workout/${nextExercise}?camera=1`)
-    }
-  }
-
-  function savePartialTrialScore() {
-    if (recordTrialExercise()) {
-      setIsTrialSaveRequested(true)
-    }
   }
 
   // async function shareWorkoutImage() {
@@ -996,24 +932,18 @@ export function WorkoutPage() {
           throw new Error('Organization trial code is missing.')
         }
 
-        if (!saveName.trim()) {
-          throw new Error('Nickname is required to save your score.')
+        if (challenge.id !== 'squat' && challenge.id !== 'burpee') {
+          throw new Error('Invalid organization trial workout.')
         }
 
-        const progress = getTrialWorkoutProgress(trialCode)
-        if (!progress.squat && !progress.burpee) {
-          throw new Error('Complete at least one workout before saving your trial score.')
-        }
-
-        await submitOrganizationTrialResults({
+        await submitOrganizationTrialResult({
           code: trialCode,
-          nickname: saveName.trim(),
-          squat: progress.squat,
-          burpee: progress.burpee,
+          teamName: saveTeam,
+          sessionId,
+          exercise: challenge.id,
+          reps: repCount,
         })
-        resetOrganizationTrialPlayerToken(trialCode)
-        clearTrialWorkoutProgress(trialCode)
-        navigate(`/trial/${trialCode}/scoreboard`)
+        navigate(`/trial/${trialCode}/workout`)
         return
       }
 
@@ -1070,9 +1000,6 @@ export function WorkoutPage() {
       navigate('/challenges')
     } catch (err) {
       const message = getErrorMessage(err, 'Unable to submit workout.')
-      if (isTrialWorkout && trialCode && message.includes('nickname has already completed')) {
-        resetOrganizationTrialPlayerToken(trialCode)
-      }
       setError(message)
     } finally {
       setIsSubmitting(false)
@@ -1227,28 +1154,32 @@ export function WorkoutPage() {
             {isSessionComplete ? (
               <div className="stack">
                 {wasFinishedEarly ? <p className="hint">Workout stopped. Your latest score is ready to save.</p> : null}
-                {isTrialWorkout && !showTrialSaveForm ? (
+                {isTrialWorkout ? (
                   <>
-                    <p className="hint">Workout {trialCompletedWorkouts + 1}/2 complete. Continue for a combined score, or save this result now.</p>
-                    <button className="button primary" type="button" onClick={completeTrialExercise}>
-                      {challenge.id === 'squat' ? 'Continue to jumping jacks' : 'Continue to squats'}
+                    <p className="hint">This session will be saved separately. No personal details are collected.</p>
+                    <div className="trial-session-score" aria-live="polite">
+                      <p>Workout score <strong>{points} points</strong></p>
+                      <p>Best team score in challenge <strong>{trialBestScore ?? 0} points</strong></p>
+                    </div>
+                    <label>
+                      Team name (optional)
+                      <input
+                        value={saveTeam}
+                        onChange={(event) => setSaveTeam(event.target.value)}
+                        placeholder="Engineering"
+                      />
+                    </label>
+                    <button className="button primary" type="button" onClick={() => void submitWorkout()} disabled={isSubmitting}>
+                      {isSubmitting ? 'Finishing...' : 'Finish session'}
                     </button>
-                    <button className="button ghost" type="button" onClick={savePartialTrialScore}>
-                      {challenge.id === 'squat' ? 'Skip jumping jacks and save score' : 'Skip squats and save score'}
-                    </button>
-                    <button className="button ghost" type="button" onClick={retakeWorkout} disabled={captureCountdown !== null || captureRequested}>
+                    <button className="button ghost" type="button" onClick={retakeWorkout} disabled={isSubmitting || captureCountdown !== null || captureRequested}>
                       Retake workout
                     </button>
+                    <Link className="button ghost" to={`/trial/${trialCode}/workout`}>Back to trial</Link>
                   </>
                 ) : (
                   <>
-                {isTrialWorkout ? (
-                  <p className="hint">
-                    {hasCompletedTrialWorkoutSet
-                      ? 'Workout 2/2 complete. Enter a nickname to save both scores.'
-                      : 'One workout complete. Enter a nickname to save this score.'}
-                  </p>
-                ) : isGuestWorkout ? (
+                {isGuestWorkout ? (
                   <label>
                     Player email
                     <input
@@ -1272,15 +1203,15 @@ export function WorkoutPage() {
                   </label>
                 )}
                 <label>
-                  {isTrialWorkout || isGuestWorkout ? 'Nickname' : 'Nickname (optional)'}
+                  {isGuestWorkout ? 'Nickname' : 'Nickname (optional)'}
                   <input
                     value={saveName}
                     onChange={(event) => setSaveName(event.target.value)}
                     placeholder="Alex"
-                    required={isTrialWorkout || isGuestWorkout}
+                    required={isGuestWorkout}
                   />
                 </label>
-                {isGuestWorkout || isTrialWorkout ? null : (
+                {isGuestWorkout ? null : (
                   <label>
                     Team (optional)
                     <input
@@ -1291,7 +1222,7 @@ export function WorkoutPage() {
                   </label>
                 )}
                 <button className="button primary" onClick={() => void submitWorkout()} disabled={isSubmitting}>
-                  {isSubmitting ? 'Saving...' : isGuestWorkout || isTrialWorkout ? 'Save Score' : 'Save Workout'}
+                  {isSubmitting ? 'Saving...' : isGuestWorkout ? 'Save Score' : 'Save Workout'}
                 </button>
                 <button className="button ghost" type="button" onClick={retakeWorkout} disabled={isSubmitting || captureCountdown !== null || captureRequested}>
                   Retake workout

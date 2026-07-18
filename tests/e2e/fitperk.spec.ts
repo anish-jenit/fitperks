@@ -72,6 +72,15 @@ test.beforeEach(async ({ page }) => {
     workout_url_path: '/trial/trial-demo-1/workout',
     scoreboard_url_path: '/trial/trial-demo-1/scoreboard',
   }
+  const organizationTrialScoreboard = [
+    {
+      rank: 1,
+      team_name: 'Blue Team',
+      squat_score: 20,
+      jumping_jacks_score: 10,
+      total_score: 30,
+    },
+  ]
 
   await page.route('http://127.0.0.1:54321/auth/v1/**', async (route) => {
     const request = route.request()
@@ -245,7 +254,11 @@ test.beforeEach(async ({ page }) => {
     }
 
     if (path.endsWith('/rpc/get_organization_trial_scoreboard') && method === 'POST') {
-      return json([])
+      return json(organizationTrialScoreboard)
+    }
+
+    if (path.endsWith('/rpc/submit_organization_trial_result') && method === 'POST') {
+      return json({ attempt_id: 'trial-attempt-1', score: 20 })
     }
 
     if (path.endsWith('/rpc/get_individual_leaderboard') && method === 'POST') {
@@ -416,6 +429,6 @@ test('organization trial entry, workout, and scoreboard links resolve', async ({
 
   await page.goto('/trial/trial-demo-1/scoreboard')
   await expect(page.getByRole('heading', { name: 'Acme Wellness' })).toBeVisible()
-  await expect(page.getByText('Waiting for the first workout')).toBeVisible()
+  await expect(page.getByText('Blue Team')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Open workout' })).toHaveAttribute('href', '/trial/trial-demo-1/workout')
 })

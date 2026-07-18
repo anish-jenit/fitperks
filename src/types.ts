@@ -270,7 +270,7 @@ export type OrganizationTrialRecord = {
 
 export type OrganizationTrialScoreboardRow = {
   rank: number
-  nickname: string
+  teamName: string
   squatScore: number | null
   jumpingJacksScore: number | null
   totalScore: number

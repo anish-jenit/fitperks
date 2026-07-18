@@ -139,7 +139,7 @@ export function TrialExperiencePage() {
         {isWorkoutStart ? (
           <div className="stack trial-quick-start">
             <h2>Quick-start workout</h2>
-            <p>Complete both exercises for a combined score, or save one completed exercise when you are ready.</p>
+            <p>Choose an exercise. Each completed session is saved separately and contributes to the team scoreboard.</p>
             <div className="hero-actions trial-workout-actions">
               <Link className="button primary" to={`/trial/${trial.code}/workout/squat?camera=1`}>Start squats</Link>
               <Link className="button ghost" to={`/trial/${trial.code}/workout/burpee?camera=1`}>Start jumping jacks</Link>
@@ -216,9 +216,9 @@ export function TrialScoreboardPage() {
         </section>
         <div className="scoreboard-list trial-scoreboard-list">
           {rows.length === 0 ? <div className="scoreboard-empty">Waiting for the first workout</div> : rows.map((row) => (
-            <article className={`scoreboard-row ${row.totalScore === topScore && topScore > 0 ? 'scoreboard-row-winner' : ''}`} key={row.nickname}>
+            <article className={`scoreboard-row ${row.totalScore === topScore && topScore > 0 ? 'scoreboard-row-winner' : ''}`} key={row.teamName}>
               <div className="scoreboard-rank">#{row.rank}</div>
-              <div className="scoreboard-player"><strong className="scoreboard-player-name">{row.nickname}</strong><span className="scoreboard-player-meta">SQ {row.squatScore ?? '-'} · JJ {row.jumpingJacksScore ?? '-'}</span></div>
+              <div className="scoreboard-player"><strong className="scoreboard-player-name">{row.teamName}</strong><span className="scoreboard-player-meta">SQ {row.squatScore ?? '-'} · JJ {row.jumpingJacksScore ?? '-'}</span></div>
               <div className="scoreboard-score"><strong>{row.totalScore}</strong><span>points</span></div>
             </article>
           ))}

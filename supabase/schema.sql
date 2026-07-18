@@ -371,6 +371,13 @@ create unique index if not exists idx_organization_trial_players_nickname_unique
 alter table organization_trial_attempts
   add column if not exists player_id uuid references organization_trial_players(id) on delete set null;
 
+alter table organization_trial_attempts
+  add column if not exists team_name text not null default 'Independent';
+
+update organization_trial_attempts
+set team_name = 'Independent'
+where nullif(trim(team_name), '') is null;
+
 insert into organization_trial_players (trial_id, nickname, player_token)
 select
   trial_id,
@@ -2533,7 +2540,7 @@ security definer
 set search_path = public
 as $$
 begin
-  raise exception 'Use submit_organization_trial_results to save a completed trial result';
+  raise exception 'Individual trial attempts have been retired. Save each anonymous session separately.';
 end;
 $$;
 
@@ -2550,18 +2557,20 @@ security definer
 set search_path = public
 as $$
 begin
-  raise exception 'Use submit_organization_trial_results to save a completed trial result';
+  raise exception 'Individual trial attempts have been retired. Save each anonymous session separately.';
 end;
 $$;
 
-create or replace function public.submit_organization_trial_results(
+drop function if exists public.submit_organization_trial_attempt(text, text, uuid, text, int, text);
+drop function if exists public.submit_organization_trial_attempt(text, text, uuid, text, int);
+drop function if exists public.submit_organization_trial_results(text, text, text, uuid, int, uuid, int);
+
+create or replace function public.submit_organization_trial_result(
   p_code text,
-  p_nickname text,
-  p_player_token text,
-  p_squat_session_id uuid,
-  p_squat_reps int,
-  p_burpee_session_id uuid,
-  p_burpee_reps int
+  p_team_name text,
+  p_session_id uuid,
+  p_exercise text,
+  p_reps int
 )
 returns jsonb
 language plpgsql
@@ -2570,27 +2579,12 @@ set search_path = public
 as $$
 declare
   v_trial organization_trials%rowtype;
-  v_player organization_trial_players%rowtype;
-  v_squat_score int;
-  v_burpee_score int;
+  v_attempt organization_trial_attempts%rowtype;
+  v_team_name text;
+  v_score int;
 begin
-  if nullif(trim(p_nickname), '') is null then
-    raise exception 'Nickname is required';
-  end if;
-
-  if nullif(trim(p_player_token), '') is null then
-    raise exception 'Trial player identity is required';
-  end if;
-
-  if (p_squat_session_id is null and p_squat_reps is not null)
-    or (p_squat_session_id is not null and p_squat_reps is null)
-    or (p_burpee_session_id is null and p_burpee_reps is not null)
-    or (p_burpee_session_id is not null and p_burpee_reps is null)
-    or (p_squat_session_id is null and p_burpee_session_id is null)
-    or coalesce(p_squat_reps, 0) < 0
-    or coalesce(p_burpee_reps, 0) < 0
-    or (p_squat_session_id is not null and p_squat_session_id = p_burpee_session_id) then
-    raise exception 'Complete at least one valid trial workout before saving your score';
+  if p_exercise not in ('squat', 'burpee') or p_reps < 0 then
+    raise exception 'Invalid trial workout';
   end if;
 
   select * into v_trial
@@ -2611,49 +2605,47 @@ begin
     raise exception 'This organization trial has ended';
   end if;
 
-  select * into v_player
-  from organization_trial_players
-  where trial_id = v_trial.id
-    and player_token = trim(p_player_token)
-  limit 1;
+  v_team_name := coalesce(nullif(trim(p_team_name), ''), 'Independent');
+  v_score := p_reps * case when p_exercise = 'squat' then 2 else 1 end;
 
-  if v_player.id is not null then
-    raise exception 'This nickname has already completed the trial. Please use a new nickname.';
-  else
-    begin
-      insert into organization_trial_players (trial_id, nickname, player_token)
-      values (v_trial.id, trim(p_nickname), trim(p_player_token))
-      returning * into v_player;
-    exception when unique_violation then
-      raise exception 'This nickname has already completed the trial. Please use a new nickname.';
-    end;
-  end if;
-
-  v_squat_score := coalesce(p_squat_reps, 0) * 2;
-  v_burpee_score := coalesce(p_burpee_reps, 0);
-
-  if p_squat_session_id is not null then
-    insert into organization_trial_attempts (trial_id, player_id, nickname, session_id, exercise, reps, score)
-    values (v_trial.id, v_player.id, v_player.nickname, p_squat_session_id, 'squat', p_squat_reps, v_squat_score);
-  end if;
-
-  if p_burpee_session_id is not null then
-    insert into organization_trial_attempts (trial_id, player_id, nickname, session_id, exercise, reps, score)
-    values (v_trial.id, v_player.id, v_player.nickname, p_burpee_session_id, 'burpee', p_burpee_reps, v_burpee_score);
-  end if;
+  insert into organization_trial_attempts (
+    trial_id,
+    nickname,
+    team_name,
+    session_id,
+    exercise,
+    reps,
+    score
+  )
+  values (
+    v_trial.id,
+    'Anonymous participant',
+    v_team_name,
+    p_session_id,
+    p_exercise,
+    p_reps,
+    v_score
+  )
+  on conflict (trial_id, session_id) do update
+  set team_name = excluded.team_name,
+      exercise = excluded.exercise,
+      reps = excluded.reps,
+      score = excluded.score
+  returning * into v_attempt;
 
   return jsonb_build_object(
-    'squat_score', case when p_squat_session_id is null then null else v_squat_score end,
-    'jumping_jacks_score', case when p_burpee_session_id is null then null else v_burpee_score end,
-    'total_score', v_squat_score + v_burpee_score
+    'attempt_id', v_attempt.id,
+    'score', v_attempt.score
   );
 end;
 $$;
 
-create or replace function public.get_organization_trial_scoreboard(p_code text)
+drop function if exists public.get_organization_trial_scoreboard(text);
+
+create function public.get_organization_trial_scoreboard(p_code text)
 returns table(
   rank bigint,
-  nickname text,
+  team_name text,
   squat_score int,
   jumping_jacks_score int,
   total_score int
@@ -2686,17 +2678,17 @@ begin
   return query
   with totals as (
     select
-      a.nickname,
+      coalesce(nullif(trim(a.team_name), ''), 'Independent') as team_name,
       sum(a.score) filter (where a.exercise = 'squat')::int as squat_score,
       sum(a.score) filter (where a.exercise = 'burpee')::int as jumping_jacks_score,
       coalesce(sum(a.score), 0)::int as total_score
     from organization_trial_attempts a
     where a.trial_id = v_trial.id
-    group by a.nickname
+    group by coalesce(nullif(trim(a.team_name), ''), 'Independent')
   )
   select
-    dense_rank() over (order by t.total_score desc, t.nickname asc) as rank,
-    t.nickname,
+    dense_rank() over (order by t.total_score desc, t.team_name asc) as rank,
+    t.team_name,
     t.squat_score,
     t.jumping_jacks_score,
     t.total_score
