@@ -1285,6 +1285,7 @@ export function WorkoutPage() {
 
   const standardExercise = challenge.id === 'plank' ? null : challenge.id
   const challengeVideoPath = standardExercise ? CHALLENGE_VIDEO_PATH[standardExercise] : null
+  const shouldShowInstructionVideo = showInstructionVideo && challengeVideoPath && trialDemoStage !== 'transition'
 
   if (
     (standardExercise && !isTrialWorkout && !settings.enabledChallenges[standardExercise]) ||
@@ -1415,7 +1416,7 @@ export function WorkoutPage() {
           </div>
 
           <aside className="stats-panel">
-            {showInstructionVideo && challengeVideoPath ? (
+            {shouldShowInstructionVideo ? (
               <video
                 key={challengeVideoPath}
                 className="workout-instruction-video"

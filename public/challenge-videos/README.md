@@ -2,7 +2,7 @@
 
 Drop your challenge preview videos in these folders:
 
-- `public/challenge-videos/squat/fitperks_squat_20260723.mp4`
+- `public/challenge-videos/squat/fitperks_squat_20260723_v2.mp4`
 - `public/challenge-videos/jumping-jacks/fitperks_jumpingjacks.mp4`
 - `public/challenge-videos/high-knees/fitperks_highknees.mp4`
 - `public/challenge-videos/lunges/fitperks_lunges.mp4`
