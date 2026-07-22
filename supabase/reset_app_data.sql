@@ -19,6 +19,9 @@ truncate table
   organization_invites,
   organization_settings,
   organizations,
+  organization_trial_attempts,
+  organization_trial_players,
+  organization_trials,
   guest_challenge_attempts,
   guest_challenge_players,
   guest_challenges
