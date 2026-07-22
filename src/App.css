@@ -1528,27 +1528,65 @@ textarea {
   margin: 1rem 0;
 }
 
-.trial-session-score {
-  display: grid;
-  gap: 0.5rem;
-  padding: 0.8rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--panel-soft);
+.trial-camera-result {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  z-index: 4;
+  width: min(31rem, calc(100% - 2rem));
+  padding: 1.1rem;
+  border: 1px solid rgba(174, 239, 253, 0.5);
+  border-radius: 10px;
+  color: #f8fafc;
+  background: rgba(3, 12, 18, 0.86);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+  text-align: center;
+  transform: translate(-50%, -50%);
+  backdrop-filter: blur(10px);
 }
 
-.trial-session-score p {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
+.trial-camera-result-title,
+.trial-camera-result-message,
+.trial-camera-result-caption {
   margin: 0;
-  color: var(--ink);
 }
 
-.trial-session-score strong {
-  color: var(--accent);
-  white-space: nowrap;
+.trial-camera-result-title {
+  color: #c6f5ff;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.trial-camera-result-message {
+  margin-top: 0.35rem;
+  color: #d8e4e8;
+}
+
+.trial-camera-result dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 1rem 0 0.6rem;
+}
+
+.trial-camera-result dl > div + div {
+  border-left: 1px solid rgba(174, 239, 253, 0.22);
+}
+
+.trial-camera-result dt {
+  color: #b8c5ca;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.trial-camera-result dd {
+  margin: 0.18rem 0 0;
+  color: #c6f5ff;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.trial-camera-result-caption {
+  color: #b8c5ca;
+  font-size: 0.72rem;
 }
 
 .trial-score-summary {
@@ -2729,6 +2767,19 @@ select:focus {
 
   .trial-score-summary dl > div + div {
     border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .trial-camera-result dl {
+    grid-template-columns: 1fr;
+  }
+
+  .trial-camera-result dl > div {
+    padding: 0.35rem 0;
+  }
+
+  .trial-camera-result dl > div + div {
+    border-top: 1px solid rgba(174, 239, 253, 0.22);
     border-left: 0;
   }
 

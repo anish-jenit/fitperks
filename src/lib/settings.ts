@@ -32,10 +32,10 @@ export const FIXED_WORKOUT_DURATION_SECONDS = 60
 
 export const DEFAULT_CALIBRATION: CalibrationSettings = {
   squat: {
-    standingKneeMin: 160,
-    standingHipMin: 150,
-    squatKneeMax: 130,
-    squatHipDropMax: 0.16,
+    standingKneeMin: 150,
+    standingHipMin: 140,
+    squatKneeMax: 145,
+    squatHipDropMax: 0.2,
   },
   burpee: {
     handsDownHipMax: 120,

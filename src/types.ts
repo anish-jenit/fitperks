@@ -260,6 +260,9 @@ export type OrganizationTrialRecord = {
   organizationCode: string
   countryCode: string
   displayMessage: string
+  teamNames: string[]
+  enableTeamNames: boolean
+  enableNicknames: boolean
   accessDurationMinutes: number
   expiresAt: string
   createdAt: string
@@ -270,6 +273,7 @@ export type OrganizationTrialRecord = {
 
 export type OrganizationTrialScoreboardRow = {
   rank: number
+  displayName: string
   teamName: string
   squatScore: number | null
   jumpingJacksScore: number | null

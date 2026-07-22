@@ -37,6 +37,9 @@ type TrialDraft = {
   organizationCode: string
   countryCode: string
   displayMessage: string
+  teamNames: string
+  enableTeamNames: boolean
+  enableNicknames: boolean
   accessDuration: string
 }
 
@@ -44,6 +47,10 @@ type PlatformTab = 'defaults' | 'organizations' | 'trials'
 
 const MIN_TRIAL_DURATION_MINUTES = 5
 const MAX_TRIAL_DURATION_MINUTES = 24 * 60
+
+function buildAbsoluteUrl(path: string): string {
+  return `${window.location.origin}${path}`
+}
 
 function parseTrialDuration(value: string): number | null {
   const match = /^(\d{1,2}):([0-5]\d)$/.exec(value.trim())
@@ -55,6 +62,20 @@ function parseTrialDuration(value: string): number | null {
 
 function formatTrialDuration(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+}
+
+function parseTrialTeamNames(value: string): string[] {
+  const seen = new Set<string>()
+
+  return value
+    .split(',')
+    .map((teamName) => teamName.trim())
+    .filter((teamName) => {
+      const key = teamName.toLocaleLowerCase()
+      if (!teamName || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
 }
 
 function getAdminErrorMessage(error: unknown, fallback: string): string {
@@ -102,6 +123,9 @@ export function AdminPage() {
     organizationCode: '',
     countryCode: '',
     displayMessage: '',
+    teamNames: '',
+    enableTeamNames: false,
+    enableNicknames: false,
     accessDuration: '00:30',
   })
 
@@ -311,6 +335,9 @@ export function AdminPage() {
         organizationCode: trialDraft.organizationCode,
         countryCode: trialDraft.countryCode,
         displayMessage: trialDraft.displayMessage,
+        teamNames: trialDraft.enableTeamNames ? parseTrialTeamNames(trialDraft.teamNames) : [],
+        enableTeamNames: trialDraft.enableTeamNames,
+        enableNicknames: trialDraft.enableNicknames,
         accessDurationMinutes,
       })
       setGeneratedTrial(trial)
@@ -577,7 +604,7 @@ export function AdminPage() {
                       <thead><tr><th>Organization</th><th>POC</th><th>Status</th><th>Expires</th><th>Setup URL</th></tr></thead>
                       <tbody>{organizationInvites.map((invite) => {
                         const url = `${window.location.origin}/setup/${invite.token}`
-                        return <tr key={invite.id}><td>{invite.organization_name} <span className="table-muted">({invite.organization_code})</span></td><td>{invite.poc_email}</td><td>{invite.status}</td><td>{dayjs(invite.expires_at).format('YYYY-MM-DD')}</td><td><a href={url}>{url}</a></td></tr>
+                        return <tr key={invite.id}><td>{invite.organization_name} <span className="table-muted">({invite.organization_code})</span></td><td>{invite.poc_email}</td><td>{invite.status}</td><td>{dayjs(invite.expires_at).format('YYYY-MM-DD')}</td><td><a href={url} target="_blank" rel="noreferrer">{url}</a></td></tr>
                       })}</tbody>
                     </table></div>
                   )}
@@ -605,6 +632,27 @@ export function AdminPage() {
                       <label>Trial access duration (HH:MM)<input value={trialDraft.accessDuration} onChange={(event) => setTrialDraft((state) => ({ ...state, accessDuration: event.target.value }))} inputMode="numeric" pattern="\\d{1,2}:[0-5]\\d" placeholder="00:30" aria-describedby="trial-duration-hint" /></label>
                     </div>
                     <p className="hint" id="trial-duration-hint">Minimum 00:05. Maximum 24:00.</p>
+                    <div className="exercise-toggle-grid">
+                      <label className="exercise-toggle-card">
+                        <input
+                          type="checkbox"
+                          checked={trialDraft.enableNicknames}
+                          onChange={(event) => setTrialDraft((state) => ({ ...state, enableNicknames: event.target.checked }))}
+                        />
+                        <span>Enable nicknames</span>
+                      </label>
+                      <label className="exercise-toggle-card">
+                        <input
+                          type="checkbox"
+                          checked={trialDraft.enableTeamNames}
+                          onChange={(event) => setTrialDraft((state) => ({ ...state, enableTeamNames: event.target.checked }))}
+                        />
+                        <span>Enable teams</span>
+                      </label>
+                    </div>
+                    {trialDraft.enableTeamNames ? (
+                      <label>Team names<input value={trialDraft.teamNames} onChange={(event) => setTrialDraft((state) => ({ ...state, teamNames: event.target.value }))} placeholder="Blue Team, Operations, Sales" /></label>
+                    ) : null}
                     <label>Organization message<textarea value={trialDraft.displayMessage} onChange={(event) => setTrialDraft((state) => ({ ...state, displayMessage: event.target.value }))} placeholder="Welcome to the FitPerks trial." /></label>
                     <button className="button primary" type="button" onClick={() => void onCreateOrganizationTrial()} disabled={busy || !trialDraft.organizationName.trim() || !trialDraft.organizationCode.trim() || !trialDraft.countryCode.trim()}>
                       {busy ? 'Creating...' : 'Create Trial Code & URLs'}
@@ -612,9 +660,23 @@ export function AdminPage() {
                     {generatedTrial ? (
                       <div className="trial-url-list">
                         <label>Trial code<input value={generatedTrial.code} readOnly /></label>
-                        <label>Demo entry URL<input value={`${window.location.origin}${generatedTrial.entryUrlPath}`} readOnly /></label>
-                        <label>Quick-start workout URL<input value={`${window.location.origin}${generatedTrial.workoutUrlPath}`} readOnly /></label>
-                        <label>Live scoreboard URL<input value={`${window.location.origin}${generatedTrial.scoreboardUrlPath}`} readOnly /></label>
+                        {[
+                          ['Demo entry URL', buildAbsoluteUrl(generatedTrial.entryUrlPath ?? `/demo?code=${generatedTrial.code}`)],
+                          ['Quick-start workout URL', buildAbsoluteUrl(generatedTrial.workoutUrlPath)],
+                          ...(generatedTrial.enableNicknames || generatedTrial.enableTeamNames
+                            ? [['Live scoreboard URL', buildAbsoluteUrl(generatedTrial.scoreboardUrlPath)]]
+                            : []),
+                        ].map(([label, url]) => (
+                          <label key={label}>
+                            {label}
+                            <div className="trial-url-row">
+                              <input value={url} readOnly />
+                              <a className="button ghost button-small" href={url} target="_blank" rel="noreferrer">
+                                Open
+                              </a>
+                            </div>
+                          </label>
+                        ))}
                       </div>
                     ) : null}
                   </div>
@@ -623,7 +685,11 @@ export function AdminPage() {
                 <div className="admin-list-block">
                   <h3 className="admin-subsection-title">Created trials</h3>
                   {organizationTrials.length === 0 ? <p>No trial codes created yet.</p> : (
-                    <div className="table-scroll"><table><thead><tr><th>Organization</th><th>Code</th><th>Duration</th><th>Expires</th><th>Workout URL</th><th>Scoreboard URL</th></tr></thead><tbody>{organizationTrials.map((trial) => <tr key={trial.id}><td>{trial.organizationName} <span className="table-muted">({trial.organizationCode})</span></td><td>{trial.code}</td><td>{formatTrialDuration(trial.accessDurationMinutes)}</td><td>{dayjs(trial.expiresAt).format('YYYY-MM-DD HH:mm')}</td><td><a href={`${window.location.origin}${trial.workoutUrlPath}`}>Open</a></td><td><a href={`${window.location.origin}${trial.scoreboardUrlPath}`}>Open</a></td></tr>)}</tbody></table></div>
+                    <div className="table-scroll"><table><thead><tr><th>Organization</th><th>Code</th><th>Features</th><th>Duration</th><th>Expires</th><th>Workout URL</th><th>Scoreboard URL</th></tr></thead><tbody>{organizationTrials.map((trial) => {
+                      const hasScoreboard = trial.enableNicknames || trial.enableTeamNames
+                      const features = [trial.enableNicknames ? 'Nicknames' : null, trial.enableTeamNames ? 'Teams' : null].filter(Boolean).join(', ') || 'Demo only'
+                      return <tr key={trial.id}><td>{trial.organizationName} <span className="table-muted">({trial.organizationCode})</span></td><td>{trial.code}</td><td>{features}</td><td>{formatTrialDuration(trial.accessDurationMinutes)}</td><td>{dayjs(trial.expiresAt).format('YYYY-MM-DD HH:mm')}</td><td><a href={buildAbsoluteUrl(trial.workoutUrlPath)} target="_blank" rel="noreferrer">Open</a></td><td>{hasScoreboard ? <a href={buildAbsoluteUrl(trial.scoreboardUrlPath)} target="_blank" rel="noreferrer">Open</a> : <span className="table-muted">Off</span>}</td></tr>
+                    })}</tbody></table></div>
                   )}
                 </div>
               </section>

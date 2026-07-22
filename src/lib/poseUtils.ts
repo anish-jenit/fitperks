@@ -55,7 +55,6 @@ export function analyzePose(landmarks: NormalizedLandmark[], calibration: Calibr
   const avgKneeY = (leftKnee.y + rightKnee.y) / 2
   const avgShoulderY = (leftShoulder.y + rightShoulder.y) / 2
   const avgWristY = (leftWrist.y + rightWrist.y) / 2
-  const avgAnkleY = (leftAnkle.y + rightAnkle.y) / 2
   const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x)
   const ankleWidth = Math.abs(leftAnkle.x - rightAnkle.x)
 
@@ -72,8 +71,7 @@ export function analyzePose(landmarks: NormalizedLandmark[], calibration: Calibr
   const isHandsDown = avgHipAngle < calibration.burpee.handsDownHipMax && avgWristY > avgKneeY - 0.02
   const isPlank =
     avgHipAngle > calibration.burpee.plankHipMin &&
-    shoulderHipDelta < calibration.burpee.plankShoulderHipMax &&
-    avgWristY < avgAnkleY
+    shoulderHipDelta < calibration.burpee.plankShoulderHipMax
   const bothHandsAboveHead =
     leftWrist.y < avgShoulderY - 0.12 &&
     rightWrist.y < avgShoulderY - 0.12

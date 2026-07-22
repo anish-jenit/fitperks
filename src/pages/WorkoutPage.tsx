@@ -7,7 +7,7 @@ import {
   getActiveChallenge,
   getGuestChallenge,
   getOrganizationTrial,
-  getOrganizationTrialScoreboard,
+  getOrganizationTrialScoreSummary,
   joinOrganizationAndRegister,
   nowSessionId,
   submitGuestAttempt,
@@ -16,7 +16,7 @@ import {
 } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
 import { clearParticipantProfile, getConfiguredOrganizationCode, getLastGuestChallengeCode, getLastGuestEmail, getLastGuestName, saveGuestJoinContext, saveParticipantProfile } from '../lib/storage'
-import type { ChallengeRecord, ExerciseType, GuestChallengeRecord, OrganizationTrialRecord } from '../types'
+import type { ChallengeConfig, ChallengeRecord, ExerciseType, GuestChallengeRecord, OrganizationTrialRecord } from '../types'
 
 type NormalizedLandmark = {
   x: number
@@ -76,6 +76,73 @@ type PaceFeedback = {
   id: number
   tone: 'fast' | 'slow'
   label: string
+}
+
+const TRIAL_COMPLETION_MESSAGES = [
+  'Strong finish. Keep the momentum going.',
+  'Great work. Every rep counts.',
+  'Nicely done. You showed up for your team.',
+  'Solid effort. Keep building from here.',
+  'Excellent focus through both rounds.',
+  'Well completed. That was a disciplined effort.',
+  'Strong execution from start to finish.',
+  'Great finish. Your consistency showed.',
+  'Well done. You carried the effort through.',
+  'Excellent work. The full demo is complete.',
+  'A clean finish and a strong contribution.',
+  'Great effort across both movements.',
+  'Well paced, well finished.',
+  'Strong session. Your score is earned.',
+  'Excellent commitment through the final round.',
+  'Well done staying with the sequence.',
+  'Great work completing the full challenge.',
+  'A focused finish makes the effort count.',
+  'Strong result. Thank you for showing up.',
+  'Excellent energy through the full demo.',
+  'Well completed. Every rep added value.',
+  'Great finish under the clock.',
+  'Strong work. That is a complete session.',
+  'Excellent job closing out both rounds.',
+  'Well done. Your effort is on the board.',
+  'Great composure through the final seconds.',
+]
+
+const TRIAL_MOTIVATIONAL_QUOTES = [
+  'Small wins compound into visible progress.',
+  'Your best pace is the one you can repeat.',
+  'Stay controlled, stay consistent, stay in it.',
+  'The next rep is the one that matters.',
+  'Strong form turns effort into results.',
+  'Progress is built one clean rep at a time.',
+  'Keep your rhythm steady and your focus simple.',
+  'Good energy is a professional advantage.',
+  'Consistency is the strongest performance signal.',
+  'Finish the set with calm confidence.',
+  'Your effort is already moving the scoreboard.',
+  'Make this round precise, not rushed.',
+  'Breathe, reset, and keep the standard high.',
+  'A focused minute can change the whole session.',
+  'Quality reps create quality momentum.',
+  'The team benefits from every honest effort.',
+  'Keep showing up; the score will follow.',
+  'Controlled movement beats scattered speed.',
+  'This is a short window. Make it count.',
+  'You are building proof, not just points.',
+  'Stay sharp through the final seconds.',
+  'Strong finishes come from steady starts.',
+  'Let the clock work for you.',
+  'Each rep is useful data and useful effort.',
+  'Complete the round with professional focus.',
+]
+
+type TrialDemoStage = 'jumping-jacks' | 'transition' | 'squats' | 'plank' | 'complete'
+type TrialExerciseMode = ExerciseType | 'plank'
+
+const PLANK_CHALLENGE: Omit<ChallengeConfig, 'id'> & { id: 'plank' } = {
+  id: 'plank',
+  name: 'Plank Challenge',
+  pointsPerRep: 1,
+  description: 'Hold a straight plank. The timer advances only while your posture is valid.',
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -259,12 +326,25 @@ export function WorkoutPage() {
   const configuredOrgCode = getConfiguredOrganizationCode()
   const { settings, loading: settingsLoading } = useEventSettings()
   const exercise = (exerciseParam ?? '') as ExerciseType
-  const challenge = CHALLENGES.find((item) => item.id === exercise)
+  const initialTrialStage: TrialDemoStage = exerciseParam === 'plank' ? 'plank' : 'jumping-jacks'
+  const [trialDemoStage, setTrialDemoStage] = useState<TrialDemoStage>(initialTrialStage)
+  const trialExercise: TrialExerciseMode = exerciseParam === 'plank' ? 'plank' : trialDemoStage === 'squats' || trialDemoStage === 'transition' || trialDemoStage === 'complete' ? 'squat' : 'burpee'
+  const activeExercise: TrialExerciseMode = isTrialWorkout ? trialExercise : exercise
+  const challenge = activeExercise === 'plank' ? PLANK_CHALLENGE : CHALLENGES.find((item) => item.id === activeExercise)
   const [activeChallenge, setActiveChallenge] = useState<ChallengeRecord | null>(null)
   const [guestChallenge, setGuestChallenge] = useState<GuestChallengeRecord | null>(null)
   const [organizationTrial, setOrganizationTrial] = useState<OrganizationTrialRecord | null>(null)
   const [sessionId, setSessionId] = useState(nowSessionId())
   const [trialBestScore, setTrialBestScore] = useState<number | null>(null)
+  const [trialBestTeamScore, setTrialBestTeamScore] = useState<number | null>(null)
+  const [trialCompletionMessage, setTrialCompletionMessage] = useState('')
+  const [trialQuote, setTrialQuote] = useState(TRIAL_MOTIVATIONAL_QUOTES[0])
+  const [trialTransitionSecondsLeft, setTrialTransitionSecondsLeft] = useState(15)
+  const [trialJumpingJackReps, setTrialJumpingJackReps] = useState(0)
+  const [trialJumpingJackScore, setTrialJumpingJackScore] = useState(0)
+  const [trialSquatReps, setTrialSquatReps] = useState(0)
+  const [trialSquatScore, setTrialSquatScore] = useState(0)
+  const [isPlankPostureValid, setIsPlankPostureValid] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -306,17 +386,49 @@ export function WorkoutPage() {
   const [paceFeedback, setPaceFeedback] = useState<PaceFeedback | null>(null)
   const lastRepAtRef = useRef<number | null>(null)
   const lastRepIntervalRef = useRef<number | null>(null)
+  const repCountRef = useRef(0)
+  const pointsRef = useRef(0)
   const totalSessionSeconds = guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds
   const finalTenSeconds = isWorkoutRunning && secondsLeft > 0 && secondsLeft <= 10
+  const isTrialScoreboardEnabled = Boolean(organizationTrial?.enableNicknames || organizationTrial?.enableTeamNames)
+  const isTrialTeamScoreEnabled = Boolean(organizationTrial?.enableTeamNames)
+  const isTrialPlankRoute = isTrialWorkout && exerciseParam === 'plank'
+  const isTrialPlank = isTrialWorkout && trialDemoStage === 'plank'
 
   const points = useMemo(() => {
     if (!challenge || !activeChallenge) {
       return 0
     }
 
+    if (challenge.id === 'plank') {
+      return repCount
+    }
+
     const perRep = getPointsPerRep(activeChallenge, challenge.id)
     return perRep * repCount
   }, [activeChallenge, challenge, repCount])
+  const currentTrialSegmentScore = isTrialPlankRoute ? points : trialDemoStage === 'squats' || trialDemoStage === 'complete' ? trialSquatScore : trialJumpingJackScore
+  const currentTrialTotalScore = isTrialPlankRoute ? points : trialJumpingJackScore + (trialDemoStage === 'jumping-jacks' || trialDemoStage === 'transition' ? 0 : trialSquatScore)
+  const displayedScore = isTrialWorkout ? currentTrialTotalScore : points
+
+  useEffect(() => {
+    repCountRef.current = repCount
+    pointsRef.current = points
+
+    if (!isTrialWorkout) {
+      return
+    }
+
+    if (trialDemoStage === 'jumping-jacks') {
+      setTrialJumpingJackReps(repCount)
+      setTrialJumpingJackScore(points)
+    }
+
+    if (trialDemoStage === 'squats') {
+      setTrialSquatReps(repCount)
+      setTrialSquatScore(points)
+    }
+  }, [isTrialWorkout, points, repCount, trialDemoStage])
 
   useEffect(() => {
     if (isTrialWorkout) {
@@ -446,10 +558,22 @@ export function WorkoutPage() {
       return
     }
 
-    void getOrganizationTrialScoreboard(trialCode)
-      .then((rows) => setTrialBestScore(Math.max(0, ...rows.map((row) => row.totalScore))))
-      .catch(() => setTrialBestScore(0))
-  }, [isSessionComplete, isTrialWorkout, trialCode])
+    void getOrganizationTrialScoreSummary(trialCode)
+      .then((summary) => {
+        setTrialBestScore(Math.max(currentTrialTotalScore, summary.bestScore))
+        setTrialBestTeamScore(summary.bestTeamScore)
+      })
+      .catch(() => {
+        setTrialBestScore(currentTrialTotalScore)
+        setTrialBestTeamScore(0)
+      })
+  }, [currentTrialTotalScore, isSessionComplete, isTrialWorkout, trialCode])
+
+  useEffect(() => {
+    if (isTrialWorkout && isSessionComplete) {
+      setTrialCompletionMessage(TRIAL_COMPLETION_MESSAGES[Math.floor(Math.random() * TRIAL_COMPLETION_MESSAGES.length)])
+    }
+  }, [isSessionComplete, isTrialWorkout, sessionId])
 
   useEffect(() => {
     setSecondsLeft(guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds)
@@ -494,6 +618,11 @@ export function WorkoutPage() {
       }
 
       const pose = analyzePose(landmarks, settings.calibration)
+
+      if (challenge.id === 'plank') {
+        setIsPlankPostureValid(pose.isPlank)
+        return
+      }
 
       if (challenge.id === 'squat') {
         if (squatStageRef.current === 'standing' && pose.isSquatDepth) {
@@ -636,6 +765,8 @@ export function WorkoutPage() {
             radius: 3,
           })
           handleRepDetectionRef.current(results.poseLandmarks)
+        } else if (challenge.id === 'plank') {
+          setIsPlankPostureValid(false)
         }
 
         ctx.restore()
@@ -688,12 +819,54 @@ export function WorkoutPage() {
     }
 
     const interval = window.setInterval(() => {
+      if (isTrialPlank) {
+        if (!isPlankPostureValid) {
+          return
+        }
+
+        setRepCount((current) => {
+          const next = current + 1
+          if (next >= totalSessionSeconds) {
+            window.clearInterval(interval)
+            setIsWorkoutRunning(false)
+            setTrialDemoStage('complete')
+            setIsSessionComplete(true)
+            cameraRef.current?.stop()
+          }
+          return next
+        })
+        setSecondsLeft((current) => current + 1)
+        return
+      }
+
       setSecondsLeft((current) => {
         if (current <= 1) {
           window.clearInterval(interval)
-          setIsSessionComplete(true)
           setIsWorkoutRunning(false)
-          cameraRef.current?.stop()
+          if (isTrialWorkout && trialDemoStage === 'jumping-jacks') {
+            setTrialJumpingJackReps(repCountRef.current)
+            setTrialJumpingJackScore(pointsRef.current)
+            setRepCount(0)
+            setPaceFeedback(null)
+            setTrialTransitionSecondsLeft(15)
+            setTrialQuote(TRIAL_MOTIVATIONAL_QUOTES[Math.floor(Math.random() * TRIAL_MOTIVATIONAL_QUOTES.length)])
+            setTrialDemoStage('transition')
+            squatStageRef.current = 'standing'
+            jumpingJackStageRef.current = 'closed'
+            jumpingJackOpenFramesRef.current = 0
+            jumpingJackClosedFramesRef.current = 0
+            lastJumpingJackRepAtRef.current = 0
+            lastRepAtRef.current = null
+            lastRepIntervalRef.current = null
+          } else {
+            if (isTrialWorkout) {
+              setTrialSquatReps(repCountRef.current)
+              setTrialSquatScore(pointsRef.current)
+              setTrialDemoStage('complete')
+            }
+            setIsSessionComplete(true)
+            cameraRef.current?.stop()
+          }
           return 0
         }
         return current - 1
@@ -703,7 +876,26 @@ export function WorkoutPage() {
     return () => {
       window.clearInterval(interval)
     }
-  }, [isSessionComplete, isWorkoutRunning])
+  }, [isPlankPostureValid, isSessionComplete, isTrialPlank, isTrialWorkout, isWorkoutRunning, totalSessionSeconds, trialDemoStage])
+
+  useEffect(() => {
+    if (!isTrialWorkout || trialDemoStage !== 'transition') {
+      return
+    }
+
+    if (trialTransitionSecondsLeft <= 0) {
+      setTrialDemoStage('squats')
+      setSecondsLeft(totalSessionSeconds)
+      setIsWorkoutRunning(true)
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      setTrialTransitionSecondsLeft((current) => current - 1)
+    }, 1000)
+
+    return () => window.clearTimeout(timeout)
+  }, [isTrialWorkout, totalSessionSeconds, trialDemoStage, trialTransitionSecondsLeft])
 
   useEffect(() => {
     if (countdown === null) {
@@ -802,10 +994,21 @@ export function WorkoutPage() {
     }
 
     setError(null)
+    if (isTrialWorkout) {
+      setTrialDemoStage(exerciseParam === 'plank' ? 'plank' : 'jumping-jacks')
+      setTrialQuote(TRIAL_MOTIVATIONAL_QUOTES[Math.floor(Math.random() * TRIAL_MOTIVATIONAL_QUOTES.length)])
+      setTrialTransitionSecondsLeft(15)
+      setTrialJumpingJackReps(0)
+      setTrialJumpingJackScore(0)
+      setTrialSquatReps(0)
+      setTrialSquatScore(0)
+      setIsPlankPostureValid(false)
+    }
     setRepCount(0)
     setPaceFeedback(null)
     setTrialBestScore(null)
-    setSecondsLeft(guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds)
+    setTrialBestTeamScore(null)
+    setSecondsLeft(isTrialWorkout && exerciseParam === 'plank' ? 0 : guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds)
     setIsSessionComplete(false)
     setWasFinishedEarly(false)
     setIsWorkoutRunning(false)
@@ -834,6 +1037,23 @@ export function WorkoutPage() {
     setPaceFeedback(null)
     setWasFinishedEarly(true)
     setIsWorkoutRunning(false)
+    if (isTrialWorkout && trialDemoStage === 'jumping-jacks') {
+      setTrialJumpingJackReps(repCountRef.current)
+      setTrialJumpingJackScore(pointsRef.current)
+      setRepCount(0)
+      setTrialTransitionSecondsLeft(15)
+      setTrialQuote(TRIAL_MOTIVATIONAL_QUOTES[Math.floor(Math.random() * TRIAL_MOTIVATIONAL_QUOTES.length)])
+      setTrialDemoStage('transition')
+      return
+    }
+
+    if (isTrialWorkout && trialDemoStage === 'squats') {
+      setTrialSquatReps(repCountRef.current)
+      setTrialSquatScore(pointsRef.current)
+      setTrialDemoStage('complete')
+    } else if (isTrialPlank) {
+      setTrialDemoStage('complete')
+    }
     setIsSessionComplete(true)
     cameraRef.current?.stop()
   }
@@ -866,10 +1086,19 @@ export function WorkoutPage() {
   function retakeWorkout() {
     setError(null)
     setSessionId(nowSessionId())
+    setTrialDemoStage(exerciseParam === 'plank' ? 'plank' : 'jumping-jacks')
+    setTrialQuote(TRIAL_MOTIVATIONAL_QUOTES[Math.floor(Math.random() * TRIAL_MOTIVATIONAL_QUOTES.length)])
+    setTrialTransitionSecondsLeft(15)
+    setTrialJumpingJackReps(0)
+    setTrialJumpingJackScore(0)
+    setTrialSquatReps(0)
+    setTrialSquatScore(0)
+    setIsPlankPostureValid(false)
     setRepCount(0)
     setPaceFeedback(null)
     setTrialBestScore(null)
-    setSecondsLeft(totalSessionSeconds)
+    setTrialBestTeamScore(null)
+    setSecondsLeft(isTrialWorkout && exerciseParam === 'plank' ? 0 : totalSessionSeconds)
     setIsSessionComplete(false)
     setWasFinishedEarly(false)
     setIsWorkoutRunning(false)
@@ -932,17 +1161,33 @@ export function WorkoutPage() {
           throw new Error('Organization trial code is missing.')
         }
 
-        if (challenge.id !== 'squat' && challenge.id !== 'burpee') {
-          throw new Error('Invalid organization trial workout.')
+        if (isTrialPlankRoute) {
+          navigate(`/trial/${trialCode}/workout`)
+          return
         }
 
-        await submitOrganizationTrialResult({
-          code: trialCode,
-          teamName: saveTeam,
-          sessionId,
-          exercise: challenge.id,
-          reps: repCount,
-        })
+        if (organizationTrial?.enableNicknames && !saveName.trim()) {
+          throw new Error('Nickname is required to save your score.')
+        }
+
+        await Promise.all([
+          submitOrganizationTrialResult({
+            code: trialCode,
+            nickname: organizationTrial?.enableNicknames ? saveName : undefined,
+            teamName: saveTeam,
+            sessionId,
+            exercise: 'burpee',
+            reps: trialJumpingJackReps,
+          }),
+          submitOrganizationTrialResult({
+            code: trialCode,
+            nickname: organizationTrial?.enableNicknames ? saveName : undefined,
+            teamName: saveTeam,
+            sessionId: crypto.randomUUID(),
+            exercise: 'squat',
+            reps: trialSquatReps,
+          }),
+        ])
         navigate(`/trial/${trialCode}/workout`)
         return
       }
@@ -950,6 +1195,10 @@ export function WorkoutPage() {
       if (isGuestWorkout) {
         if (!challengeCode) {
           throw new Error('Player challenge code is missing.')
+        }
+
+        if (!standardExercise) {
+          throw new Error('Invalid player challenge workout.')
         }
 
         if (!saveName.trim()) {
@@ -965,7 +1214,7 @@ export function WorkoutPage() {
           guestName: saveName.trim(),
           guestEmail: saveEmail.trim(),
           sessionId,
-          exercise: challenge.id,
+          exercise: standardExercise,
           reps: repCount,
         })
 
@@ -976,6 +1225,10 @@ export function WorkoutPage() {
 
       if (!configuredOrgCode) {
         throw new Error('Organization context is missing. Open your organization launch URL and tap Start first.')
+      }
+
+      if (!standardExercise) {
+        throw new Error('Invalid organization workout.')
       }
 
       if (!saveEmail.trim()) {
@@ -992,7 +1245,7 @@ export function WorkoutPage() {
 
       await submitWorkoutSecure({
         sessionId,
-        exercise: challenge.id,
+        exercise: standardExercise,
         reps: repCount,
       })
 
@@ -1030,7 +1283,15 @@ export function WorkoutPage() {
     )
   }
 
-  if ((!isTrialWorkout && !settings.enabledChallenges[challenge.id]) || (activeChallenge && !isExerciseEnabled(activeChallenge, challenge.id)) || (isGuestWorkout && guestChallenge && !guestChallenge.selectedExercises.includes(challenge.id)) || (isTrialWorkout && challenge.id !== 'squat' && challenge.id !== 'burpee')) {
+  const standardExercise = challenge.id === 'plank' ? null : challenge.id
+  const challengeVideoPath = standardExercise ? CHALLENGE_VIDEO_PATH[standardExercise] : null
+
+  if (
+    (standardExercise && !isTrialWorkout && !settings.enabledChallenges[standardExercise]) ||
+    (standardExercise && activeChallenge && !isExerciseEnabled(activeChallenge, standardExercise)) ||
+    (standardExercise && isGuestWorkout && guestChallenge && !guestChallenge.selectedExercises.includes(standardExercise)) ||
+    (isTrialWorkout && challenge.id !== 'squat' && challenge.id !== 'burpee' && challenge.id !== 'plank')
+  ) {
     return (
       <main className="page">
         <section className="panel">
@@ -1088,7 +1349,39 @@ export function WorkoutPage() {
               {countdown !== null ? (
                 <div className="workout-start-countdown" aria-live="assertive">{countdown || 'GO!'}</div>
               ) : null}
-              {!isSessionComplete && countdown === null && !isWorkoutRunning ? (
+              {isTrialWorkout && trialDemoStage === 'transition' ? (
+                <section className="trial-camera-result" aria-live="polite">
+                  <p className="trial-camera-result-title">1/2 Completed</p>
+                  <p className="trial-camera-result-message">{trialQuote}</p>
+                  <dl>
+                    <div><dt>Jumping Jacks</dt><dd>{trialJumpingJackScore}</dd></div>
+                    <div><dt>Next</dt><dd>Squats</dd></div>
+                    <div><dt>Starts In</dt><dd>{trialTransitionSecondsLeft}s</dd></div>
+                  </dl>
+                </section>
+              ) : null}
+              {isTrialWorkout && isSessionComplete ? (
+                <section className="trial-camera-result" aria-live="polite">
+                  <p className="trial-camera-result-title">{isTrialPlankRoute ? 'Plank Completed' : '2/2 Completed'}</p>
+                  <p className="trial-camera-result-message">{trialCompletionMessage || trialQuote}</p>
+                  <dl>
+                    {isTrialPlankRoute ? (
+                      <>
+                        <div><dt>Valid Hold</dt><dd>{currentTrialTotalScore}s</dd></div>
+                        <div><dt>Goal</dt><dd>{totalSessionSeconds}s</dd></div>
+                      </>
+                    ) : (
+                      <>
+                        <div><dt>Squats</dt><dd>{trialSquatScore}</dd></div>
+                        <div><dt>Player Score</dt><dd>{currentTrialTotalScore}</dd></div>
+                        {isTrialTeamScoreEnabled ? <div><dt>Best Team Score</dt><dd>{trialBestTeamScore ?? 0}</dd></div> : isTrialScoreboardEnabled ? <div><dt>Best Score</dt><dd>{trialBestScore ?? currentTrialTotalScore}</dd></div> : null}
+                      </>
+                    )}
+                  </dl>
+                  {isTrialTeamScoreEnabled && !isTrialPlankRoute ? <p className="trial-camera-result-caption">Best team score in challenge</p> : null}
+                </section>
+              ) : null}
+              {!isSessionComplete && trialDemoStage !== 'transition' && countdown === null && !isWorkoutRunning ? (
                 <div className="workout-camera-controls">
                   {!isCameraReady ? (
                     <button className="camera-control" type="button" onClick={retryCamera} aria-label={hasRequestedCamera ? 'Retry camera' : 'Enable camera'}>
@@ -1110,7 +1403,7 @@ export function WorkoutPage() {
           </div>
 
           <aside className="stats-panel">
-            {showInstructionVideo ? (
+            {showInstructionVideo && challengeVideoPath ? (
               <video
                 className="workout-instruction-video"
                 autoPlay
@@ -1121,18 +1414,34 @@ export function WorkoutPage() {
                 onError={() => setShowInstructionVideo(false)}
                 aria-label={`${challenge.name} demonstration`}
               >
-                <source src={CHALLENGE_VIDEO_PATH[challenge.id]} type="video/mp4" />
+                <source src={challengeVideoPath} type="video/mp4" />
               </video>
             ) : null}
             <p>
               Exercise: <strong>{challenge.name}</strong>
+              {isTrialWorkout && !isTrialPlankRoute ? <span className="table-muted"> · {trialDemoStage === 'jumping-jacks' ? '1/2' : '2/2'}</span> : null}
             </p>
             <p>
-              Points earned:{' '}
+              {isTrialWorkout ? 'Player score' : 'Points earned'}:{' '}
               <strong className={`counter-value ${paceFeedback ? 'counter-pulse' : ''}`} key={`points-${paceFeedback?.id ?? 0}`}>
-                {points}
+                {displayedScore}
               </strong>
             </p>
+            {isTrialWorkout ? (
+              <>
+                <p>
+                  Timer:{' '}
+                  <strong>
+                    {trialDemoStage === 'transition' ? `${trialTransitionSecondsLeft}s` : isWorkoutRunning ? `${secondsLeft}s` : 'Ready'}
+                  </strong>
+                </p>
+                {isTrialPlankRoute ? (
+                  <p>Posture: <strong>{isPlankPostureValid && isWorkoutRunning ? 'Valid' : 'Paused'}</strong></p>
+                ) : null}
+                {isWorkoutRunning ? <p>Current round score: <strong>{currentTrialSegmentScore}</strong></p> : null}
+                <p className="hint">{trialQuote}</p>
+              </>
+            ) : null}
             {!isCameraReady && !isSessionComplete ? (
               <p className="hint">
                 {hasRequestedCamera
@@ -1140,7 +1449,7 @@ export function WorkoutPage() {
                   : 'Tap Enable Camera to allow browser camera permission.'}
               </p>
             ) : null}
-            {!isSessionComplete && countdown === null && !isWorkoutRunning ? <p className="hint">Step into frame, then use the camera control to begin.</p> : null}
+            {!isSessionComplete && trialDemoStage !== 'transition' && countdown === null && !isWorkoutRunning ? <p className="hint">Step into frame, then use the camera control to begin.</p> : null}
 
             {isWorkoutRunning ? (
               <div className="workout-finish-actions">
@@ -1153,27 +1462,38 @@ export function WorkoutPage() {
 
             {isSessionComplete ? (
               <div className="stack">
-                {wasFinishedEarly ? <p className="hint">Workout stopped. Your latest score is ready to save.</p> : null}
+                {wasFinishedEarly && !isTrialWorkout ? <p className="hint">Workout stopped. Your latest score is ready to save.</p> : null}
                 {isTrialWorkout ? (
                   <>
-                    <p className="hint">This session will be saved separately. No personal details are collected.</p>
-                    <div className="trial-session-score" aria-live="polite">
-                      <p>Workout score <strong>{points} points</strong></p>
-                      <p>Best team score in challenge <strong>{trialBestScore ?? 0} points</strong></p>
-                    </div>
-                    <label>
-                      Team name (optional)
-                      <input
-                        value={saveTeam}
-                        onChange={(event) => setSaveTeam(event.target.value)}
-                        placeholder="Engineering"
-                      />
-                    </label>
-                    <button className="button primary" type="button" onClick={() => void submitWorkout()} disabled={isSubmitting}>
-                      {isSubmitting ? 'Finishing...' : 'Finish session'}
-                    </button>
+                    {organizationTrial?.enableNicknames && !isTrialPlankRoute ? (
+                      <label>
+                        Nickname
+                        <input
+                          value={saveName}
+                          onChange={(event) => setSaveName(event.target.value)}
+                          placeholder="Your scoreboard name"
+                        />
+                      </label>
+                    ) : null}
+                    {organizationTrial?.enableTeamNames && !isTrialPlankRoute ? (
+                      <label>
+                        Team
+                        <select
+                          value={saveTeam}
+                          onChange={(event) => setSaveTeam(event.target.value)}
+                        >
+                          <option value="">No team</option>
+                          {organizationTrial.teamNames.map((teamName) => <option key={teamName} value={teamName}>{teamName}</option>)}
+                        </select>
+                      </label>
+                    ) : null}
+                    {isTrialScoreboardEnabled && !isTrialPlankRoute ? (
+                      <button className="button primary" type="button" onClick={() => void submitWorkout()} disabled={isSubmitting}>
+                        {isSubmitting ? 'Finishing...' : 'Finish session'}
+                      </button>
+                    ) : null}
                     <button className="button ghost" type="button" onClick={retakeWorkout} disabled={isSubmitting || captureCountdown !== null || captureRequested}>
-                      Retake workout
+                      {isTrialScoreboardEnabled && !isTrialPlankRoute ? 'Retake workout' : 'New workout'}
                     </button>
                     <Link className="button ghost" to={`/trial/${trialCode}/workout`}>Back to trial</Link>
                   </>
@@ -1232,9 +1552,11 @@ export function WorkoutPage() {
               </div>
             ) : null}
 
-            <Link className="button ghost workout-back-link" to={isTrialWorkout ? `/trial/${trialCode}/workout` : isGuestWorkout ? `/guest/${challengeCode}` : '/challenges'}>
-              {isTrialWorkout ? 'Back to trial workout' : isGuestWorkout ? 'Back to player challenge' : 'Back to challenges'}
-            </Link>
+            {!(isTrialWorkout && isSessionComplete) ? (
+              <Link className="button ghost workout-back-link" to={isTrialWorkout ? `/trial/${trialCode}/workout` : isGuestWorkout ? `/guest/${challengeCode}` : '/challenges'}>
+                {isTrialWorkout ? 'Back to trial workout' : isGuestWorkout ? 'Back to player challenge' : 'Back to challenges'}
+              </Link>
+            ) : null}
           </aside>
         </div>
       </section>

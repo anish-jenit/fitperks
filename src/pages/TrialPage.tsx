@@ -19,7 +19,7 @@ function TrialUrls({ trial }: { trial: OrganizationTrialRecord }) {
   const [copied, setCopied] = useState<string | null>(null)
   const urls = [
     ['Quick-start workout URL', buildUrl(trial.workoutUrlPath)],
-    ['Live scoreboard URL', buildUrl(trial.scoreboardUrlPath)],
+    ...(trial.enableNicknames || trial.enableTeamNames ? [['Live scoreboard URL', buildUrl(trial.scoreboardUrlPath)]] : []),
   ]
 
   async function copy(value: string) {
@@ -139,10 +139,10 @@ export function TrialExperiencePage() {
         {isWorkoutStart ? (
           <div className="stack trial-quick-start">
             <h2>Quick-start workout</h2>
-            <p>Choose an exercise. Each completed session is saved separately and contributes to the team scoreboard.</p>
+            <p>Complete jumping jacks first, then squats after a short reset.</p>
             <div className="hero-actions trial-workout-actions">
-              <Link className="button primary" to={`/trial/${trial.code}/workout/squat?camera=1`}>Start squats</Link>
-              <Link className="button ghost" to={`/trial/${trial.code}/workout/burpee?camera=1`}>Start jumping jacks</Link>
+              <Link className="button primary" to={`/trial/${trial.code}/workout/burpee?camera=1`}>Start demo</Link>
+              <Link className="button ghost" to={`/trial/${trial.code}/workout/plank?camera=1`}>Plank challenge</Link>
             </div>
             <Link className="inline-link trial-details-link" to={`/trial/${trial.code}`}>View trial details and URLs</Link>
           </div>
@@ -151,7 +151,7 @@ export function TrialExperiencePage() {
             <TrialUrls trial={trial} />
             <div className="hero-actions">
               <Link className="button primary" to={trial.workoutUrlPath}>Open quick-start workout</Link>
-              <Link className="button ghost" to={trial.scoreboardUrlPath}>Open live scoreboard</Link>
+              {trial.enableNicknames || trial.enableTeamNames ? <Link className="button ghost" to={trial.scoreboardUrlPath}>Open live scoreboard</Link> : null}
             </div>
           </div>
         )}
@@ -198,6 +198,18 @@ export function TrialScoreboardPage() {
 
   if (!trialCode) return <Navigate to="/demo" replace />
   if (error && !trial) return <main className="page"><section className="panel form-panel"><h1>Trial unavailable</h1><p className="hint">{error}</p></section></main>
+  if (trial && !trial.enableNicknames && !trial.enableTeamNames) {
+    return (
+      <main className="page">
+        <section className="panel form-panel">
+          <p className="hero-kicker">Organization demo</p>
+          <h1>{trial.organizationName}</h1>
+          <p className="hint">Scoreboard is not enabled for this demo.</p>
+          <div className="hero-actions"><Link className="button primary" to={`/trial/${trialCode}/workout`}>Back to trial</Link></div>
+        </section>
+      </main>
+    )
+  }
 
   return (
     <main className="page">
@@ -216,9 +228,14 @@ export function TrialScoreboardPage() {
         </section>
         <div className="scoreboard-list trial-scoreboard-list">
           {rows.length === 0 ? <div className="scoreboard-empty">Waiting for the first workout</div> : rows.map((row) => (
-            <article className={`scoreboard-row ${row.totalScore === topScore && topScore > 0 ? 'scoreboard-row-winner' : ''}`} key={row.teamName}>
+            <article className={`scoreboard-row ${row.totalScore === topScore && topScore > 0 ? 'scoreboard-row-winner' : ''}`} key={`${row.displayName}-${row.teamName}`}>
               <div className="scoreboard-rank">#{row.rank}</div>
-              <div className="scoreboard-player"><strong className="scoreboard-player-name">{row.teamName}</strong><span className="scoreboard-player-meta">SQ {row.squatScore ?? '-'} · JJ {row.jumpingJacksScore ?? '-'}</span></div>
+              <div className="scoreboard-player">
+                <strong className="scoreboard-player-name">{row.displayName}</strong>
+                <span className="scoreboard-player-meta">
+                  {trial?.enableNicknames && trial.enableTeamNames ? `${row.teamName} · ` : ''}SQ {row.squatScore ?? '-'} · JJ {row.jumpingJacksScore ?? '-'}
+                </span>
+              </div>
               <div className="scoreboard-score"><strong>{row.totalScore}</strong><span>points</span></div>
             </article>
           ))}

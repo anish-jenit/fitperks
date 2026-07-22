@@ -65,6 +65,9 @@ test.beforeEach(async ({ page }) => {
     organization_code: 'ACME2026',
     country_code: 'us',
     display_message: 'A live FitPerks trial.',
+    team_names: ['Blue Team'],
+    enable_team_names: true,
+    enable_nicknames: true,
     access_duration_minutes: 30,
     expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
     created_at: new Date().toISOString(),
@@ -75,6 +78,7 @@ test.beforeEach(async ({ page }) => {
   const organizationTrialScoreboard = [
     {
       rank: 1,
+      display_name: 'Anish',
       team_name: 'Blue Team',
       squat_score: 20,
       jumping_jacks_score: 10,
@@ -257,6 +261,10 @@ test.beforeEach(async ({ page }) => {
       return json(organizationTrialScoreboard)
     }
 
+    if (path.endsWith('/rpc/get_organization_trial_score_summary') && method === 'POST') {
+      return json({ best_score: 20, best_team_score: 30 })
+    }
+
     if (path.endsWith('/rpc/submit_organization_trial_result') && method === 'POST') {
       return json({ attempt_id: 'trial-attempt-1', score: 20 })
     }
@@ -422,13 +430,14 @@ test('organization trial entry, workout, and scoreboard links resolve', async ({
 
   await page.getByRole('link', { name: 'Open quick-start workout' }).click()
   await expect(page).toHaveURL(/\/trial\/trial-demo-1\/workout$/)
-  await expect(page.getByRole('link', { name: 'Start squats' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'Start demo' })).toHaveAttribute(
     'href',
-    '/trial/trial-demo-1/workout/squat?camera=1',
+    '/trial/trial-demo-1/workout/burpee?camera=1',
   )
 
   await page.goto('/trial/trial-demo-1/scoreboard')
   await expect(page.getByRole('heading', { name: 'Acme Wellness' })).toBeVisible()
-  await expect(page.getByText('Blue Team')).toBeVisible()
+  await expect(page.getByText('Anish')).toBeVisible()
+  await expect(page.getByText('Blue Team · SQ 20 · JJ 10')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Open workout' })).toHaveAttribute('href', '/trial/trial-demo-1/workout')
 })

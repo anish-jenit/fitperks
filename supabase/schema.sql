@@ -338,11 +338,18 @@ create table if not exists organization_trials (
   organization_code text not null,
   country_code text not null,
   display_message text not null default '',
+  team_names text[] not null default '{}',
+  enable_team_names boolean not null default false,
+  enable_nicknames boolean not null default false,
   access_duration_minutes int not null check (access_duration_minutes between 5 and 1440),
   expires_at timestamptz not null,
   created_by_user_id uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+alter table organization_trials add column if not exists team_names text[] not null default '{}';
+alter table organization_trials add column if not exists enable_team_names boolean not null default false;
+alter table organization_trials add column if not exists enable_nicknames boolean not null default false;
 
 create table if not exists organization_trial_attempts (
   id uuid primary key default gen_random_uuid(),
@@ -2247,11 +2254,17 @@ begin
 end;
 $$;
 
+drop function if exists public.create_organization_trial(text, text, text, text, int);
+drop function if exists public.create_organization_trial(text, text, text, text, text[], int);
+
 create or replace function public.create_organization_trial(
   p_organization_name text,
   p_organization_code text,
   p_country_code text,
   p_display_message text,
+  p_team_names text[],
+  p_enable_team_names boolean,
+  p_enable_nicknames boolean,
   p_access_duration_minutes int
 )
 returns jsonb
@@ -2262,6 +2275,9 @@ as $$
 declare
   v_trial organization_trials%rowtype;
   v_code text;
+  v_team_names text[];
+  v_enable_team_names boolean;
+  v_enable_nicknames boolean;
 begin
   if not is_platform_admin() then
     raise exception 'Only platform admins can create organization trials';
@@ -2277,6 +2293,25 @@ begin
     raise exception 'Trial access duration must be between 5 and 1440 minutes';
   end if;
 
+  v_enable_team_names := coalesce(p_enable_team_names, false);
+  v_enable_nicknames := coalesce(p_enable_nicknames, false);
+
+  select coalesce(array_agg(team_name order by team_name), '{}') into v_team_names
+  from (
+    select min(trim(team_name)) as team_name
+    from unnest(coalesce(p_team_names, '{}'::text[])) as configured(team_name)
+    where nullif(trim(team_name), '') is not null
+    group by lower(trim(team_name))
+  ) teams;
+
+  if cardinality(v_team_names) > 20 or exists (select 1 from unnest(v_team_names) as team_name where char_length(team_name) > 60) then
+    raise exception 'Provide up to 20 team names of 60 characters or fewer';
+  end if;
+
+  if not v_enable_team_names then
+    v_team_names := '{}';
+  end if;
+
   loop
     v_code := lower(substr(encode(extensions.gen_random_bytes(9), 'hex'), 1, 10));
 
@@ -2287,6 +2322,9 @@ begin
         organization_code,
         country_code,
         display_message,
+        team_names,
+        enable_team_names,
+        enable_nicknames,
         access_duration_minutes,
         expires_at,
         created_by_user_id
@@ -2297,6 +2335,9 @@ begin
         upper(trim(p_organization_code)),
         lower(trim(p_country_code)),
         coalesce(trim(p_display_message), ''),
+        v_team_names,
+        v_enable_team_names,
+        v_enable_nicknames,
         p_access_duration_minutes,
         now() + make_interval(mins => p_access_duration_minutes),
         auth.uid()
@@ -2315,6 +2356,9 @@ begin
     'organization_code', v_trial.organization_code,
     'country_code', v_trial.country_code,
     'display_message', v_trial.display_message,
+    'team_names', v_trial.team_names,
+    'enable_team_names', v_trial.enable_team_names,
+    'enable_nicknames', v_trial.enable_nicknames,
     'access_duration_minutes', v_trial.access_duration_minutes,
     'expires_at', v_trial.expires_at,
     'created_at', v_trial.created_at,
@@ -2359,6 +2403,9 @@ begin
     'organization_code', v_trial.organization_code,
     'country_code', v_trial.country_code,
     'display_message', v_trial.display_message,
+    'team_names', v_trial.team_names,
+    'enable_team_names', v_trial.enable_team_names,
+    'enable_nicknames', v_trial.enable_nicknames,
     'access_duration_minutes', v_trial.access_duration_minutes,
     'expires_at', v_trial.expires_at,
     'created_at', v_trial.created_at,
@@ -2368,6 +2415,8 @@ begin
 end;
 $$;
 
+drop function if exists public.get_organization_trials();
+
 create or replace function public.get_organization_trials()
 returns table(
   id uuid,
@@ -2376,6 +2425,9 @@ returns table(
   organization_code text,
   country_code text,
   display_message text,
+  team_names text[],
+  enable_team_names boolean,
+  enable_nicknames boolean,
   access_duration_minutes int,
   expires_at timestamptz,
   created_at timestamptz
@@ -2391,182 +2443,20 @@ begin
 
   return query
   select t.id, t.code, t.organization_name, t.organization_code, t.country_code,
-    t.display_message, t.access_duration_minutes, t.expires_at, t.created_at
+    t.display_message, t.team_names, t.enable_team_names, t.enable_nicknames, t.access_duration_minutes, t.expires_at, t.created_at
   from organization_trials t
   order by t.created_at desc;
-end;
-$$;
-
-create or replace function public.submit_organization_trial_attempt(
-  p_code text,
-  p_nickname text,
-  p_session_id uuid,
-  p_exercise text,
-  p_reps int,
-  p_player_token text
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_trial organization_trials%rowtype;
-  v_player organization_trial_players%rowtype;
-  v_attempt organization_trial_attempts%rowtype;
-  v_score int;
-begin
-  if nullif(trim(p_nickname), '') is null then
-    raise exception 'Nickname is required';
-  end if;
-
-  if nullif(trim(p_player_token), '') is null then
-    raise exception 'Trial player identity is required';
-  end if;
-
-  if p_exercise not in ('squat', 'burpee') or p_reps < 0 then
-    raise exception 'Invalid trial workout';
-  end if;
-
-  select * into v_trial
-  from organization_trials
-  where lower(code) = lower(trim(p_code))
-    or upper(organization_code) = upper(trim(p_code))
-  order by
-    case when lower(code) = lower(trim(p_code)) then 0 else 1 end,
-    case when expires_at >= now() then 0 else 1 end,
-    created_at desc
-  limit 1;
-
-  if v_trial.id is null then
-    raise exception 'Trial code not found';
-  end if;
-
-  if v_trial.expires_at < now() then
-    raise exception 'This organization trial has ended';
-  end if;
-
-  select * into v_player
-  from organization_trial_players
-  where trial_id = v_trial.id
-    and player_token = trim(p_player_token)
-  limit 1;
-
-  if v_player.id is null then
-    begin
-      insert into organization_trial_players (trial_id, nickname, player_token)
-      values (v_trial.id, trim(p_nickname), trim(p_player_token))
-      returning * into v_player;
-    exception when unique_violation then
-      raise exception 'That nickname is already in use for this trial';
-    end;
-  elsif lower(v_player.nickname) <> lower(trim(p_nickname)) then
-    raise exception 'Continue with your existing trial nickname: %', v_player.nickname;
-  end if;
-
-  v_score := p_reps * 2;
-
-  insert into organization_trial_attempts (
-    trial_id,
-    player_id,
-    nickname,
-    session_id,
-    exercise,
-    reps,
-    score
-  )
-  values (
-    v_trial.id,
-    v_player.id,
-    v_player.nickname,
-    p_session_id,
-    p_exercise,
-    p_reps,
-    v_score
-  )
-  on conflict (trial_id, session_id) do update
-  set player_id = excluded.player_id,
-      nickname = excluded.nickname,
-      reps = excluded.reps,
-      score = excluded.score
-  returning * into v_attempt;
-
-  return jsonb_build_object(
-    'attempt_id', v_attempt.id,
-    'score', v_attempt.score
-  );
-end;
-$$;
-
-create or replace function public.submit_organization_trial_attempt(
-  p_code text,
-  p_nickname text,
-  p_session_id uuid,
-  p_exercise text,
-  p_reps int
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_trial organization_trials%rowtype;
-  v_attempt organization_trial_attempts%rowtype;
-  v_score int;
-begin
-  return public.submit_organization_trial_attempt(
-    p_code,
-    p_nickname,
-    p_session_id,
-    p_exercise,
-    p_reps,
-    p_session_id::text
-  );
-end;
-$$;
-
-create or replace function public.submit_organization_trial_attempt(
-  p_code text,
-  p_nickname text,
-  p_session_id uuid,
-  p_exercise text,
-  p_reps int,
-  p_player_token text
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  raise exception 'Individual trial attempts have been retired. Save each anonymous session separately.';
-end;
-$$;
-
-create or replace function public.submit_organization_trial_attempt(
-  p_code text,
-  p_nickname text,
-  p_session_id uuid,
-  p_exercise text,
-  p_reps int
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  raise exception 'Individual trial attempts have been retired. Save each anonymous session separately.';
 end;
 $$;
 
 drop function if exists public.submit_organization_trial_attempt(text, text, uuid, text, int, text);
 drop function if exists public.submit_organization_trial_attempt(text, text, uuid, text, int);
 drop function if exists public.submit_organization_trial_results(text, text, text, uuid, int, uuid, int);
+drop function if exists public.submit_organization_trial_result(text, text, uuid, text, int);
 
 create or replace function public.submit_organization_trial_result(
   p_code text,
+  p_nickname text,
   p_team_name text,
   p_session_id uuid,
   p_exercise text,
@@ -2580,6 +2470,7 @@ as $$
 declare
   v_trial organization_trials%rowtype;
   v_attempt organization_trial_attempts%rowtype;
+  v_nickname text;
   v_team_name text;
   v_score int;
 begin
@@ -2605,7 +2496,22 @@ begin
     raise exception 'This organization trial has ended';
   end if;
 
-  v_team_name := coalesce(nullif(trim(p_team_name), ''), 'Independent');
+  if v_trial.enable_nicknames and nullif(trim(p_nickname), '') is null then
+    raise exception 'Nickname is required';
+  end if;
+
+  if v_trial.enable_team_names and cardinality(v_trial.team_names) > 0 and not (trim(p_team_name) = any(v_trial.team_names)) then
+    raise exception 'Choose one of the configured teams';
+  end if;
+
+  v_nickname := case
+    when v_trial.enable_nicknames then trim(p_nickname)
+    else 'Anonymous participant'
+  end;
+  v_team_name := case
+    when v_trial.enable_team_names then coalesce(nullif(trim(p_team_name), ''), 'Independent')
+    else 'Independent'
+  end;
   v_score := p_reps * case when p_exercise = 'squat' then 2 else 1 end;
 
   insert into organization_trial_attempts (
@@ -2619,7 +2525,7 @@ begin
   )
   values (
     v_trial.id,
-    'Anonymous participant',
+    v_nickname,
     v_team_name,
     p_session_id,
     p_exercise,
@@ -2628,6 +2534,7 @@ begin
   )
   on conflict (trial_id, session_id) do update
   set team_name = excluded.team_name,
+      nickname = excluded.nickname,
       exercise = excluded.exercise,
       reps = excluded.reps,
       score = excluded.score
@@ -2640,11 +2547,64 @@ begin
 end;
 $$;
 
+create or replace function public.get_organization_trial_score_summary(p_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_trial organization_trials%rowtype;
+  v_best_score int;
+  v_best_team_score int;
+begin
+  select * into v_trial
+  from organization_trials
+  where lower(code) = lower(trim(p_code))
+    or upper(organization_code) = upper(trim(p_code))
+  order by
+    case when lower(code) = lower(trim(p_code)) then 0 else 1 end,
+    case when expires_at >= now() then 0 else 1 end,
+    created_at desc
+  limit 1;
+
+  if v_trial.id is null then
+    raise exception 'Trial code not found';
+  end if;
+
+  if v_trial.expires_at < now() then
+    raise exception 'This organization trial has ended';
+  end if;
+
+  select coalesce(max(score), 0)::int into v_best_score
+  from organization_trial_attempts
+  where trial_id = v_trial.id;
+
+  select coalesce(max(total_score), 0)::int into v_best_team_score
+  from (
+    select coalesce(sum(score), 0)::int as total_score
+    from organization_trial_attempts
+    where trial_id = v_trial.id
+    group by case
+      when v_trial.enable_team_names then coalesce(nullif(trim(team_name), ''), 'Independent')
+      when v_trial.enable_nicknames then coalesce(nullif(trim(nickname), ''), 'Anonymous participant')
+      else session_id::text
+    end
+  ) team_totals;
+
+  return jsonb_build_object(
+    'best_score', v_best_score,
+    'best_team_score', v_best_team_score
+  );
+end;
+$$;
+
 drop function if exists public.get_organization_trial_scoreboard(text);
 
 create function public.get_organization_trial_scoreboard(p_code text)
 returns table(
   rank bigint,
+  display_name text,
   team_name text,
   squat_score int,
   jumping_jacks_score int,
@@ -2678,16 +2638,29 @@ begin
   return query
   with totals as (
     select
+      case
+        when v_trial.enable_nicknames then coalesce(nullif(trim(a.nickname), ''), 'Anonymous participant')
+        when v_trial.enable_team_names then coalesce(nullif(trim(a.team_name), ''), 'Independent')
+        else 'Demo participant'
+      end as display_name,
       coalesce(nullif(trim(a.team_name), ''), 'Independent') as team_name,
       sum(a.score) filter (where a.exercise = 'squat')::int as squat_score,
       sum(a.score) filter (where a.exercise = 'burpee')::int as jumping_jacks_score,
       coalesce(sum(a.score), 0)::int as total_score
     from organization_trial_attempts a
     where a.trial_id = v_trial.id
-    group by coalesce(nullif(trim(a.team_name), ''), 'Independent')
+      and (v_trial.enable_team_names or v_trial.enable_nicknames)
+    group by
+      case
+        when v_trial.enable_nicknames then coalesce(nullif(trim(a.nickname), ''), 'Anonymous participant')
+        when v_trial.enable_team_names then coalesce(nullif(trim(a.team_name), ''), 'Independent')
+        else 'Demo participant'
+      end,
+      coalesce(nullif(trim(a.team_name), ''), 'Independent')
   )
   select
-    dense_rank() over (order by t.total_score desc, t.team_name asc) as rank,
+    dense_rank() over (order by t.total_score desc, t.display_name asc) as rank,
+    t.display_name,
     t.team_name,
     t.squat_score,
     t.jumping_jacks_score,
