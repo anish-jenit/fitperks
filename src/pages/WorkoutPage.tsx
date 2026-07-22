@@ -1353,6 +1353,17 @@ export function WorkoutPage() {
                 <section className="trial-camera-result" aria-live="polite">
                   <p className="trial-camera-result-title">1/2 Completed</p>
                   <p className="trial-camera-result-message">{trialQuote}</p>
+                  <video
+                    key="transition-squat-preview"
+                    className="trial-transition-video"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    aria-label="Squat demonstration preview"
+                  >
+                    <source src={CHALLENGE_VIDEO_PATH.squat} type="video/mp4" />
+                  </video>
                   <dl>
                     <div><dt>Jumping Jacks</dt><dd>{trialJumpingJackScore}</dd></div>
                     <div><dt>Next</dt><dd>Squats</dd></div>
@@ -1372,8 +1383,9 @@ export function WorkoutPage() {
                       </>
                     ) : (
                       <>
+                        <div><dt>Jumping Jacks</dt><dd>{trialJumpingJackScore}</dd></div>
                         <div><dt>Squats</dt><dd>{trialSquatScore}</dd></div>
-                        <div><dt>Player Score</dt><dd>{currentTrialTotalScore}</dd></div>
+                        <div><dt>Full Score</dt><dd>{currentTrialTotalScore}</dd></div>
                         {isTrialTeamScoreEnabled ? <div><dt>Best Team Score</dt><dd>{trialBestTeamScore ?? 0}</dd></div> : isTrialScoreboardEnabled ? <div><dt>Best Score</dt><dd>{trialBestScore ?? currentTrialTotalScore}</dd></div> : null}
                       </>
                     )}
@@ -1405,6 +1417,7 @@ export function WorkoutPage() {
           <aside className="stats-panel">
             {showInstructionVideo && challengeVideoPath ? (
               <video
+                key={challengeVideoPath}
                 className="workout-instruction-video"
                 autoPlay
                 loop

@@ -1561,6 +1561,17 @@ textarea {
   color: #d8e4e8;
 }
 
+.trial-transition-video {
+  display: block;
+  width: min(12rem, 46vw);
+  aspect-ratio: 16 / 9;
+  margin: 0.85rem auto 0;
+  border: 1px solid rgba(174, 239, 253, 0.32);
+  border-radius: 8px;
+  object-fit: cover;
+  background: rgba(15, 23, 42, 0.72);
+}
+
 .trial-camera-result dl {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
