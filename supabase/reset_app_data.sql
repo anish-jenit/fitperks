@@ -1,5 +1,6 @@
 -- Deletes FitPerks application data so the setup and challenge flows can be
--- tested again from scratch. Authentication users are intentionally preserved.
+-- tested again from scratch. Authentication users and admin role assignments
+-- are intentionally preserved.
 begin;
 
 truncate table
@@ -15,7 +16,6 @@ truncate table
   participant_profiles,
   participants,
   teams,
-  admin_users,
   organization_invites,
   organization_settings,
   organizations,
