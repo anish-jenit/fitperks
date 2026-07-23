@@ -3446,6 +3446,144 @@ select:focus {
   font-weight: 700;
 }
 
+
+.solo-empty-state {
+  min-height: 260px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1.2rem;
+  align-items: center;
+  padding: clamp(1rem, 3vw, 1.4rem);
+  border: 1px solid rgba(52, 211, 153, 0.22);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(17, 201, 244, 0.12), transparent 42%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.42), rgba(2, 6, 23, 0.24));
+}
+
+.solo-empty-orbit {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: clamp(7rem, 18vw, 10rem);
+  aspect-ratio: 1;
+  border: 1px solid rgba(17, 201, 244, 0.28);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(17, 201, 244, 0.18), rgba(15, 23, 42, 0.24) 62%);
+  box-shadow: inset 0 0 34px rgba(17, 201, 244, 0.12);
+}
+
+.solo-empty-orbit::before,
+.solo-empty-orbit::after {
+  content: '';
+  position: absolute;
+  inset: 0.8rem;
+  border-radius: 50%;
+  border: 1px dashed rgba(148, 163, 184, 0.28);
+}
+
+.solo-empty-orbit::after {
+  inset: 1.55rem;
+  border-style: solid;
+  border-color: rgba(52, 211, 153, 0.24);
+}
+
+.solo-empty-orbit span {
+  position: absolute;
+  top: 13%;
+  right: 18%;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 18px rgba(52, 211, 153, 0.9);
+}
+
+.solo-empty-orbit strong {
+  position: relative;
+  color: #f8fafc;
+  font-size: clamp(2.8rem, 8vw, 4.8rem);
+  line-height: 1;
+}
+
+.solo-empty-copy {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.solo-empty-kicker {
+  margin: 0;
+  color: #34d399;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.solo-empty-copy h3 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: clamp(1.35rem, 3vw, 2.05rem);
+  line-height: 1.05;
+}
+
+.solo-empty-copy p:not(.solo-empty-kicker) {
+  margin: 0;
+  max-width: 42ch;
+  color: #b8c5ca;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.solo-empty-milestones {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.solo-empty-milestones span {
+  min-height: 2rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid rgba(17, 201, 244, 0.24);
+  border-radius: 999px;
+  color: #c6f5ff;
+  background: rgba(17, 201, 244, 0.08);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.solo-board-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 3.2rem;
+  margin-top: 0.75rem;
+  padding: 0.7rem;
+  border: 1px dashed rgba(148, 163, 184, 0.26);
+  border-radius: calc(var(--radius) - 2px);
+  color: #aeb9c9;
+}
+
+.solo-board-empty span {
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 50%;
+  background: #fb923c;
+  box-shadow: 0 0 14px rgba(251, 146, 60, 0.48);
+}
+
+.solo-board-empty p {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 @media (max-width: 840px) {
   .solo-header,
   .solo-chart-head {
@@ -3469,7 +3607,12 @@ select:focus {
   }
 
   .solo-workouts,
-  .solo-stat-grid {
+  .solo-stat-grid,
+  .solo-empty-state {
     grid-template-columns: 1fr;
+  }
+
+  .solo-empty-orbit {
+    justify-self: center;
   }
 }

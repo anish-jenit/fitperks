@@ -42,6 +42,27 @@ function ProgressBars({ rows }: { rows: SoloProgressBucket[] }) {
   )
 }
 
+function SoloEmptyProgress() {
+  return (
+    <div className="solo-empty-state" aria-label="Solo starter state">
+      <div className="solo-empty-orbit" aria-hidden="true">
+        <span />
+        <strong>0</strong>
+      </div>
+      <div className="solo-empty-copy">
+        <p className="solo-empty-kicker">First session</p>
+        <h3>Set today&apos;s benchmark.</h3>
+        <p>Pick a workout, save your score, and this space turns into your daily progress board.</p>
+      </div>
+      <div className="solo-empty-milestones" aria-label="Solo milestones">
+        <span>Daily best</span>
+        <span>Streak day 1</span>
+        <span>Leaderboard ready</span>
+      </div>
+    </div>
+  )
+}
+
 function SoloLeaderboard({ title, rows, metric }: { title: string; rows: SoloComparisonRow[]; metric: 'consistency' | 'maxReps' }) {
   return (
     <article className="solo-board">
@@ -57,7 +78,10 @@ function SoloLeaderboard({ title, rows, metric }: { title: string; rows: SoloCom
           ))}
         </div>
       ) : (
-        <p className="hint">No solo attempts yet.</p>
+        <div className="solo-board-empty">
+          <span />
+          <p>First score waiting.</p>
+        </div>
       )}
     </article>
   )
@@ -74,6 +98,7 @@ export function SoloPlayerPage() {
 
   const normalizedEmail = playerEmail.trim().toLowerCase()
   const selectedRows = useMemo(() => progress[chartMode], [chartMode, progress])
+  const hasSoloHistory = progress.totalAttempts > 0
 
   useEffect(() => {
     if (!normalizedEmail) {
@@ -168,7 +193,7 @@ export function SoloPlayerPage() {
                   ))}
                 </div>
               </div>
-              {loading ? <p className="hint">Loading progress...</p> : <ProgressBars rows={selectedRows} />}
+              {loading ? <p className="hint">Loading progress...</p> : hasSoloHistory ? <ProgressBars rows={selectedRows} /> : <SoloEmptyProgress />}
             </div>
 
             <div className="solo-board-grid">
