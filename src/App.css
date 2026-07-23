@@ -658,16 +658,12 @@
   transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
-.button.primary {
-  background: #f8fafc;
-  color: #030712;
-  box-shadow: 0 16px 32px -22px rgba(248, 250, 252, 0.78);
-}
-
+.button.primary,
 .button.ghost {
   border: 1px solid var(--line);
   color: var(--ink-strong);
   background: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 .button-small {
@@ -691,8 +687,14 @@
   transform: translateY(-1px);
 }
 
-.button.primary:not(:disabled):hover {
-  box-shadow: 0 24px 34px -24px rgba(248, 250, 252, 0.72);
+.button.primary:not(:disabled):hover,
+.button.ghost:not(:disabled):hover,
+.button.primary:focus-visible,
+.button.ghost:focus-visible {
+  border-color: rgba(17, 201, 244, 0.75);
+  background: rgba(17, 201, 244, 0.12);
+  color: var(--accent);
+  box-shadow: 0 18px 34px -26px rgba(17, 201, 244, 0.78);
 }
 
 .form-panel {
@@ -1481,17 +1483,23 @@ textarea {
   letter-spacing: 0.035em;
 }
 
-.trial-workout-actions .button.primary {
-  border-color: #11c9df;
-  background: #11c9df;
-  box-shadow: 0 18px 32px -22px rgba(17, 201, 223, 0.95);
-}
-
+.trial-workout-actions .button.primary,
 .trial-workout-actions .button.ghost,
 .trial-details-link.button.ghost {
   border-color: rgba(177, 208, 214, 0.52);
   background: rgba(255, 255, 255, 0.035);
   color: #e8f2f5;
+  box-shadow: none;
+}
+
+.trial-workout-actions .button:hover,
+.trial-workout-actions .button:focus-visible,
+.trial-details-link.button.ghost:hover,
+.trial-details-link.button.ghost:focus-visible {
+  border-color: rgba(17, 201, 244, 0.75);
+  background: rgba(17, 201, 244, 0.12);
+  color: var(--accent);
+  box-shadow: 0 18px 34px -26px rgba(17, 201, 244, 0.78);
 }
 
 .trial-details-link {
@@ -2382,27 +2390,22 @@ label,
   text-transform: uppercase;
 }
 
-.button.primary {
-  background: var(--accent);
-  color: #03111a;
-  box-shadow: 0 16px 32px -20px rgba(17, 201, 244, 0.95);
-}
-
+.button.primary,
 .button.ghost {
   border-color: rgba(148, 163, 184, 0.2);
   background: rgba(255, 255, 255, 0.035);
   color: var(--ink-strong);
+  box-shadow: none;
 }
 
-.button.ghost:hover,
+.button.primary:not(:disabled):hover,
+.button.primary:focus-visible,
+.button.ghost:not(:disabled):hover,
 .button.ghost:focus-visible {
   border-color: rgba(17, 201, 244, 0.75);
+  background: rgba(17, 201, 244, 0.12);
   color: var(--accent);
-}
-
-.button.primary:not(:disabled):hover {
-  background: #28d5fa;
-  box-shadow: 0 20px 38px -20px rgba(17, 201, 244, 0.9);
+  box-shadow: 0 18px 34px -26px rgba(17, 201, 244, 0.78);
 }
 
 .form-panel {
