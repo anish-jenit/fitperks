@@ -3026,3 +3026,164 @@ select:focus {
     padding: 0.85rem;
   }
 }
+
+.ai-live-panel {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 4;
+  width: min(22rem, calc(100% - 2rem));
+  padding: 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: var(--radius);
+  color: #e5eefb;
+  background: rgba(3, 7, 18, 0.72);
+  box-shadow: 0 18px 50px -28px rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(16px);
+}
+
+.ai-live-panel-heading,
+.executive-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ai-live-panel-heading h2 {
+  margin: 0.1rem 0 0;
+  color: #f8fafc;
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.ai-panel-kicker,
+.ai-live-badge,
+.ai-live-footnote {
+  color: #a7f3d0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ai-live-badge {
+  padding: 0.25rem 0.45rem;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  border-radius: var(--radius);
+  background: rgba(6, 78, 59, 0.42);
+}
+
+.ai-status-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin: 0.75rem 0;
+}
+
+.ai-status-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: var(--radius);
+  background: rgba(15, 23, 42, 0.55);
+  font-size: 0.78rem;
+}
+
+.ai-status-item strong {
+  overflow-wrap: anywhere;
+}
+
+.ai-status-good span { color: #34d399; }
+.ai-status-warn span { color: #facc15; }
+.ai-status-bad span { color: #fb7185; }
+
+.movement-quality-card {
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.movement-quality-score {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  margin-top: 0.2rem;
+}
+
+.movement-quality-score strong {
+  color: #f8fafc;
+  font-size: 2.25rem;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+}
+
+.movement-quality-rating,
+.movement-quality-stars,
+.ai-coaching-hint,
+.ai-live-footnote {
+  margin: 0.35rem 0 0;
+}
+
+.movement-quality-stars {
+  color: #fde68a;
+  letter-spacing: 0;
+}
+
+.movement-quality-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.75rem;
+  margin: 0.65rem 0 0;
+}
+
+.movement-quality-metrics div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.movement-quality-metrics dt {
+  color: #9ca3af;
+  font-size: 0.72rem;
+}
+
+.movement-quality-metrics dd {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.ai-coaching-hint {
+  color: #dbeafe;
+  font-weight: 700;
+}
+
+.executive-summary {
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: var(--radius);
+  background: rgba(15, 23, 42, 0.52);
+}
+
+@media (max-width: 760px) {
+  .ai-live-panel {
+    right: 0.7rem;
+    bottom: 4.5rem;
+    width: min(20rem, calc(100% - 1.4rem));
+    padding: 0.75rem;
+  }
+
+  .ai-status-list,
+  .movement-quality-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .movement-quality-score strong {
+    font-size: 1.9rem;
+  }
+}

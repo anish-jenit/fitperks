@@ -5,7 +5,7 @@ import { CHALLENGES, CHALLENGE_VIDEO_PATH } from '../lib/constants'
 import { getActiveChallenge } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
 import { getConfiguredOrganizationCode } from '../lib/storage'
-import type { ChallengeRecord, ExerciseType } from '../types'
+import { DEFAULT_AI_DEMO_SETTINGS, type ChallengeRecord, type ExerciseType } from '../types'
 
 const CTA_PHRASES = ['Let\'s Go', 'Start Now', 'Let\'s Move', 'Game On', 'Bring It On']
 function createRandomCtaLabels() {
@@ -198,6 +198,11 @@ export function ChallengeSelectPage() {
         team_qualification_type: 'fixed_count',
         team_required_unique_members: 3,
         team_required_participation_percent: 25,
+        enable_ai_overlay: DEFAULT_AI_DEMO_SETTINGS.enableAIOverlay,
+        enable_ai_live_coach: DEFAULT_AI_DEMO_SETTINGS.enableAILiveCoach,
+        enable_ai_announcer: DEFAULT_AI_DEMO_SETTINGS.enableAIAnnouncer,
+        enable_executive_summary: DEFAULT_AI_DEMO_SETTINGS.enableExecutiveSummary,
+        enable_celebration_animations: DEFAULT_AI_DEMO_SETTINGS.enableCelebrationAnimations,
         created_at: dayjs().toISOString(),
       })
       return

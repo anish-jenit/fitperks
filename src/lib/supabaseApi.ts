@@ -2,6 +2,7 @@ import dayjs from 'dayjs'
 import Papa from 'papaparse'
 import { DEFAULT_APP_SETTINGS, DEFAULT_CALIBRATION, type AppSettings } from './settings'
 import { ensureAnonymousParticipantSession, supabase, useFlowStubs } from './supabase'
+import { DEFAULT_AI_DEMO_SETTINGS } from '../types'
 import type {
   AdminUserRecord,
   ApplicationSettings,
@@ -21,6 +22,7 @@ import type {
   ParticipantProfile,
   PublicLaunchContext,
   TeamLeaderboardRow,
+  AIDemoSettings,
 } from '../types'
 
 type StubInviteState = {
@@ -131,6 +133,11 @@ function buildStubChallenge(organizationCode = 'SAMPLECO2026'): ChallengeRecord 
     team_qualification_type: 'fixed_count',
     team_required_unique_members: 3,
     team_required_participation_percent: 25,
+    enable_ai_overlay: DEFAULT_AI_DEMO_SETTINGS.enableAIOverlay,
+    enable_ai_live_coach: DEFAULT_AI_DEMO_SETTINGS.enableAILiveCoach,
+    enable_ai_announcer: DEFAULT_AI_DEMO_SETTINGS.enableAIAnnouncer,
+    enable_executive_summary: DEFAULT_AI_DEMO_SETTINGS.enableExecutiveSummary,
+    enable_celebration_animations: DEFAULT_AI_DEMO_SETTINGS.enableCelebrationAnimations,
     created_at: dayjs().toISOString(),
   }
 }
@@ -1159,6 +1166,13 @@ function mapOrganizationTrial(payload: {
   team_names?: string[]
   enable_team_names?: boolean
   enable_nicknames?: boolean
+  enable_ai_overlay?: boolean
+  enable_ai_live_coach?: boolean
+  enable_ai_announcer?: boolean
+  enable_executive_summary?: boolean
+  enable_celebration_animations?: boolean
+  enable_ai_for_jj_squat_demo?: boolean
+  enable_ai_for_plank_demo?: boolean
   access_duration_minutes: number
   expires_at: string
   created_at: string
@@ -1176,6 +1190,13 @@ function mapOrganizationTrial(payload: {
     teamNames: payload.team_names ?? [],
     enableTeamNames: payload.enable_team_names ?? false,
     enableNicknames: payload.enable_nicknames ?? false,
+    enableAiOverlay: payload.enable_ai_overlay ?? DEFAULT_AI_DEMO_SETTINGS.enableAIOverlay,
+    enableAiLiveCoach: payload.enable_ai_live_coach ?? false,
+    enableAiAnnouncer: payload.enable_ai_announcer ?? false,
+    enableExecutiveSummary: payload.enable_executive_summary ?? false,
+    enableCelebrationAnimations: payload.enable_celebration_animations ?? DEFAULT_AI_DEMO_SETTINGS.enableCelebrationAnimations,
+    enableAiForJjSquatDemo: payload.enable_ai_for_jj_squat_demo ?? true,
+    enableAiForPlankDemo: payload.enable_ai_for_plank_demo ?? true,
     accessDurationMinutes: Number(payload.access_duration_minutes),
     expiresAt: payload.expires_at,
     createdAt: payload.created_at,
@@ -1193,6 +1214,9 @@ export async function createOrganizationTrial(input: {
   teamNames: string[]
   enableTeamNames: boolean
   enableNicknames: boolean
+  aiSettings: AIDemoSettings
+  enableAiForJjSquatDemo: boolean
+  enableAiForPlankDemo: boolean
   accessDurationMinutes: number
 }): Promise<OrganizationTrialRecord> {
   if (useFlowStubs) {
@@ -1209,6 +1233,13 @@ export async function createOrganizationTrial(input: {
       teamNames: input.teamNames,
       enableTeamNames: input.enableTeamNames,
       enableNicknames: input.enableNicknames,
+      enableAiOverlay: input.aiSettings.enableAIOverlay,
+      enableAiLiveCoach: input.aiSettings.enableAILiveCoach,
+      enableAiAnnouncer: input.aiSettings.enableAIAnnouncer,
+      enableExecutiveSummary: input.aiSettings.enableExecutiveSummary,
+      enableCelebrationAnimations: input.aiSettings.enableCelebrationAnimations,
+      enableAiForJjSquatDemo: input.enableAiForJjSquatDemo,
+      enableAiForPlankDemo: input.enableAiForPlankDemo,
       accessDurationMinutes: input.accessDurationMinutes,
       expiresAt: now.add(input.accessDurationMinutes, 'minute').toISOString(),
       createdAt: now.toISOString(),
@@ -1229,6 +1260,13 @@ export async function createOrganizationTrial(input: {
     p_team_names: input.teamNames,
     p_enable_team_names: input.enableTeamNames,
     p_enable_nicknames: input.enableNicknames,
+    p_enable_ai_overlay: input.aiSettings.enableAIOverlay,
+    p_enable_ai_live_coach: input.aiSettings.enableAILiveCoach,
+    p_enable_ai_announcer: input.aiSettings.enableAIAnnouncer,
+    p_enable_executive_summary: input.aiSettings.enableExecutiveSummary,
+    p_enable_celebration_animations: input.aiSettings.enableCelebrationAnimations,
+    p_enable_ai_for_jj_squat_demo: input.enableAiForJjSquatDemo,
+    p_enable_ai_for_plank_demo: input.enableAiForPlankDemo,
     p_access_duration_minutes: input.accessDurationMinutes,
   })
 

@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { AILivePanel } from '../components/AILivePanel'
 import { useEventSettings } from '../hooks/useEventSettings'
 import { CHALLENGES, CHALLENGE_VIDEO_PATH } from '../lib/constants'
+import { generateLiveCoachSentence } from '../services/AIService'
+import { analyzeMovementQuality, type MovementQuality, type RepHistoryEntry } from '../services/MovementAnalysisService'
+import { buildLiveCoachPayload } from '../services/PromptService'
 import { analyzePose } from '../lib/poseUtils'
 import {
   getActiveChallenge,
@@ -16,7 +20,7 @@ import {
 } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
 import { clearParticipantProfile, getConfiguredOrganizationCode, getLastGuestChallengeCode, getLastGuestEmail, getLastGuestName, saveGuestJoinContext, saveParticipantProfile } from '../lib/storage'
-import type { ChallengeConfig, ChallengeRecord, ExerciseType, GuestChallengeRecord, OrganizationTrialRecord } from '../types'
+import { DEFAULT_AI_DEMO_SETTINGS, type AIDemoSettings, type ChallengeConfig, type ChallengeRecord, type ExerciseType, type GuestChallengeRecord, type OrganizationTrialRecord } from '../types'
 
 type NormalizedLandmark = {
   x: number
@@ -316,6 +320,9 @@ export function WorkoutPage() {
   const [trialSquatReps, setTrialSquatReps] = useState(0)
   const [trialSquatScore, setTrialSquatScore] = useState(0)
   const [isPlankPostureValid, setIsPlankPostureValid] = useState(false)
+  const [movementQuality, setMovementQuality] = useState<MovementQuality | null>(null)
+  const [liveCoachMessage, setLiveCoachMessage] = useState<string | null>(null)
+  const [liveCoachError, setLiveCoachError] = useState<string | null>(null)
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -358,6 +365,9 @@ export function WorkoutPage() {
   const [paceFeedback, setPaceFeedback] = useState<PaceFeedback | null>(null)
   const lastRepAtRef = useRef<number | null>(null)
   const lastRepIntervalRef = useRef<number | null>(null)
+  const repHistoryRef = useRef<RepHistoryEntry[]>([])
+  const liveCoachLastRepRef = useRef(0)
+  const liveCoachCompletionSentRef = useRef(false)
   const repCountRef = useRef(0)
   const pointsRef = useRef(0)
   const totalSessionSeconds = guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds
@@ -382,6 +392,34 @@ export function WorkoutPage() {
   const currentTrialSegmentScore = isTrialPlankRoute ? points : trialDemoStage === 'squats' || trialDemoStage === 'complete' ? trialSquatScore : trialJumpingJackScore
   const currentTrialTotalScore = isTrialPlankRoute ? points : trialJumpingJackScore + (trialDemoStage === 'jumping-jacks' || trialDemoStage === 'transition' ? 0 : trialSquatScore)
   const displayedScore = isTrialWorkout ? currentTrialTotalScore : points
+
+  const aiSettings: AIDemoSettings = useMemo(() => {
+    if (isTrialWorkout && organizationTrial) {
+      return {
+        enableAIOverlay: organizationTrial.enableAiOverlay,
+        enableAILiveCoach: organizationTrial.enableAiLiveCoach,
+        enableAIAnnouncer: organizationTrial.enableAiAnnouncer,
+        enableExecutiveSummary: organizationTrial.enableExecutiveSummary,
+        enableCelebrationAnimations: organizationTrial.enableCelebrationAnimations,
+      }
+    }
+
+    if (activeChallenge) {
+      return {
+        enableAIOverlay: activeChallenge.enable_ai_overlay ?? DEFAULT_AI_DEMO_SETTINGS.enableAIOverlay,
+        enableAILiveCoach: activeChallenge.enable_ai_live_coach ?? false,
+        enableAIAnnouncer: activeChallenge.enable_ai_announcer ?? false,
+        enableExecutiveSummary: activeChallenge.enable_executive_summary ?? false,
+        enableCelebrationAnimations: activeChallenge.enable_celebration_animations ?? DEFAULT_AI_DEMO_SETTINGS.enableCelebrationAnimations,
+      }
+    }
+
+    return DEFAULT_AI_DEMO_SETTINGS
+  }, [activeChallenge, isTrialWorkout, organizationTrial])
+
+  const isTrialAIEnabledForDemo = !isTrialWorkout || (isTrialPlankRoute ? organizationTrial?.enableAiForPlankDemo : organizationTrial?.enableAiForJjSquatDemo)
+  const shouldShowAIOverlay = Boolean(aiSettings.enableAIOverlay && isTrialAIEnabledForDemo)
+  const shouldUseAILiveCoach = Boolean(aiSettings.enableAILiveCoach && isTrialAIEnabledForDemo)
 
   useEffect(() => {
     repCountRef.current = repCount
@@ -432,6 +470,11 @@ export function WorkoutPage() {
             team_qualification_type: 'fixed_count',
             team_required_unique_members: 1,
             team_required_participation_percent: 0,
+            enable_ai_overlay: payload.enableAiOverlay,
+            enable_ai_live_coach: payload.enableAiLiveCoach,
+            enable_ai_announcer: payload.enableAiAnnouncer,
+            enable_executive_summary: payload.enableExecutiveSummary,
+            enable_celebration_animations: payload.enableCelebrationAnimations,
             created_at: payload.createdAt,
           })
         })
@@ -473,6 +516,11 @@ export function WorkoutPage() {
             team_qualification_type: 'fixed_count',
             team_required_unique_members: 1,
             team_required_participation_percent: 0,
+            enable_ai_overlay: DEFAULT_AI_DEMO_SETTINGS.enableAIOverlay,
+            enable_ai_live_coach: DEFAULT_AI_DEMO_SETTINGS.enableAILiveCoach,
+            enable_ai_announcer: DEFAULT_AI_DEMO_SETTINGS.enableAIAnnouncer,
+            enable_executive_summary: DEFAULT_AI_DEMO_SETTINGS.enableExecutiveSummary,
+            enable_celebration_animations: DEFAULT_AI_DEMO_SETTINGS.enableCelebrationAnimations,
             created_at: payload.createdAt,
           })
         })
@@ -508,6 +556,11 @@ export function WorkoutPage() {
         team_qualification_type: 'fixed_count',
         team_required_unique_members: 3,
         team_required_participation_percent: 25,
+        enable_ai_overlay: DEFAULT_AI_DEMO_SETTINGS.enableAIOverlay,
+        enable_ai_live_coach: DEFAULT_AI_DEMO_SETTINGS.enableAILiveCoach,
+        enable_ai_announcer: DEFAULT_AI_DEMO_SETTINGS.enableAIAnnouncer,
+        enable_executive_summary: DEFAULT_AI_DEMO_SETTINGS.enableExecutiveSummary,
+        enable_celebration_animations: DEFAULT_AI_DEMO_SETTINGS.enableCelebrationAnimations,
         created_at: new Date().toISOString(),
       })
       return
@@ -574,6 +627,7 @@ export function WorkoutPage() {
     if (nextInterval !== null) {
       lastRepIntervalRef.current = nextInterval
     }
+    repHistoryRef.current = [...repHistoryRef.current, { completedAt: now, intervalMs: nextInterval }].slice(-20)
 
     setRepCount((value) => value + 1)
     setPaceFeedback({
@@ -590,6 +644,18 @@ export function WorkoutPage() {
       }
 
       const pose = analyzePose(landmarks, settings.calibration)
+
+
+      if (shouldShowAIOverlay) {
+        setMovementQuality(analyzeMovementQuality({
+          exercise: challenge.id,
+          landmarks,
+          validReps: repCountRef.current,
+          attemptedReps: Math.max(repCountRef.current, repHistoryRef.current.length),
+          repHistory: repHistoryRef.current,
+          confidenceValues: landmarks.map((landmark) => landmark.visibility ?? 1),
+        }))
+      }
 
       if (challenge.id === 'plank') {
         setIsPlankPostureValid(pose.isPlank)
@@ -664,7 +730,7 @@ export function WorkoutPage() {
         }
       }
     },
-    [challenge, isSessionComplete, isWorkoutRunning, recordRep, settings.calibration],
+    [challenge, isSessionComplete, isWorkoutRunning, recordRep, settings.calibration, shouldShowAIOverlay],
   )
 
   handleRepDetectionRef.current = handleRepDetection
@@ -890,6 +956,28 @@ export function WorkoutPage() {
     }
   }, [countdown])
 
+
+  useEffect(() => {
+    if (!shouldUseAILiveCoach || !movementQuality || !challenge) {
+      return
+    }
+
+    const reachedFiveRepCadence = repCount > 0 && repCount % 5 === 0 && liveCoachLastRepRef.current !== repCount
+    const reachedCompletion = isSessionComplete && !liveCoachCompletionSentRef.current
+    if (!reachedFiveRepCadence && !reachedCompletion) {
+      return
+    }
+
+    if (reachedFiveRepCadence) liveCoachLastRepRef.current = repCount
+    if (reachedCompletion) liveCoachCompletionSentRef.current = true
+
+    void generateLiveCoachSentence(buildLiveCoachPayload(challenge.id, movementQuality), true)
+      .then((sentence) => {
+        if (sentence) setLiveCoachMessage(sentence)
+      })
+      .catch(() => setLiveCoachError('Live Coach is unavailable. Rule analysis remains active.'))
+  }, [challenge, isSessionComplete, movementQuality, repCount, shouldUseAILiveCoach])
+
   useEffect(() => {
     if (captureCountdown === null) {
       return
@@ -996,6 +1084,12 @@ export function WorkoutPage() {
     highKneeStageRef.current = 'lowered'
     lastRepAtRef.current = null
     lastRepIntervalRef.current = null
+    repHistoryRef.current = []
+    liveCoachLastRepRef.current = 0
+    liveCoachCompletionSentRef.current = false
+    setMovementQuality(null)
+    setLiveCoachMessage(null)
+    setLiveCoachError(null)
     setCountdown(3)
   }
 
@@ -1089,6 +1183,12 @@ export function WorkoutPage() {
     highKneeStageRef.current = 'lowered'
     lastRepAtRef.current = null
     lastRepIntervalRef.current = null
+    repHistoryRef.current = []
+    liveCoachLastRepRef.current = 0
+    liveCoachCompletionSentRef.current = false
+    setMovementQuality(null)
+    setLiveCoachMessage(null)
+    setLiveCoachError(null)
     setCameraAttempt((value) => value + 1)
   }
 
@@ -1363,6 +1463,14 @@ export function WorkoutPage() {
                   {isTrialTeamScoreEnabled && !isTrialPlankRoute ? <p className="trial-camera-result-caption">Best team score in challenge</p> : null}
                 </section>
               ) : null}
+
+              {shouldShowAIOverlay && movementQuality ? (
+                <AILivePanel
+                  quality={movementQuality}
+                  liveCoachMessage={liveCoachMessage}
+                  liveCoachEnabled={shouldUseAILiveCoach}
+                />
+              ) : null}
               {!isSessionComplete && trialDemoStage !== 'transition' && countdown === null && !isWorkoutRunning ? (
                 <div className="workout-camera-controls">
                   {!isCameraReady ? (
@@ -1424,6 +1532,7 @@ export function WorkoutPage() {
                 {isWorkoutRunning ? <p>Current round score: <strong>{currentTrialSegmentScore}</strong></p> : null}
               </>
             ) : null}
+            {liveCoachError ? <p className="hint">{liveCoachError}</p> : null}
             {!isCameraReady && !isSessionComplete ? (
               <p className="hint">
                 {hasRequestedCamera

@@ -1,5 +1,21 @@
 export type ExerciseType = 'squat' | 'burpee' | 'high-knees' | 'lunges'
 
+export type AIDemoSettings = {
+  enableAIOverlay: boolean
+  enableAILiveCoach: boolean
+  enableAIAnnouncer: boolean
+  enableExecutiveSummary: boolean
+  enableCelebrationAnimations: boolean
+}
+
+export const DEFAULT_AI_DEMO_SETTINGS: AIDemoSettings = {
+  enableAIOverlay: true,
+  enableAILiveCoach: false,
+  enableAIAnnouncer: false,
+  enableExecutiveSummary: false,
+  enableCelebrationAnimations: true,
+}
+
 export type ParticipantProfile = {
   id: string
   organizationId: string
@@ -109,6 +125,11 @@ export type ChallengeRecord = {
   team_qualification_type: 'fixed_count' | 'percentage'
   team_required_unique_members: number
   team_required_participation_percent: number
+  enable_ai_overlay: boolean
+  enable_ai_live_coach: boolean
+  enable_ai_announcer: boolean
+  enable_executive_summary: boolean
+  enable_celebration_animations: boolean
   created_at: string
 }
 
@@ -263,6 +284,13 @@ export type OrganizationTrialRecord = {
   teamNames: string[]
   enableTeamNames: boolean
   enableNicknames: boolean
+  enableAiOverlay: boolean
+  enableAiLiveCoach: boolean
+  enableAiAnnouncer: boolean
+  enableExecutiveSummary: boolean
+  enableCelebrationAnimations: boolean
+  enableAiForJjSquatDemo: boolean
+  enableAiForPlankDemo: boolean
   accessDurationMinutes: number
   expiresAt: string
   createdAt: string

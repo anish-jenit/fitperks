@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
+import { AIDemoSettings } from '../admin/AIDemoSettings'
 import { adminSignIn, signOut, supabase, useFlowStubs } from '../lib/supabase'
 import {
   createOrganizationWithInvite,
@@ -17,7 +18,7 @@ import {
   updateApplicationSettings,
   updateChallengeConfig,
 } from '../lib/supabaseApi'
-import type { ApplicationSettings, ChallengeRecord, OrganizationInviteRecord, OrganizationRecord, OrganizationTrialRecord } from '../types'
+import { DEFAULT_AI_DEMO_SETTINGS, type ApplicationSettings, type ChallengeRecord, type OrganizationInviteRecord, type OrganizationRecord, type OrganizationTrialRecord } from '../types'
 
 type LoginState = {
   email: string
@@ -40,6 +41,9 @@ type TrialDraft = {
   teamNames: string
   enableTeamNames: boolean
   enableNicknames: boolean
+  aiSettings: typeof DEFAULT_AI_DEMO_SETTINGS
+  enableAiForJjSquatDemo: boolean
+  enableAiForPlankDemo: boolean
   accessDuration: string
 }
 
@@ -126,6 +130,9 @@ export function AdminPage() {
     teamNames: '',
     enableTeamNames: false,
     enableNicknames: false,
+    aiSettings: { ...DEFAULT_AI_DEMO_SETTINGS, enableAILiveCoach: false, enableAIAnnouncer: false, enableExecutiveSummary: false },
+    enableAiForJjSquatDemo: true,
+    enableAiForPlankDemo: true,
     accessDuration: '00:30',
   })
 
@@ -248,6 +255,11 @@ export function AdminPage() {
           team_qualification_type: draft.team_qualification_type,
           team_required_unique_members: draft.team_required_unique_members,
           team_required_participation_percent: draft.team_required_participation_percent,
+          enable_ai_overlay: draft.enable_ai_overlay,
+          enable_ai_live_coach: draft.enable_ai_live_coach,
+          enable_ai_announcer: draft.enable_ai_announcer,
+          enable_executive_summary: draft.enable_executive_summary,
+          enable_celebration_animations: draft.enable_celebration_animations,
         },
       })
 
@@ -338,6 +350,9 @@ export function AdminPage() {
         teamNames: trialDraft.enableTeamNames ? parseTrialTeamNames(trialDraft.teamNames) : [],
         enableTeamNames: trialDraft.enableTeamNames,
         enableNicknames: trialDraft.enableNicknames,
+        aiSettings: trialDraft.aiSettings,
+        enableAiForJjSquatDemo: trialDraft.enableAiForJjSquatDemo,
+        enableAiForPlankDemo: trialDraft.enableAiForPlankDemo,
         accessDurationMinutes,
       })
       setGeneratedTrial(trial)
@@ -653,6 +668,32 @@ export function AdminPage() {
                     {trialDraft.enableTeamNames ? (
                       <label>Team names<input value={trialDraft.teamNames} onChange={(event) => setTrialDraft((state) => ({ ...state, teamNames: event.target.value }))} placeholder="Blue Team, Operations, Sales" /></label>
                     ) : null}
+
+                    <AIDemoSettings
+                      value={trialDraft.aiSettings}
+                      onChange={(aiSettings) => setTrialDraft((state) => ({ ...state, aiSettings }))}
+                    />
+                    <div>
+                      <h3 className="admin-subsection-title">Org demo AI availability</h3>
+                      <div className="exercise-toggle-grid">
+                        <label className="exercise-toggle-card">
+                          <input
+                            type="checkbox"
+                            checked={trialDraft.enableAiForJjSquatDemo}
+                            onChange={(event) => setTrialDraft((state) => ({ ...state, enableAiForJjSquatDemo: event.target.checked }))}
+                          />
+                          <span>JJ + Squat demo</span>
+                        </label>
+                        <label className="exercise-toggle-card">
+                          <input
+                            type="checkbox"
+                            checked={trialDraft.enableAiForPlankDemo}
+                            onChange={(event) => setTrialDraft((state) => ({ ...state, enableAiForPlankDemo: event.target.checked }))}
+                          />
+                          <span>Plank demo</span>
+                        </label>
+                      </div>
+                    </div>
                     <label>Organization message<textarea value={trialDraft.displayMessage} onChange={(event) => setTrialDraft((state) => ({ ...state, displayMessage: event.target.value }))} placeholder="Welcome to the FitPerks trial." /></label>
                     <button className="button primary" type="button" onClick={() => void onCreateOrganizationTrial()} disabled={busy || !trialDraft.organizationName.trim() || !trialDraft.organizationCode.trim() || !trialDraft.countryCode.trim()}>
                       {busy ? 'Creating...' : 'Create Trial Code & URLs'}
@@ -687,7 +728,7 @@ export function AdminPage() {
                   {organizationTrials.length === 0 ? <p>No trial codes created yet.</p> : (
                     <div className="table-scroll"><table><thead><tr><th>Organization</th><th>Code</th><th>Features</th><th>Duration</th><th>Expires</th><th>Workout URL</th><th>Scoreboard URL</th></tr></thead><tbody>{organizationTrials.map((trial) => {
                       const hasScoreboard = trial.enableNicknames || trial.enableTeamNames
-                      const features = [trial.enableNicknames ? 'Nicknames' : null, trial.enableTeamNames ? 'Teams' : null].filter(Boolean).join(', ') || 'Demo only'
+                      const features = [trial.enableNicknames ? 'Nicknames' : null, trial.enableTeamNames ? 'Teams' : null, trial.enableAiOverlay ? 'AI overlay' : null, trial.enableAiLiveCoach ? 'Live coach API' : null].filter(Boolean).join(', ') || 'Demo only'
                       return <tr key={trial.id}><td>{trial.organizationName} <span className="table-muted">({trial.organizationCode})</span></td><td>{trial.code}</td><td>{features}</td><td>{formatTrialDuration(trial.accessDurationMinutes)}</td><td>{dayjs(trial.expiresAt).format('YYYY-MM-DD HH:mm')}</td><td><a href={buildAbsoluteUrl(trial.workoutUrlPath)} target="_blank" rel="noreferrer">Open</a></td><td>{hasScoreboard ? <a href={buildAbsoluteUrl(trial.scoreboardUrlPath)} target="_blank" rel="noreferrer">Open</a> : <span className="table-muted">Off</span>}</td></tr>
                     })}</tbody></table></div>
                   )}
@@ -956,6 +997,31 @@ export function AdminPage() {
                 </label>
                 </div>
               </div>
+
+
+              <AIDemoSettings
+                value={{
+                  enableAIOverlay: draft.enable_ai_overlay,
+                  enableAILiveCoach: draft.enable_ai_live_coach,
+                  enableAIAnnouncer: draft.enable_ai_announcer,
+                  enableExecutiveSummary: draft.enable_executive_summary,
+                  enableCelebrationAnimations: draft.enable_celebration_animations,
+                }}
+                onChange={(aiSettings) =>
+                  setDraft((current) =>
+                    current
+                      ? {
+                          ...current,
+                          enable_ai_overlay: aiSettings.enableAIOverlay,
+                          enable_ai_live_coach: aiSettings.enableAILiveCoach,
+                          enable_ai_announcer: aiSettings.enableAIAnnouncer,
+                          enable_executive_summary: aiSettings.enableExecutiveSummary,
+                          enable_celebration_animations: aiSettings.enableCelebrationAnimations,
+                        }
+                      : current,
+                  )
+                }
+              />
 
               <p className="hint">
                 Scoring preview: squat {draft.squat_points_per_rep}/rep, jumping jack {draft.burpee_points_per_rep}
