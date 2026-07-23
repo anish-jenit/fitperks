@@ -10,7 +10,7 @@ export type MovementQuality = {
   consistency: QualityRating
   balance: QualityRating
   coachingHint: string
-  statusItems: Array<{ label: string; tone: 'good' | 'warn' | 'bad'; active: boolean }>
+  statusItems: Array<{ label: string; tone: 'good' | 'warn' | 'bad'; active: boolean; level: 1 | 2 | 3 }>
 }
 
 type NormalizedLandmark = {
@@ -43,11 +43,11 @@ const DEFAULT_QUALITY: MovementQuality = {
   balance: 'Needs Improvement',
   coachingHint: 'Step fully into frame to begin analysis.',
   statusItems: [
-    { label: 'Rep Detected', tone: 'warn', active: false },
-    { label: 'Good Depth', tone: 'warn', active: false },
-    { label: 'Stable Balance', tone: 'warn', active: false },
-    { label: 'Consistent Movement', tone: 'warn', active: false },
-    { label: 'Controlled Tempo', tone: 'warn', active: false },
+    { label: 'No Rep Yet', tone: 'warn', active: false, level: 1 },
+    { label: 'Good Depth', tone: 'warn', active: false, level: 2 },
+    { label: 'Stable Balance', tone: 'warn', active: false, level: 2 },
+    { label: 'Consistent Movement', tone: 'warn', active: false, level: 2 },
+    { label: 'Controlled Tempo', tone: 'warn', active: false, level: 2 },
   ],
 }
 
@@ -128,6 +128,24 @@ function balanceRating(landmarks: NormalizedLandmark[]): QualityRating {
   return 'Needs Improvement'
 }
 
+function statusLevel(rating: QualityRating): 1 | 2 | 3 {
+  if (rating === 'Excellent' || rating === 'Good') return 3
+  if (rating === 'Fair') return 2
+  return 1
+}
+
+function statusTone(rating: QualityRating): 'good' | 'warn' | 'bad' {
+  if (rating === 'Excellent' || rating === 'Good') return 'good'
+  return 'warn'
+}
+
+function wasRepDetectedRecently(repHistory: RepHistoryEntry[]): boolean {
+  const latest = repHistory[repHistory.length - 1]?.completedAt
+  if (typeof latest !== 'number') return false
+  const now = typeof performance !== 'undefined' ? performance.now() : latest
+  return now - latest <= 1400
+}
+
 function hintFor(input: { depth: QualityRating; tempo: QualityRating; consistency: QualityRating; balance: QualityRating }): string {
   if (input.depth === 'Fair' || input.depth === 'Poor' || input.depth === 'Needs Improvement') return 'Maintain the same depth.'
   if (input.tempo === 'Fair' || input.tempo === 'Poor' || input.tempo === 'Needs Improvement') return 'Keep a controlled one to two second rhythm.'
@@ -156,6 +174,8 @@ export function analyzeMovementQuality(input: MovementAnalysisInput): MovementQu
     scoreFromRating(balance) * 0.1,
   )
 
+  const repDetectedRecently = wasRepDetectedRecently(input.repHistory)
+
   return {
     movementScore,
     repAccuracy,
@@ -165,11 +185,11 @@ export function analyzeMovementQuality(input: MovementAnalysisInput): MovementQu
     balance,
     coachingHint: hintFor({ depth, tempo, consistency, balance }),
     statusItems: [
-      { label: 'Rep Detected', tone: input.validReps > 0 ? 'good' : 'warn', active: input.validReps > 0 },
-      { label: input.exercise === 'squat' ? 'Good Depth' : 'Clean Range', tone: depth === 'Excellent' || depth === 'Good' ? 'good' : 'warn', active: depth === 'Excellent' || depth === 'Good' },
-      { label: 'Stable Balance', tone: balance === 'Excellent' || balance === 'Good' ? 'good' : 'warn', active: balance === 'Excellent' || balance === 'Good' },
-      { label: 'Consistent Movement', tone: consistency === 'Excellent' || consistency === 'Good' ? 'good' : 'warn', active: consistency === 'Excellent' || consistency === 'Good' },
-      { label: tempo === 'Fair' ? 'Slightly Fast Tempo' : 'Controlled Tempo', tone: tempo === 'Excellent' || tempo === 'Good' ? 'good' : 'warn', active: tempo === 'Excellent' || tempo === 'Good' },
+      { label: repDetectedRecently ? 'Rep Detected' : 'No Rep Yet', tone: repDetectedRecently ? 'good' : 'warn', active: repDetectedRecently, level: repDetectedRecently ? 3 : 1 },
+      { label: input.exercise === 'squat' ? 'Depth' : 'Range', tone: statusTone(depth), active: statusLevel(depth) === 3, level: statusLevel(depth) },
+      { label: 'Balance', tone: statusTone(balance), active: statusLevel(balance) === 3, level: statusLevel(balance) },
+      { label: 'Consistency', tone: statusTone(consistency), active: statusLevel(consistency) === 3, level: statusLevel(consistency) },
+      { label: tempo === 'Fair' ? 'Tempo Fast' : 'Tempo', tone: statusTone(tempo), active: statusLevel(tempo) === 3, level: statusLevel(tempo) },
     ],
   }
 }

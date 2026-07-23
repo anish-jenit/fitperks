@@ -169,6 +169,13 @@ export function JoinChallengePage() {
   return (
     <main className="page">
       <section className="panel form-panel">
+        <p className="hero-kicker">Player Challenge</p>
+        <h1>Create / Join Challenge</h1>
+        <div className="challenge-entry-tabs" aria-label="Challenge mode">
+          <Link className="active" to="/join-challenge">Join</Link>
+          <Link to="/guest-challenge">Create</Link>
+        </div>
+
         {error ? <p className="error">{error}</p> : null}
 
         <form className="stack" onSubmit={(event) => void onSubmit(event)}>
@@ -211,7 +218,7 @@ export function JoinChallengePage() {
                 Join with code
               </button>
             ) : null}
-            {!challenges.length ? <Link className="button ghost" to="/guest-challenge">Create a new challenge</Link> : null}
+            {!challenges.length ? <Link className="button ghost" to="/guest-challenge">Create a challenge</Link> : null}
           </div>
         ) : null}
       </section>
@@ -307,7 +314,12 @@ export function GuestChallengePage() {
   return (
     <main className="page">
       <section className="panel form-panel">
-        <h1>Create Challenge</h1>
+        <p className="hero-kicker">Player Challenge</p>
+        <h1>Create / Join Challenge</h1>
+        <div className="challenge-entry-tabs" aria-label="Challenge mode">
+          <Link to="/join-challenge">Join</Link>
+          <Link className="active" to="/guest-challenge">Create</Link>
+        </div>
         <p className="hint">For up to 10 players. Maximum duration is 7 days.</p>
 
         {error ? (

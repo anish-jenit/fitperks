@@ -5,6 +5,7 @@ import { ChallengeSelectPage } from './pages/ChallengeSelectPage'
 import { OrganizationRequestPage } from './pages/OrganizationRequestPage'
 import { GuestChallengeLandingPage, GuestChallengePage, GuestScoreboardPage, JoinChallengePage } from './pages/GuestChallengePage'
 import { LandingPage } from './pages/LandingPage'
+import { SoloPlayerPage } from './pages/SoloPlayerPage'
 import { LeaderboardPage } from './pages/LeaderboardPage'
 import { PublicLaunchPage } from './pages/PublicLaunchPage'
 import { PublicLeaderboardPage } from './pages/PublicLeaderboardPage'
@@ -16,7 +17,7 @@ import { TrialCodePage, TrialExperiencePage, TrialScoreboardPage } from './pages
 function App() {
   const location = useLocation()
   const isPublicHome = location.pathname === '/' || location.pathname === '/home'
-  const isWorkoutRoute = /^\/workout\/[^/]+$/.test(location.pathname) || /^\/guest\/[^/]+\/workout\/[^/]+$/.test(location.pathname) || /^\/trial\/[^/]+\/workout\/[^/]+$/.test(location.pathname)
+  const isWorkoutRoute = /^\/workout\/[^/]+$/.test(location.pathname) || /^\/guest\/[^/]+\/workout\/[^/]+$/.test(location.pathname) || /^\/trial\/[^/]+\/workout\/[^/]+$/.test(location.pathname) || /^\/solo\/workout\/[^/]+$/.test(location.pathname)
 
   return (
     <div className="app-shell">
@@ -29,6 +30,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="/home" element={<LandingPage />} />
+        <Route path="/solo" element={<SoloPlayerPage />} />
+        <Route path="/solo/workout/:exercise" element={<WorkoutPage />} />
         <Route path="/join-challenge" element={<JoinChallengePage />} />
         <Route path="/guest-challenge" element={<GuestChallengePage />} />
         <Route path="/guest/:challengeCode" element={<GuestChallengeLandingPage />} />

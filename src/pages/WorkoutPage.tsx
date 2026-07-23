@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AILivePanel } from '../components/AILivePanel'
 import { useEventSettings } from '../hooks/useEventSettings'
 import { CHALLENGES, CHALLENGE_VIDEO_PATH } from '../lib/constants'
@@ -15,6 +15,7 @@ import {
   joinOrganizationAndRegister,
   nowSessionId,
   submitGuestAttempt,
+  submitSoloAttempt,
   submitOrganizationTrialResult,
   submitWorkoutSecure,
 } from '../lib/supabaseApi'
@@ -295,7 +296,9 @@ function drawExerciseGuides(
 export function WorkoutPage() {
   const { challengeCode = '', trialCode = '', exercise: exerciseParam } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
 
+  const isSoloWorkout = location.pathname.startsWith('/solo/workout/')
   const isGuestWorkout = Boolean(challengeCode)
   const isTrialWorkout = Boolean(trialCode)
   const shouldAutoEnableCamera = isTrialWorkout
@@ -482,6 +485,44 @@ export function WorkoutPage() {
       return
     }
 
+    if (isSoloWorkout) {
+      const now = new Date()
+      setSecondsLeft(settings.sessionDurationSeconds)
+      setActiveChallenge({
+        id: 'solo-challenge',
+        organization_id: 'solo',
+        name: 'Solo Progress',
+        description: 'Personal daily-best tracking',
+        start_date: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+        end_date: new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+        status: 'active',
+        squat_points_per_rep: 1,
+        burpee_points_per_rep: 2,
+        high_knees_points_per_rep: 1,
+        lunges_points_per_rep: 2,
+        daily_streak_bonus: 0,
+        team_streak_bonus: 0,
+        max_sessions_per_day: 999,
+        enabled_squat: true,
+        enabled_burpee: true,
+        enabled_high_knees: true,
+        enabled_lunges: true,
+        qualifying_threshold_type: 'total_points',
+        qualifying_threshold_value: 0,
+        team_qualification_type: 'fixed_count',
+        team_required_unique_members: 1,
+        team_required_participation_percent: 0,
+        enable_ai_overlay: DEFAULT_AI_DEMO_SETTINGS.enableAIOverlay,
+        enable_ai_live_coach: false,
+        enable_ai_announcer: false,
+        enable_executive_summary: false,
+        enable_celebration_animations: DEFAULT_AI_DEMO_SETTINGS.enableCelebrationAnimations,
+        created_at: now.toISOString(),
+      })
+      return
+    }
+
     if (isGuestWorkout) {
       void getGuestChallenge(challengeCode)
         .then((payload) => {
@@ -576,7 +617,7 @@ export function WorkoutPage() {
       .catch((err) => {
         setError(err instanceof Error ? err.message : 'Unable to load active challenge.')
       })
-  }, [challengeCode, configuredOrgCode, isGuestWorkout, isTrialWorkout, trialCode])
+  }, [challengeCode, configuredOrgCode, isGuestWorkout, isSoloWorkout, isTrialWorkout, settings.sessionDurationSeconds, trialCode])
 
   useEffect(() => {
     if (!isTrialWorkout || !trialCode || !isSessionComplete) {
@@ -1220,7 +1261,7 @@ export function WorkoutPage() {
 
     try {
       setIsSubmitting(true)
-      if (!hasSupabaseConfig && !isGuestWorkout) {
+      if (!hasSupabaseConfig && !isGuestWorkout && !isSoloWorkout) {
         clearParticipantProfile()
         navigate('/challenges')
         return
@@ -1259,6 +1300,28 @@ export function WorkoutPage() {
           }),
         ])
         navigate(`/trial/${trialCode}/workout`)
+        return
+      }
+
+      if (isSoloWorkout) {
+        if (!standardExercise) {
+          throw new Error('Invalid solo workout.')
+        }
+
+        if (!saveEmail.trim()) {
+          throw new Error('Email is required to save solo progress.')
+        }
+
+        await submitSoloAttempt({
+          playerName: saveName.trim() || 'Solo Player',
+          playerEmail: saveEmail.trim(),
+          sessionId,
+          exercise: standardExercise,
+          reps: repCount,
+        })
+
+        saveGuestJoinContext({ guestName: saveName.trim() || 'Solo Player', guestEmail: saveEmail.trim(), challengeCode: 'solo' })
+        navigate(`/solo?email=${encodeURIComponent(saveEmail.trim().toLowerCase())}`)
         return
       }
 
@@ -1358,7 +1421,7 @@ export function WorkoutPage() {
   const shouldShowInstructionVideo = showInstructionVideo && challengeVideoPath && trialDemoStage !== 'transition'
 
   if (
-    (standardExercise && !isTrialWorkout && !settings.enabledChallenges[standardExercise]) ||
+    (standardExercise && !isTrialWorkout && !isSoloWorkout && !settings.enabledChallenges[standardExercise]) ||
     (standardExercise && activeChallenge && !isExerciseEnabled(activeChallenge, standardExercise)) ||
     (standardExercise && isGuestWorkout && guestChallenge && !guestChallenge.selectedExercises.includes(standardExercise)) ||
     (isTrialWorkout && challenge.id !== 'squat' && challenge.id !== 'burpee' && challenge.id !== 'plank')
@@ -1381,7 +1444,7 @@ export function WorkoutPage() {
       <section className="panel workout-panel">
         <h1>{organizationTrial?.organizationName ?? guestChallenge?.title ?? challenge.name}</h1>
 
-        {!hasSupabaseConfig && !isGuestWorkout ? (
+        {!hasSupabaseConfig && !isGuestWorkout && !isSoloWorkout ? (
           <p className="hint">Demo mode active: camera and rep counting work locally, results are not saved.</p>
         ) : null}
 
@@ -1590,7 +1653,7 @@ export function WorkoutPage() {
                   </>
                 ) : (
                   <>
-                {isGuestWorkout ? (
+                {isGuestWorkout || isSoloWorkout ? (
                   <label>
                     Player email
                     <input
@@ -1614,15 +1677,15 @@ export function WorkoutPage() {
                   </label>
                 )}
                 <label>
-                  {isGuestWorkout ? 'Nickname' : 'Nickname (optional)'}
+                  {isGuestWorkout ? 'Nickname' : isSoloWorkout ? 'Name' : 'Nickname (optional)'}
                   <input
                     value={saveName}
                     onChange={(event) => setSaveName(event.target.value)}
                     placeholder="Alex"
-                    required={isGuestWorkout}
+                    required={isGuestWorkout || isSoloWorkout}
                   />
                 </label>
-                {isGuestWorkout ? null : (
+                {isGuestWorkout || isSoloWorkout ? null : (
                   <label>
                     Team (optional)
                     <input
@@ -1633,7 +1696,7 @@ export function WorkoutPage() {
                   </label>
                 )}
                 <button className="button primary" onClick={() => void submitWorkout()} disabled={isSubmitting}>
-                  {isSubmitting ? 'Saving...' : isGuestWorkout ? 'Save Score' : 'Save Workout'}
+                  {isSubmitting ? 'Saving...' : isGuestWorkout ? 'Save Score' : isSoloWorkout ? 'Save Solo Score' : 'Save Workout'}
                 </button>
                 <button className="button ghost" type="button" onClick={retakeWorkout} disabled={isSubmitting || captureCountdown !== null || captureRequested}>
                   Retake workout
@@ -1644,8 +1707,8 @@ export function WorkoutPage() {
             ) : null}
 
             {!(isTrialWorkout && isSessionComplete) ? (
-              <Link className="button ghost workout-back-link" to={isTrialWorkout ? `/trial/${trialCode}/workout` : isGuestWorkout ? `/guest/${challengeCode}` : '/challenges'}>
-                {isTrialWorkout ? 'Back to trial workout' : isGuestWorkout ? 'Back to player challenge' : 'Back to challenges'}
+              <Link className="button ghost workout-back-link" to={isTrialWorkout ? `/trial/${trialCode}/workout` : isGuestWorkout ? `/guest/${challengeCode}` : isSoloWorkout ? '/solo' : '/challenges'}>
+                {isTrialWorkout ? 'Back to trial workout' : isGuestWorkout ? 'Back to player challenge' : isSoloWorkout ? 'Back to solo' : 'Back to challenges'}
               </Link>
             ) : null}
           </aside>

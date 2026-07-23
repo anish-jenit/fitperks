@@ -21,12 +21,21 @@ export function AILivePanel({ quality, liveCoachMessage, liveCoachEnabled }: Pro
           <span className="ai-panel-kicker">Movement intelligence</span>
           <h2>FitPerks AI</h2>
         </div>
-        <span className="ai-score-pill">{quality.movementScore}/100 · {scoreLabel(quality.movementScore)}</span>
+        <span className={`ai-score-pill ai-score-${quality.movementScore >= 75 ? 'good' : 'warn'}`}>
+          {quality.movementScore}/100 · {scoreLabel(quality.movementScore)}
+        </span>
+      </div>
+      <div className="ai-score-meter" aria-hidden="true">
+        <span style={{ width: `${Math.max(3, quality.movementScore)}%` }} />
       </div>
       <div className="ai-status-list" aria-label="Movement checks">
         {quality.statusItems.map((item) => (
-          <span className={`ai-status-item ai-status-${item.tone}`} key={item.label}>
-            <span aria-hidden="true">●</span>
+          <span className={`ai-status-item ai-status-${item.tone} ai-status-level-${item.level}`} key={item.label}>
+            <span className="ai-traffic-light" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
             <strong>{item.label}</strong>
           </span>
         ))}

@@ -12,6 +12,7 @@ import type {
   GuestChallengeRecord,
   GuestChallengeSummary,
   GuestScoreboardRow,
+  SoloProgressSummary,
   InviteSetupContext,
   IndividualLeaderboardRow,
   OrganizationInviteRecord,
@@ -40,6 +41,15 @@ type StubFlowState = {
   invites: StubInviteState[]
   guestChallenges?: GuestChallengeRecord[]
   organizationTrials?: OrganizationTrialRecord[]
+  soloAttempts?: Array<{
+    playerName: string
+    playerEmail: string
+    sessionId: string
+    exercise: ExerciseType
+    reps: number
+    score: number
+    createdAt: string
+  }>
   organizationTrialAttempts?: Array<{
     trialCode: string
     nickname: string
@@ -83,7 +93,7 @@ function titleFromCode(organizationCode: string): string {
 function readStubFlowState(): StubFlowState {
   const raw = localStorage.getItem(STUB_FLOW_STORAGE_KEY)
   if (!raw) {
-    return { invites: [POC_INVITE], guestChallenges: [], organizationTrials: [], organizationTrialAttempts: [] }
+    return { invites: [POC_INVITE], guestChallenges: [], organizationTrials: [], organizationTrialAttempts: [], soloAttempts: [] }
   }
 
   try {
@@ -97,9 +107,10 @@ function readStubFlowState(): StubFlowState {
       guestChallenges: parsed.guestChallenges ?? [],
       organizationTrials: parsed.organizationTrials ?? [],
       organizationTrialAttempts: parsed.organizationTrialAttempts ?? [],
+      soloAttempts: parsed.soloAttempts ?? [],
     }
   } catch {
-    return { invites: [POC_INVITE], guestChallenges: [], organizationTrials: [], organizationTrialAttempts: [] }
+    return { invites: [POC_INVITE], guestChallenges: [], organizationTrials: [], organizationTrialAttempts: [], soloAttempts: [] }
   }
 }
 
@@ -949,6 +960,180 @@ export async function updateChallengeConfig(input: {
   })
 }
 
+function scoreExercise(exercise: ExerciseType, reps: number): number {
+  return reps * (exercise === 'burpee' || exercise === 'lunges' ? 2 : 1)
+}
+
+function dayLabel(date: dayjs.Dayjs): string {
+  return date.format('MMM D')
+}
+
+function mapSoloProgressSummary(payload: any): SoloProgressSummary {
+  return {
+    playerName: payload?.player_name ?? '',
+    playerEmail: payload?.player_email ?? '',
+    currentStreak: Number(payload?.current_streak ?? 0),
+    longestStreak: Number(payload?.longest_streak ?? 0),
+    todayBestScore: Number(payload?.today_best_score ?? 0),
+    todayMaxReps: Number(payload?.today_max_reps ?? 0),
+    totalAttempts: Number(payload?.total_attempts ?? 0),
+    daily: ((payload?.daily ?? []) as any[]).map((row) => ({
+      label: String(row.label ?? ''),
+      score: Number(row.score ?? 0),
+      maxReps: Number(row.max_reps ?? row.maxReps ?? 0),
+      activeDays: Number(row.active_days ?? row.activeDays ?? 0),
+    })),
+    weekly: ((payload?.weekly ?? []) as any[]).map((row) => ({
+      label: String(row.label ?? ''),
+      score: Number(row.score ?? 0),
+      maxReps: Number(row.max_reps ?? row.maxReps ?? 0),
+      activeDays: Number(row.active_days ?? row.activeDays ?? 0),
+    })),
+    monthly: ((payload?.monthly ?? []) as any[]).map((row) => ({
+      label: String(row.label ?? ''),
+      score: Number(row.score ?? 0),
+      maxReps: Number(row.max_reps ?? row.maxReps ?? 0),
+      activeDays: Number(row.active_days ?? row.activeDays ?? 0),
+    })),
+    consistencyLeaders: ((payload?.consistency_leaders ?? payload?.consistencyLeaders ?? []) as any[]).map((row) => ({
+      rank: Number(row.rank ?? 0),
+      playerName: String(row.player_name ?? row.playerName ?? ''),
+      playerEmail: String(row.player_email ?? row.playerEmail ?? ''),
+      consistencyDays: Number(row.consistency_days ?? row.consistencyDays ?? 0),
+      maxReps: Number(row.max_reps ?? row.maxReps ?? 0),
+      bestDailyScore: Number(row.best_daily_score ?? row.bestDailyScore ?? 0),
+    })),
+    maxRepLeaders: ((payload?.max_rep_leaders ?? payload?.maxRepLeaders ?? []) as any[]).map((row) => ({
+      rank: Number(row.rank ?? 0),
+      playerName: String(row.player_name ?? row.playerName ?? ''),
+      playerEmail: String(row.player_email ?? row.playerEmail ?? ''),
+      consistencyDays: Number(row.consistency_days ?? row.consistencyDays ?? 0),
+      maxReps: Number(row.max_reps ?? row.maxReps ?? 0),
+      bestDailyScore: Number(row.best_daily_score ?? row.bestDailyScore ?? 0),
+    })),
+  }
+}
+
+function buildStubSoloProgress(playerEmail: string): SoloProgressSummary {
+  const normalizedEmail = playerEmail.trim().toLowerCase()
+  const state = readStubFlowState()
+  const attempts = state.soloAttempts ?? []
+  const playerAttempts = attempts.filter((attempt) => attempt.playerEmail === normalizedEmail)
+  const playerName = playerAttempts[0]?.playerName ?? ''
+  const bestByDay = new Map<string, { score: number; reps: number }>()
+
+  for (const attempt of playerAttempts) {
+    const key = dayjs(attempt.createdAt).format('YYYY-MM-DD')
+    const current = bestByDay.get(key)
+    if (!current || attempt.score > current.score || (attempt.score === current.score && attempt.reps > current.reps)) {
+      bestByDay.set(key, { score: attempt.score, reps: attempt.reps })
+    }
+  }
+
+  const daily = Array.from({ length: 7 }, (_, index) => {
+    const date = dayjs().subtract(6 - index, 'day')
+    const best = bestByDay.get(date.format('YYYY-MM-DD'))
+    return { label: dayLabel(date), score: best?.score ?? 0, maxReps: best?.reps ?? 0, activeDays: best ? 1 : 0 }
+  })
+
+  const weekly = Array.from({ length: 4 }, (_, index) => {
+    const start = dayjs().startOf('week').subtract(3 - index, 'week')
+    const end = start.endOf('week')
+    const rows = Array.from(bestByDay.entries()).filter(([key]) => {
+      const date = dayjs(key)
+      return date.isAfter(start.subtract(1, 'millisecond')) && date.isBefore(end.add(1, 'millisecond'))
+    }).map(([, row]) => row)
+    return {
+      label: `W${start.format('M/D')}`,
+      score: Math.max(0, ...rows.map((row) => row.score)),
+      maxReps: Math.max(0, ...rows.map((row) => row.reps)),
+      activeDays: rows.length,
+    }
+  })
+
+  const monthly = Array.from({ length: 6 }, (_, index) => {
+    const start = dayjs().startOf('month').subtract(5 - index, 'month')
+    const end = start.endOf('month')
+    const rows = Array.from(bestByDay.entries()).filter(([key]) => {
+      const date = dayjs(key)
+      return date.isAfter(start.subtract(1, 'millisecond')) && date.isBefore(end.add(1, 'millisecond'))
+    }).map(([, row]) => row)
+    return {
+      label: start.format('MMM'),
+      score: Math.max(0, ...rows.map((row) => row.score)),
+      maxReps: Math.max(0, ...rows.map((row) => row.reps)),
+      activeDays: rows.length,
+    }
+  })
+
+  const players = new Map<string, { playerName: string; playerEmail: string; days: Set<string>; maxReps: number; bestDailyScore: number }>()
+  for (const attempt of attempts) {
+    const current = players.get(attempt.playerEmail) ?? {
+      playerName: attempt.playerName,
+      playerEmail: attempt.playerEmail,
+      days: new Set<string>(),
+      maxReps: 0,
+      bestDailyScore: 0,
+    }
+    current.days.add(dayjs(attempt.createdAt).format('YYYY-MM-DD'))
+    current.maxReps = Math.max(current.maxReps, attempt.reps)
+    current.bestDailyScore = Math.max(current.bestDailyScore, attempt.score)
+    players.set(attempt.playerEmail, current)
+  }
+
+  const leaderboard = Array.from(players.values()).map((row, index) => ({
+    rank: index + 1,
+    playerName: row.playerName,
+    playerEmail: row.playerEmail,
+    consistencyDays: row.days.size,
+    maxReps: row.maxReps,
+    bestDailyScore: row.bestDailyScore,
+  }))
+
+  const consistencyLeaders = [...leaderboard]
+    .sort((left, right) => right.consistencyDays - left.consistencyDays || right.bestDailyScore - left.bestDailyScore)
+    .slice(0, 8)
+    .map((row, index) => ({ ...row, rank: index + 1 }))
+  const maxRepLeaders = [...leaderboard]
+    .sort((left, right) => right.maxReps - left.maxReps || right.bestDailyScore - left.bestDailyScore)
+    .slice(0, 8)
+    .map((row, index) => ({ ...row, rank: index + 1 }))
+
+  let currentStreak = 0
+  for (let i = 0; i < 365; i += 1) {
+    if (!bestByDay.has(dayjs().subtract(i, 'day').format('YYYY-MM-DD'))) break
+    currentStreak += 1
+  }
+
+  let longestStreak = 0
+  let runningStreak = 0
+  const sortedDays = Array.from(bestByDay.keys()).sort()
+  sortedDays.forEach((key, index) => {
+    if (index === 0 || dayjs(key).diff(dayjs(sortedDays[index - 1]), 'day') === 1) {
+      runningStreak += 1
+    } else {
+      runningStreak = 1
+    }
+    longestStreak = Math.max(longestStreak, runningStreak)
+  })
+
+  const todayBest = bestByDay.get(dayjs().format('YYYY-MM-DD'))
+  return {
+    playerName,
+    playerEmail: normalizedEmail,
+    currentStreak,
+    longestStreak,
+    todayBestScore: todayBest?.score ?? 0,
+    todayMaxReps: todayBest?.reps ?? 0,
+    totalAttempts: playerAttempts.length,
+    daily,
+    weekly,
+    monthly,
+    consistencyLeaders,
+    maxRepLeaders,
+  }
+}
+
 function mapGuestChallenge(payload: {
   id: string
   code: string
@@ -1133,6 +1318,72 @@ export async function getGuestScoreboard(code: string): Promise<GuestScoreboardR
       lunges: Number(row.lunges_score ?? 0),
     },
   }))
+}
+
+
+export async function submitSoloAttempt(input: {
+  playerName: string
+  playerEmail: string
+  sessionId: string
+  exercise: ExerciseType
+  reps: number
+}): Promise<{ score: number }> {
+  const normalizedEmail = input.playerEmail.trim().toLowerCase()
+  if (!normalizedEmail || !normalizedEmail.includes('@')) {
+    throw new Error('Valid email is required for solo progress.')
+  }
+
+  if (useFlowStubs) {
+    const state = readStubFlowState()
+    const attempt = {
+      playerName: input.playerName.trim() || 'Solo Player',
+      playerEmail: normalizedEmail,
+      sessionId: input.sessionId,
+      exercise: input.exercise,
+      reps: input.reps,
+      score: scoreExercise(input.exercise, input.reps),
+      createdAt: dayjs().toISOString(),
+    }
+    state.soloAttempts = [attempt, ...(state.soloAttempts ?? []).filter((row) => row.sessionId !== input.sessionId)]
+    writeStubFlowState(state)
+    return { score: attempt.score }
+  }
+
+  const { data, error } = await supabase.rpc('submit_solo_attempt', {
+    p_player_name: input.playerName.trim() || 'Solo Player',
+    p_player_email: normalizedEmail,
+    p_session_id: input.sessionId,
+    p_exercise: input.exercise,
+    p_reps: input.reps,
+  })
+
+  if (error) {
+    throw error
+  }
+
+  const payload = data as { score: number }
+  return { score: Number(payload.score) }
+}
+
+export async function getSoloProgress(playerEmail: string): Promise<SoloProgressSummary> {
+  const normalizedEmail = playerEmail.trim().toLowerCase()
+  if (!normalizedEmail) {
+    return buildStubSoloProgress('')
+  }
+
+  if (useFlowStubs) {
+    return buildStubSoloProgress(normalizedEmail)
+  }
+
+  const { data, error } = await supabase.rpc('get_solo_progress', {
+    p_player_email: normalizedEmail,
+  })
+
+  if (error) {
+    throw error
+  }
+
+  return mapSoloProgressSummary(data)
 }
 
 export async function submitGuestAttempt(input: {

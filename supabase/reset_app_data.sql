@@ -22,6 +22,7 @@ truncate table
   organization_trial_attempts,
   organization_trial_players,
   organization_trials,
+  solo_player_attempts,
   guest_challenge_attempts,
   guest_challenge_players,
   guest_challenges

@@ -318,9 +318,9 @@ test.beforeEach(async ({ page }) => {
 test('launch start, challenge list, leaderboards, and admin login render correctly', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Every Move Deserves a Perk.' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Create Challenge' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Join Challenge' })).toHaveAttribute('href', '/join-challenge')
-  await expect(page.getByRole('link', { name: 'Organization Challenge Request' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Play Solo' })).toHaveAttribute('href', '/solo')
+  await expect(page.getByRole('link', { name: 'Create / Join Challenge' })).toHaveAttribute('href', '/guest-challenge')
+  await expect(page.getByRole('link', { name: 'Org Demo' })).toHaveAttribute('href', '/demo')
 
   await page.goto('/launch/us/company-a')
   await expect(page.getByRole('heading', { name: 'Company A' })).toBeVisible()
@@ -343,22 +343,20 @@ test('launch start, challenge list, leaderboards, and admin login render correct
 test('guest limited challenge creates shareable challenge and scoreboard links', async ({ page }) => {
   await page.goto('/guest-challenge')
 
-  await expect(page.getByRole('heading', { name: 'Create Challenge' })).toBeVisible()
-  await page.getByLabel('Guest name').fill('Maya')
+  await expect(page.getByRole('heading', { name: 'Create / Join Challenge' })).toBeVisible()
+  await page.getByLabel('Player name').fill('Maya')
   await page.getByLabel('Email address').fill('maya@example.com')
   await page.getByRole('button', { name: 'Create Challenge' }).click()
 
-  await expect(page.getByText('Guest name')).toBeVisible()
   await expect(page.getByText('Challenge code')).toBeVisible()
   await expect(page.getByText('Challenge URL')).toBeVisible()
-  await expect(page.getByText('Scoreboard URL')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(4)
+  await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(2)
   await expect(page.getByRole('link', { name: 'Open WhatsApp' })).toBeVisible()
 
   await page.goto('/join-challenge')
-  await expect(page.getByRole('heading', { name: 'Join a Challenge' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Create / Join Challenge' })).toBeVisible()
   await page.getByLabel('Email address').fill('ravi@example.com')
-  await page.getByLabel('Guest name').fill('Ravi')
+  await page.getByLabel('Player name').fill('Ravi')
   await page.getByLabel('Challenge code').fill('weekend-move-abc123')
   await page.getByRole('button', { name: 'Find Challenges' }).click()
   await page.getByRole('button', { name: 'Join with code' }).click()
@@ -378,7 +376,7 @@ test('guest limited challenge creates shareable challenge and scoreboard links',
   await expect(page.getByText('Waiting for players')).toBeVisible()
 })
 
-test('organization request prepares email draft', async ({ page }) => {
+test('organization request handles missing email service', async ({ page }) => {
   await page.goto('/organization-request')
 
   await expect(page.getByRole('heading', { name: 'Challenge Request' })).toBeVisible()
@@ -387,8 +385,8 @@ test('organization request prepares email draft', async ({ page }) => {
   await page.getByLabel('Organization email').fill('alex@acme.com')
   await page.getByLabel('Country').fill('us')
   await page.getByLabel('Expected participants').fill('120')
-  await page.getByRole('button', { name: 'Prepare Email' }).click()
-  await expect(page.getByText('Email draft opened.')).toBeVisible()
+  await page.getByRole('button', { name: 'Submit Request' }).click()
+  await expect(page.getByText('Failed to send a request to the Edge Function')).toBeVisible()
 })
 
 test('ready public challenge URL links to challenge selection', async ({ page }) => {

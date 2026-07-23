@@ -269,6 +269,38 @@ export type GuestChallengeInput = {
   sessionDurationSeconds: number
 }
 
+
+export type SoloProgressBucket = {
+  label: string
+  score: number
+  maxReps: number
+  activeDays: number
+}
+
+export type SoloComparisonRow = {
+  rank: number
+  playerName: string
+  playerEmail: string
+  consistencyDays: number
+  maxReps: number
+  bestDailyScore: number
+}
+
+export type SoloProgressSummary = {
+  playerName: string
+  playerEmail: string
+  currentStreak: number
+  longestStreak: number
+  todayBestScore: number
+  todayMaxReps: number
+  totalAttempts: number
+  daily: SoloProgressBucket[]
+  weekly: SoloProgressBucket[]
+  monthly: SoloProgressBucket[]
+  consistencyLeaders: SoloComparisonRow[]
+  maxRepLeaders: SoloComparisonRow[]
+}
+
 export type GuestChallengeSummary = GuestChallengeRecord & {
   playerCount: number
   joined: boolean
