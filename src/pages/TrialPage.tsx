@@ -144,7 +144,7 @@ export function TrialExperiencePage() {
               <Link className="button primary" to={`/trial/${trial.code}/workout/burpee?camera=1`}>Start demo</Link>
               <Link className="button ghost" to={`/trial/${trial.code}/workout/plank?camera=1`}>Plank challenge</Link>
             </div>
-            <Link className="inline-link trial-details-link" to={`/trial/${trial.code}`}>View trial details and URLs</Link>
+            <Link className="button ghost trial-details-link" to={`/trial/${trial.code}`}>View trial details and URLs</Link>
           </div>
         ) : (
           <div className="stack">
