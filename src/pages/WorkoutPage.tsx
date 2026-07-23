@@ -1464,13 +1464,6 @@ export function WorkoutPage() {
                 </section>
               ) : null}
 
-              {shouldShowAIOverlay && movementQuality ? (
-                <AILivePanel
-                  quality={movementQuality}
-                  liveCoachMessage={liveCoachMessage}
-                  liveCoachEnabled={shouldUseAILiveCoach}
-                />
-              ) : null}
               {!isSessionComplete && trialDemoStage !== 'transition' && countdown === null && !isWorkoutRunning ? (
                 <div className="workout-camera-controls">
                   {!isCameraReady ? (
@@ -1531,6 +1524,13 @@ export function WorkoutPage() {
                 ) : null}
                 {isWorkoutRunning ? <p>Current round score: <strong>{currentTrialSegmentScore}</strong></p> : null}
               </>
+            ) : null}
+            {shouldShowAIOverlay && movementQuality ? (
+              <AILivePanel
+                quality={movementQuality}
+                liveCoachMessage={liveCoachMessage}
+                liveCoachEnabled={shouldUseAILiveCoach}
+              />
             ) : null}
             {liveCoachError ? <p className="hint">{liveCoachError}</p> : null}
             {!isCameraReady && !isSessionComplete ? (

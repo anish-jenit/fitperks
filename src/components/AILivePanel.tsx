@@ -1,5 +1,4 @@
 import type { MovementQuality } from '../services/MovementAnalysisService'
-import { MovementQualityCard } from './MovementQualityCard'
 
 type Props = {
   quality: MovementQuality
@@ -7,27 +6,33 @@ type Props = {
   liveCoachEnabled: boolean
 }
 
+function scoreLabel(score: number): string {
+  if (score >= 90) return 'Excellent'
+  if (score >= 75) return 'Good'
+  if (score >= 55) return 'Steady'
+  return 'Warming Up'
+}
+
 export function AILivePanel({ quality, liveCoachMessage, liveCoachEnabled }: Props) {
   return (
     <aside className="ai-live-panel" aria-label="FitPerks AI live analysis">
       <div className="ai-live-panel-heading">
         <div>
-          <span className="ai-panel-kicker">FitPerks AI</span>
-          <h2>Live Analysis</h2>
+          <span className="ai-panel-kicker">Movement intelligence</span>
+          <h2>FitPerks AI</h2>
         </div>
-        <span className="ai-live-badge">Rule Engine</span>
+        <span className="ai-score-pill">{quality.movementScore}/100 · {scoreLabel(quality.movementScore)}</span>
       </div>
-      <div className="ai-status-list">
+      <div className="ai-status-list" aria-label="Movement checks">
         {quality.statusItems.map((item) => (
-          <div className={`ai-status-item ai-status-${item.tone}`} key={item.label}>
-            <span aria-hidden="true">{item.active ? '●' : '○'}</span>
+          <span className={`ai-status-item ai-status-${item.tone}`} key={item.label}>
+            <span aria-hidden="true">●</span>
             <strong>{item.label}</strong>
-          </div>
+          </span>
         ))}
       </div>
-      <MovementQualityCard quality={quality} />
       <p className="ai-coaching-hint">{liveCoachMessage || quality.coachingHint}</p>
-      {liveCoachEnabled ? <p className="ai-live-footnote">Live Coach updates every 5 valid reps or at completion.</p> : null}
+      {liveCoachEnabled ? <p className="ai-live-footnote">Live Coach updates at key moments.</p> : null}
     </aside>
   )
 }
