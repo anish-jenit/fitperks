@@ -964,9 +964,7 @@ export function WorkoutPage() {
     }
 
     if (trialTransitionSecondsLeft <= 0) {
-      setTrialDemoStage('squats')
-      setSecondsLeft(totalSessionSeconds)
-      setIsWorkoutRunning(true)
+      startTrialSquatStage()
       return
     }
 
@@ -1084,6 +1082,23 @@ export function WorkoutPage() {
     setCaptureRequested(false)
     setCaptureCountdown(null)
   }, [captureCountdown, challenge, points, repCount])
+
+  function startTrialSquatStage() {
+    setError(null)
+    setTrialTransitionSecondsLeft(0)
+    setTrialDemoStage('squats')
+    setSecondsLeft(totalSessionSeconds)
+    setIsWorkoutRunning(false)
+    setCountdown(3)
+    setPaceFeedback(null)
+    setMovementQuality(null)
+    setLiveCoachMessage(null)
+    setLiveCoachError(null)
+    squatStageRef.current = 'standing'
+    lastRepAtRef.current = null
+    lastRepIntervalRef.current = null
+    repHistoryRef.current = []
+  }
 
   function startWorkout() {
     if (!isCameraReady) {
@@ -1502,6 +1517,9 @@ export function WorkoutPage() {
                     <div><dt>Next</dt><dd>Squats</dd></div>
                     <div><dt>Starts In</dt><dd>{trialTransitionSecondsLeft}s</dd></div>
                   </dl>
+                  <button className="button primary trial-transition-next" type="button" onClick={startTrialSquatStage}>
+                    Next workout
+                  </button>
                 </section>
               ) : null}
               {isTrialWorkout && isSessionComplete ? (
@@ -1527,25 +1545,10 @@ export function WorkoutPage() {
                 </section>
               ) : null}
 
-              {!isSessionComplete && trialDemoStage !== 'transition' && countdown === null && !isWorkoutRunning ? (
-                <div className="workout-camera-controls">
-                  {!isCameraReady ? (
-                    <button className="camera-control" type="button" onClick={retryCamera} aria-label={hasRequestedCamera ? 'Retry camera' : 'Enable camera'}>
-                      <span className="camera-control-icon" aria-hidden="true">◉</span>
-                      <span className="camera-control-label">{hasRequestedCamera ? 'Retry Camera' : 'Enable Camera'}</span>
-                    </button>
-                  ) : (
-                    <button className="camera-control camera-control-primary" type="button" onClick={startWorkout} aria-label="Start workout">
-                      <span className="camera-control-icon" aria-hidden="true">▶</span>
-                      <span className="camera-control-label">Start Workout</span>
-                    </button>
-                  )}
-                </div>
-              ) : null}
-              <p className="camera-privacy-note">
-                Camera video and images are used only to track your workout. FitPerks does not store them.
-              </p>
             </div>
+            <p className="camera-privacy-note">
+              Camera video and images are used only to track your workout. FitPerks does not store them.
+            </p>
           </div>
 
           <aside className="stats-panel">
@@ -1594,10 +1597,24 @@ export function WorkoutPage() {
               <p className="hint">
                 {hasRequestedCamera
                   ? 'Waiting for camera access...'
-                  : 'Tap Enable Camera to allow browser camera permission.'}
+                  : 'Allow camera access to begin.'}
               </p>
             ) : null}
-            {!isSessionComplete && trialDemoStage !== 'transition' && countdown === null && !isWorkoutRunning ? <p className="hint">Step into frame, then use the camera control to begin.</p> : null}
+
+            {!isSessionComplete && trialDemoStage !== 'transition' && countdown === null && !isWorkoutRunning ? (
+              <div className="workout-start-actions">
+                <p className="hint">Step into frame, then start from the side panel.</p>
+                {!isCameraReady ? (
+                  <button className="button primary workout-start-button" type="button" onClick={retryCamera}>
+                    {hasRequestedCamera ? 'Retry Camera' : 'Enable Camera'}
+                  </button>
+                ) : (
+                  <button className="button primary workout-start-button" type="button" onClick={startWorkout}>
+                    Start Workout
+                  </button>
+                )}
+              </div>
+            ) : null}
 
             {isWorkoutRunning ? (
               <div className="workout-finish-actions">

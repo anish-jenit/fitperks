@@ -146,8 +146,23 @@ function wasRepDetectedRecently(repHistory: RepHistoryEntry[]): boolean {
   return now - latest <= 1400
 }
 
-function hintFor(input: { depth: QualityRating; tempo: QualityRating; consistency: QualityRating; balance: QualityRating }): string {
-  if (input.depth === 'Fair' || input.depth === 'Poor' || input.depth === 'Needs Improvement') return 'Maintain the same depth.'
+function hintFor(input: {
+  exercise: ExerciseType | 'plank'
+  kneeAngle: number
+  depth: QualityRating
+  tempo: QualityRating
+  consistency: QualityRating
+  balance: QualityRating
+}): string {
+  if (input.depth === 'Fair' || input.depth === 'Poor' || input.depth === 'Needs Improvement') {
+    if (input.exercise === 'squat') {
+      if (input.kneeAngle > 130) return 'Squat lower with a clear knee bend.'
+      if (input.kneeAngle > 115) return 'Add a little more squat depth.'
+      if (input.kneeAngle < 80) return 'Reduce depth slightly and stay controlled.'
+      return 'Hold a controlled squat depth.'
+    }
+    return 'Use a fuller movement range.'
+  }
   if (input.tempo === 'Fair' || input.tempo === 'Poor' || input.tempo === 'Needs Improvement') return 'Keep a controlled one to two second rhythm.'
   if (input.balance === 'Fair' || input.balance === 'Needs Improvement') return 'Keep shoulders and hips aligned.'
   if (input.consistency === 'Fair' || input.consistency === 'Needs Improvement') return 'Repeat the same movement range.'
@@ -162,7 +177,8 @@ export function analyzeMovementQuality(input: MovementAnalysisInput): MovementQu
   const repAccuracy = ratingFromScore(accuracyScore)
   const leftKneeAngle = angle(input.landmarks[23], input.landmarks[25], input.landmarks[27])
   const rightKneeAngle = angle(input.landmarks[24], input.landmarks[26], input.landmarks[28])
-  const depth = squatDepthRating((leftKneeAngle + rightKneeAngle) / 2, input.exercise)
+  const kneeAngle = (leftKneeAngle + rightKneeAngle) / 2
+  const depth = squatDepthRating(kneeAngle, input.exercise)
   const tempo = tempoRating(input.repHistory)
   const consistency = consistencyRating(input.repHistory)
   const balance = balanceRating(input.landmarks)
@@ -183,7 +199,7 @@ export function analyzeMovementQuality(input: MovementAnalysisInput): MovementQu
     tempo,
     consistency,
     balance,
-    coachingHint: hintFor({ depth, tempo, consistency, balance }),
+    coachingHint: hintFor({ exercise: input.exercise, kneeAngle, depth, tempo, consistency, balance }),
     statusItems: [
       { label: repDetectedRecently ? 'Rep' : 'No Rep', tone: repDetectedRecently ? 'good' : 'warn', active: repDetectedRecently, level: repDetectedRecently ? 3 : 1 },
       { label: input.exercise === 'squat' ? 'Depth' : 'Range', tone: statusTone(depth), active: statusLevel(depth) === 3, level: statusLevel(depth) },
