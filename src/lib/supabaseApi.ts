@@ -107,6 +107,14 @@ function writeStubFlowState(state: StubFlowState): void {
   localStorage.setItem(STUB_FLOW_STORAGE_KEY, JSON.stringify(state))
 }
 
+
+function isMissingRpcSignatureError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const message = 'message' in error ? String((error as { message?: unknown }).message ?? '') : ''
+  const code = 'code' in error ? String((error as { code?: unknown }).code ?? '') : ''
+  return code === 'PGRST202' || message.includes('schema cache') || message.includes('Could not find the function')
+}
+
 function buildStubChallenge(organizationCode = 'SAMPLECO2026'): ChallengeRecord {
   return {
     id: `stub-challenge-${organizationCode.toLowerCase()}`,
@@ -1252,7 +1260,7 @@ export async function createOrganizationTrial(input: {
     return trial
   }
 
-  const { data, error } = await supabase.rpc('create_organization_trial', {
+  const args = {
     p_organization_name: input.organizationName.trim(),
     p_organization_code: input.organizationCode.trim().toUpperCase(),
     p_country_code: input.countryCode.trim().toLowerCase(),
@@ -1268,13 +1276,43 @@ export async function createOrganizationTrial(input: {
     p_enable_ai_for_jj_squat_demo: input.enableAiForJjSquatDemo,
     p_enable_ai_for_plank_demo: input.enableAiForPlankDemo,
     p_access_duration_minutes: input.accessDurationMinutes,
-  })
+  }
 
-  if (error) {
+  const { data, error } = await supabase.rpc('create_organization_trial', args)
+
+  if (!error) {
+    return mapOrganizationTrial(data as Parameters<typeof mapOrganizationTrial>[0])
+  }
+
+  if (!isMissingRpcSignatureError(error)) {
     throw error
   }
 
-  return mapOrganizationTrial(data as Parameters<typeof mapOrganizationTrial>[0])
+  const { data: legacyData, error: legacyError } = await supabase.rpc('create_organization_trial', {
+    p_organization_name: args.p_organization_name,
+    p_organization_code: args.p_organization_code,
+    p_country_code: args.p_country_code,
+    p_display_message: args.p_display_message,
+    p_team_names: args.p_team_names,
+    p_enable_team_names: args.p_enable_team_names,
+    p_enable_nicknames: args.p_enable_nicknames,
+    p_access_duration_minutes: args.p_access_duration_minutes,
+  })
+
+  if (legacyError) {
+    throw legacyError
+  }
+
+  return {
+    ...mapOrganizationTrial(legacyData as Parameters<typeof mapOrganizationTrial>[0]),
+    enableAiOverlay: input.aiSettings.enableAIOverlay,
+    enableAiLiveCoach: input.aiSettings.enableAILiveCoach,
+    enableAiAnnouncer: input.aiSettings.enableAIAnnouncer,
+    enableExecutiveSummary: input.aiSettings.enableExecutiveSummary,
+    enableCelebrationAnimations: input.aiSettings.enableCelebrationAnimations,
+    enableAiForJjSquatDemo: input.enableAiForJjSquatDemo,
+    enableAiForPlankDemo: input.enableAiForPlankDemo,
+  }
 }
 
 export async function getOrganizationTrial(code: string): Promise<OrganizationTrialRecord> {
