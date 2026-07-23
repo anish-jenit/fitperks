@@ -1564,8 +1564,8 @@ export function WorkoutPage() {
                 <source src={challengeVideoPath} type="video/mp4" />
               </video>
             ) : null}
-            <p>
-              Exercise: <strong>{challenge.name}</strong>
+            <p className="sidebar-exercise-line" title={`${challenge.name}${isTrialWorkout && !isTrialPlankRoute ? ` · ${trialDemoStage === 'jumping-jacks' ? '1/2' : '2/2'}` : ''}`}>
+              <span>Exercise:</span> <strong>{challenge.name.replace(' Challenge', '')}</strong>
               {isTrialWorkout && !isTrialPlankRoute ? <span className="table-muted"> · {trialDemoStage === 'jumping-jacks' ? '1/2' : '2/2'}</span> : null}
             </p>
             <p>

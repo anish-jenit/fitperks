@@ -185,10 +185,10 @@ export function analyzeMovementQuality(input: MovementAnalysisInput): MovementQu
     balance,
     coachingHint: hintFor({ depth, tempo, consistency, balance }),
     statusItems: [
-      { label: repDetectedRecently ? 'Rep Detected' : 'No Rep Yet', tone: repDetectedRecently ? 'good' : 'warn', active: repDetectedRecently, level: repDetectedRecently ? 3 : 1 },
+      { label: repDetectedRecently ? 'Rep' : 'No Rep', tone: repDetectedRecently ? 'good' : 'warn', active: repDetectedRecently, level: repDetectedRecently ? 3 : 1 },
       { label: input.exercise === 'squat' ? 'Depth' : 'Range', tone: statusTone(depth), active: statusLevel(depth) === 3, level: statusLevel(depth) },
       { label: 'Balance', tone: statusTone(balance), active: statusLevel(balance) === 3, level: statusLevel(balance) },
-      { label: 'Consistency', tone: statusTone(consistency), active: statusLevel(consistency) === 3, level: statusLevel(consistency) },
+      { label: 'Consistent', tone: statusTone(consistency), active: statusLevel(consistency) === 3, level: statusLevel(consistency) },
       { label: tempo === 'Fair' ? 'Tempo Fast' : 'Tempo', tone: statusTone(tempo), active: statusLevel(tempo) === 3, level: statusLevel(tempo) },
     ],
   }
