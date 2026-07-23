@@ -81,7 +81,7 @@ type PaceFeedback = {
 const TRIAL_COMPLETION_MESSAGES = [
   'Strong finish. Keep the momentum going.',
   'Great work. Every rep counts.',
-  'Nicely done. You showed up for your team.',
+  'Nicely done. You stayed focused throughout.',
   'Solid effort. Keep building from here.',
   'Excellent focus through both rounds.',
   'Well completed. That was a disciplined effort.',
@@ -103,36 +103,8 @@ const TRIAL_COMPLETION_MESSAGES = [
   'Great finish under the clock.',
   'Strong work. That is a complete session.',
   'Excellent job closing out both rounds.',
-  'Well done. Your effort is on the board.',
+  'Well done. Your effort came through clearly.',
   'Great composure through the final seconds.',
-]
-
-const TRIAL_MOTIVATIONAL_QUOTES = [
-  'Small wins compound into visible progress.',
-  'Your best pace is the one you can repeat.',
-  'Stay controlled, stay consistent, stay in it.',
-  'The next rep is the one that matters.',
-  'Strong form turns effort into results.',
-  'Progress is built one clean rep at a time.',
-  'Keep your rhythm steady and your focus simple.',
-  'Good energy is a professional advantage.',
-  'Consistency is the strongest performance signal.',
-  'Finish the set with calm confidence.',
-  'Your effort is already moving the scoreboard.',
-  'Make this round precise, not rushed.',
-  'Breathe, reset, and keep the standard high.',
-  'A focused minute can change the whole session.',
-  'Quality reps create quality momentum.',
-  'The team benefits from every honest effort.',
-  'Keep showing up; the score will follow.',
-  'Controlled movement beats scattered speed.',
-  'This is a short window. Make it count.',
-  'You are building proof, not just points.',
-  'Stay sharp through the final seconds.',
-  'Strong finishes come from steady starts.',
-  'Let the clock work for you.',
-  'Each rep is useful data and useful effort.',
-  'Complete the round with professional focus.',
 ]
 
 type TrialDemoStage = 'jumping-jacks' | 'transition' | 'squats' | 'plank' | 'complete'
@@ -338,7 +310,6 @@ export function WorkoutPage() {
   const [trialBestScore, setTrialBestScore] = useState<number | null>(null)
   const [trialBestTeamScore, setTrialBestTeamScore] = useState<number | null>(null)
   const [trialCompletionMessage, setTrialCompletionMessage] = useState('')
-  const [trialQuote, setTrialQuote] = useState(TRIAL_MOTIVATIONAL_QUOTES[0])
   const [trialTransitionSecondsLeft, setTrialTransitionSecondsLeft] = useState(15)
   const [trialJumpingJackReps, setTrialJumpingJackReps] = useState(0)
   const [trialJumpingJackScore, setTrialJumpingJackScore] = useState(0)
@@ -352,6 +323,7 @@ export function WorkoutPage() {
   const poseRef = useRef<PoseInstance | null>(null)
   const cameraRef = useRef<CameraInstance | null>(null)
   const handleRepDetectionRef = useRef<(landmarks: NormalizedLandmark[]) => void>(() => undefined)
+  const challengeRef = useRef<typeof challenge>(challenge)
 
   const squatStageRef = useRef<SquatStage>('standing')
   const lungeStageRef = useRef<SquatStage>('standing')
@@ -696,9 +668,10 @@ export function WorkoutPage() {
   )
 
   handleRepDetectionRef.current = handleRepDetection
+  challengeRef.current = challenge
 
   useEffect(() => {
-    if (!challenge || (isSessionComplete && !captureRequested) || cameraAttempt === 0) {
+    if (!challengeRef.current || (isSessionComplete && !captureRequested) || cameraAttempt === 0) {
       return
     }
 
@@ -726,8 +699,8 @@ export function WorkoutPage() {
       pose.setOptions({
         modelComplexity: 1,
         smoothLandmarks: true,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
+        minDetectionConfidence: 0.35,
+        minTrackingConfidence: 0.35,
       })
 
       pose.onResults((results) => {
@@ -748,10 +721,11 @@ export function WorkoutPage() {
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height)
 
+        const currentChallenge = challengeRef.current
         setPositioningMessage(results.poseLandmarks ? getPositioningMessage(results.poseLandmarks) : null)
 
-        if (challenge.id === 'squat' || challenge.id === 'lunges' || challenge.id === 'high-knees') {
-          drawExerciseGuides(ctx, canvas.width, canvas.height, results.poseLandmarks, challenge.id)
+        if (currentChallenge?.id === 'squat' || currentChallenge?.id === 'lunges' || currentChallenge?.id === 'high-knees') {
+          drawExerciseGuides(ctx, canvas.width, canvas.height, results.poseLandmarks, currentChallenge.id)
         }
 
         if (results.poseLandmarks) {
@@ -765,7 +739,7 @@ export function WorkoutPage() {
             radius: 3,
           })
           handleRepDetectionRef.current(results.poseLandmarks)
-        } else if (challenge.id === 'plank') {
+        } else if (currentChallenge?.id === 'plank') {
           setIsPlankPostureValid(false)
         }
 
@@ -803,7 +777,7 @@ export function WorkoutPage() {
       poseRef.current = null
       setIsCameraReady(false)
     }
-  }, [challenge, isSessionComplete, cameraAttempt, captureRequested])
+  }, [isSessionComplete, cameraAttempt, captureRequested])
 
   useEffect(() => {
     if (!captureRequested || !isCameraReady) {
@@ -849,7 +823,6 @@ export function WorkoutPage() {
             setRepCount(0)
             setPaceFeedback(null)
             setTrialTransitionSecondsLeft(15)
-            setTrialQuote(TRIAL_MOTIVATIONAL_QUOTES[Math.floor(Math.random() * TRIAL_MOTIVATIONAL_QUOTES.length)])
             setTrialDemoStage('transition')
             squatStageRef.current = 'standing'
             jumpingJackStageRef.current = 'closed'
@@ -996,7 +969,6 @@ export function WorkoutPage() {
     setError(null)
     if (isTrialWorkout) {
       setTrialDemoStage(exerciseParam === 'plank' ? 'plank' : 'jumping-jacks')
-      setTrialQuote(TRIAL_MOTIVATIONAL_QUOTES[Math.floor(Math.random() * TRIAL_MOTIVATIONAL_QUOTES.length)])
       setTrialTransitionSecondsLeft(15)
       setTrialJumpingJackReps(0)
       setTrialJumpingJackScore(0)
@@ -1042,7 +1014,6 @@ export function WorkoutPage() {
       setTrialJumpingJackScore(pointsRef.current)
       setRepCount(0)
       setTrialTransitionSecondsLeft(15)
-      setTrialQuote(TRIAL_MOTIVATIONAL_QUOTES[Math.floor(Math.random() * TRIAL_MOTIVATIONAL_QUOTES.length)])
       setTrialDemoStage('transition')
       return
     }
@@ -1087,7 +1058,6 @@ export function WorkoutPage() {
     setError(null)
     setSessionId(nowSessionId())
     setTrialDemoStage(exerciseParam === 'plank' ? 'plank' : 'jumping-jacks')
-    setTrialQuote(TRIAL_MOTIVATIONAL_QUOTES[Math.floor(Math.random() * TRIAL_MOTIVATIONAL_QUOTES.length)])
     setTrialTransitionSecondsLeft(15)
     setTrialJumpingJackReps(0)
     setTrialJumpingJackScore(0)
@@ -1353,7 +1323,6 @@ export function WorkoutPage() {
               {isTrialWorkout && trialDemoStage === 'transition' ? (
                 <section className="trial-camera-result" aria-live="polite">
                   <p className="trial-camera-result-title">1/2 Completed</p>
-                  <p className="trial-camera-result-message">{trialQuote}</p>
                   <video
                     key="transition-squat-preview"
                     className="trial-transition-video"
@@ -1375,7 +1344,7 @@ export function WorkoutPage() {
               {isTrialWorkout && isSessionComplete ? (
                 <section className="trial-camera-result" aria-live="polite">
                   <p className="trial-camera-result-title">{isTrialPlankRoute ? 'Plank Completed' : '2/2 Completed'}</p>
-                  <p className="trial-camera-result-message">{trialCompletionMessage || trialQuote}</p>
+                  {trialCompletionMessage ? <p className="trial-camera-result-message">{trialCompletionMessage}</p> : null}
                   <dl>
                     {isTrialPlankRoute ? (
                       <>
@@ -1453,7 +1422,6 @@ export function WorkoutPage() {
                   <p>Posture: <strong>{isPlankPostureValid && isWorkoutRunning ? 'Valid' : 'Paused'}</strong></p>
                 ) : null}
                 {isWorkoutRunning ? <p>Current round score: <strong>{currentTrialSegmentScore}</strong></p> : null}
-                <p className="hint">{trialQuote}</p>
               </>
             ) : null}
             {!isCameraReady && !isSessionComplete ? (
