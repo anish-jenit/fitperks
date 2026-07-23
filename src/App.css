@@ -1037,16 +1037,30 @@ textarea {
   display: grid;
   gap: 1.1rem;
   grid-template-columns: minmax(700px, 3fr) minmax(280px, 1fr);
+  align-items: start;
 }
 
 .workout-live-view {
   display: grid;
-  gap: 0.5rem;
+  gap: 0;
   min-width: 0;
+  align-self: start;
 }
 
 .camera-privacy-note {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 0.5rem;
+  z-index: 3;
   margin: 0;
+  color: rgba(226, 232, 240, 0.78);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.72);
+  pointer-events: none;
 }
 
 .workout-panel,
@@ -1083,18 +1097,18 @@ textarea {
 
 .video-size-toggle {
   position: absolute;
-  left: 1rem;
-  bottom: 1rem;
+  left: 0.8rem;
+  bottom: 0.75rem;
   z-index: 6;
-  min-height: 2.15rem;
-  max-width: min(15rem, calc(100% - 2rem));
-  padding: 0.4rem 0.65rem;
+  min-height: 1.95rem;
+  max-width: min(13rem, calc(100% - 2rem));
+  padding: 0.34rem 0.56rem;
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: var(--radius);
   color: #f8fafc;
   background: rgba(3, 7, 18, 0.78);
   font: inherit;
-  font-size: 0.74rem;
+  font-size: 0.68rem;
   font-weight: 700;
   cursor: pointer;
   backdrop-filter: blur(8px);
@@ -1254,9 +1268,9 @@ textarea {
 .stats-panel {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  padding: 1.05rem;
+  padding: 0.9rem;
   display: grid;
-  gap: 0.8rem;
+  gap: 0.62rem;
   align-content: start;
   background: var(--panel-soft);
 }
@@ -1527,6 +1541,21 @@ textarea {
 
 .trial-details-link {
   margin-top: 0.15rem;
+}
+
+
+@media (min-width: 900px) {
+  .stats-panel > p {
+    margin: 0;
+    font-size: 0.86rem;
+    line-height: 1.25;
+  }
+
+  .stats-panel .button {
+    min-height: 2.55rem;
+    padding-block: 0.55rem;
+    font-size: 0.72rem;
+  }
 }
 
 @media (max-width: 640px) {
@@ -2528,6 +2557,21 @@ select:focus {
   border-color: var(--accent);
 }
 
+
+@media (min-width: 900px) {
+  .stats-panel > p {
+    margin: 0;
+    font-size: 0.86rem;
+    line-height: 1.25;
+  }
+
+  .stats-panel .button {
+    min-height: 2.55rem;
+    padding-block: 0.55rem;
+    font-size: 0.72rem;
+  }
+}
+
 @media (max-width: 640px) {
   .top-nav {
     min-height: 4rem;
@@ -2646,6 +2690,21 @@ select:focus {
 
   .top-nav nav {
     flex-wrap: wrap;
+  }
+}
+
+
+@media (min-width: 900px) {
+  .stats-panel > p {
+    margin: 0;
+    font-size: 0.86rem;
+    line-height: 1.25;
+  }
+
+  .stats-panel .button {
+    min-height: 2.55rem;
+    padding-block: 0.55rem;
+    font-size: 0.72rem;
   }
 }
 
@@ -3049,8 +3108,8 @@ select:focus {
 
 .workout-finish-actions {
   display: grid;
-  gap: 0.65rem;
-  margin-top: 0.15rem;
+  gap: 0.42rem;
+  margin-top: 0;
 }
 
 .workout-finish-actions .hint {
@@ -3058,8 +3117,24 @@ select:focus {
 }
 
 .workout-finish-button {
+  min-height: 2.6rem;
   border-color: rgba(174, 239, 253, 0.4);
   color: #c6f5ff;
+}
+
+
+@media (min-width: 900px) {
+  .stats-panel > p {
+    margin: 0;
+    font-size: 0.86rem;
+    line-height: 1.25;
+  }
+
+  .stats-panel .button {
+    min-height: 2.55rem;
+    padding-block: 0.55rem;
+    font-size: 0.72rem;
+  }
 }
 
 @media (max-width: 640px) {

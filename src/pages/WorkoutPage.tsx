@@ -1542,10 +1542,10 @@ export function WorkoutPage() {
                   )}
                 </div>
               ) : null}
+              <p className="camera-privacy-note">
+                Camera video and images are used only to track your workout. FitPerks does not store them.
+              </p>
             </div>
-            <p className="hint camera-privacy-note">
-              Camera video and images are used only to track your workout. FitPerks does not store them.
-            </p>
           </div>
 
           <aside className="stats-panel">
