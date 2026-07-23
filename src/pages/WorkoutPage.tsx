@@ -1576,12 +1576,6 @@ export function WorkoutPage() {
             </p>
             {isTrialWorkout ? (
               <>
-                <p>
-                  Timer:{' '}
-                  <strong>
-                    {trialDemoStage === 'transition' ? `${trialTransitionSecondsLeft}s` : isWorkoutRunning ? `${secondsLeft}s` : 'Ready'}
-                  </strong>
-                </p>
                 {isTrialPlankRoute ? (
                   <p>Posture: <strong>{isPlankPostureValid && isWorkoutRunning ? 'Valid' : 'Paused'}</strong></p>
                 ) : null}
