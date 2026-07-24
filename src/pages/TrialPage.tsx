@@ -143,7 +143,7 @@ export function TrialExperiencePage() {
             <Link className="button ghost button-small trial-request-cta" to="/organization-request">
               Impressed with Demo? Request an org challenge
             </Link>
-            <div className="hero-actions trial-workout-actions">
+            <div className={`hero-actions trial-workout-actions ${trial.enablePlankDemo ? '' : 'trial-workout-actions-single'}`}>
               <Link className="button primary" to={`/trial/${trial.code}/workout/burpee?camera=1`}>Start demo</Link>
               {trial.enablePlankDemo ? <Link className="button ghost" to={`/trial/${trial.code}/workout/plank?camera=1`}>Plank challenge</Link> : null}
             </div>

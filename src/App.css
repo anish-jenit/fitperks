@@ -1531,6 +1531,11 @@ textarea {
   gap: 0.9rem;
 }
 
+.trial-workout-actions-single {
+  grid-template-columns: 1fr;
+}
+
+
 .trial-workout-actions .button,
 .trial-details-link {
   width: 100%;
