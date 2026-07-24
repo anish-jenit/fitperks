@@ -1,3 +1,4 @@
+import type { CalibrationSettings } from '../lib/settings'
 import type { ExerciseType } from '../types'
 
 export type QualityRating = 'Excellent' | 'Good' | 'Fair' | 'Needs Improvement' | 'Poor'
@@ -32,6 +33,7 @@ export type MovementAnalysisInput = {
   attemptedReps: number
   repHistory: RepHistoryEntry[]
   elapsedMs?: number
+  calibration?: CalibrationSettings
   confidenceValues?: number[]
 }
 
@@ -79,12 +81,23 @@ function scoreFromRating(rating: QualityRating): number {
   return 45
 }
 
-function squatDepthRating(kneeAngle: number, exercise: ExerciseType | 'plank'): QualityRating {
+function squatDepthRating(kneeAngle: number, hipHeightFromKnee: number, exercise: ExerciseType | 'plank', calibration?: CalibrationSettings): QualityRating {
   if (exercise !== 'squat') return 'Good'
-  if (kneeAngle >= 80 && kneeAngle <= 100) return 'Excellent'
-  if (kneeAngle > 100 && kneeAngle <= 115) return 'Good'
-  if (kneeAngle > 115 && kneeAngle <= 130) return 'Fair'
-  return 'Poor'
+
+  const squatKneeMax = calibration?.squat.squatKneeMax ?? 145
+  const squatHipDropMax = calibration?.squat.squatHipDropMax ?? 0.2
+  const meetsRepDepth = kneeAngle < squatKneeMax && hipHeightFromKnee < squatHipDropMax
+
+  if (!meetsRepDepth) {
+    const closeToKneeDepth = kneeAngle < squatKneeMax + 12
+    const closeToHipDrop = hipHeightFromKnee < squatHipDropMax + 0.08
+    return closeToKneeDepth && closeToHipDrop ? 'Fair' : 'Needs Improvement'
+  }
+
+  const extraKneeDepth = squatKneeMax - kneeAngle
+  const extraHipDrop = squatHipDropMax - hipHeightFromKnee
+  if (extraKneeDepth >= 35 && extraHipDrop >= 0.08) return 'Excellent'
+  return 'Good'
 }
 
 function tempoRating(repHistory: RepHistoryEntry[], elapsedMs = 0): QualityRating {
@@ -163,10 +176,8 @@ function hintFor(input: {
 }): string {
   if (input.depth === 'Fair' || input.depth === 'Poor' || input.depth === 'Needs Improvement') {
     if (input.exercise === 'squat') {
-      if (input.kneeAngle > 130) return 'Squat lower with a clear knee bend.'
-      if (input.kneeAngle > 115) return 'Add a little more squat depth.'
-      if (input.kneeAngle < 80) return 'Reduce depth slightly and stay controlled.'
-      return 'Hold a controlled squat depth.'
+      if (input.kneeAngle > 145) return 'Squat lower with a clear knee bend.'
+      return 'Drop the hips a little lower before standing.'
     }
     return 'Use a fuller movement range.'
   }
@@ -185,7 +196,10 @@ export function analyzeMovementQuality(input: MovementAnalysisInput): MovementQu
   const leftKneeAngle = angle(input.landmarks[23], input.landmarks[25], input.landmarks[27])
   const rightKneeAngle = angle(input.landmarks[24], input.landmarks[26], input.landmarks[28])
   const kneeAngle = (leftKneeAngle + rightKneeAngle) / 2
-  const depth = squatDepthRating(kneeAngle, input.exercise)
+  const avgHipY = (input.landmarks[23].y + input.landmarks[24].y) / 2
+  const avgKneeY = (input.landmarks[25].y + input.landmarks[26].y) / 2
+  const hipHeightFromKnee = avgKneeY - avgHipY
+  const depth = squatDepthRating(kneeAngle, hipHeightFromKnee, input.exercise, input.calibration)
   const tempo = input.exercise === 'plank' ? 'Good' : tempoRating(input.repHistory, input.elapsedMs)
   const consistency = consistencyRating(input.repHistory)
   const balance = balanceRating(input.landmarks)

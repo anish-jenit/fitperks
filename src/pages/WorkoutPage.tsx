@@ -695,6 +695,7 @@ export function WorkoutPage() {
           attemptedReps: Math.max(repCountRef.current, repHistoryRef.current.length),
           repHistory: repHistoryRef.current,
           elapsedMs: performance.now(),
+          calibration: settings.calibration,
           confidenceValues: landmarks.map((landmark) => landmark.visibility ?? 1),
         }))
       }
