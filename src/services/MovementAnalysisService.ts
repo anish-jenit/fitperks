@@ -31,6 +31,7 @@ export type MovementAnalysisInput = {
   validReps: number
   attemptedReps: number
   repHistory: RepHistoryEntry[]
+  elapsedMs?: number
   confidenceValues?: number[]
 }
 
@@ -86,9 +87,15 @@ function squatDepthRating(kneeAngle: number, exercise: ExerciseType | 'plank'): 
   return 'Poor'
 }
 
-function tempoRating(repHistory: RepHistoryEntry[]): QualityRating {
+function tempoRating(repHistory: RepHistoryEntry[], elapsedMs = 0): QualityRating {
   const intervals = repHistory.map((entry) => entry.intervalMs).filter((value): value is number => typeof value === 'number')
-  if (intervals.length === 0) return 'Good'
+  const latestRepAgeMs = repHistory.length > 0 ? Math.max(0, elapsedMs - repHistory[repHistory.length - 1].completedAt) : null
+
+  if (repHistory.length === 0) return 'Needs Improvement'
+  if (latestRepAgeMs !== null && latestRepAgeMs > 6000) return 'Needs Improvement'
+  if (latestRepAgeMs !== null && latestRepAgeMs > 4000) return 'Fair'
+  if (intervals.length === 0) return 'Fair'
+
   const latestSeconds = intervals[intervals.length - 1] / 1000
   if (latestSeconds >= 1 && latestSeconds <= 2) return 'Excellent'
   if (latestSeconds >= 0.5 && latestSeconds <= 4) return 'Good'
@@ -179,7 +186,7 @@ export function analyzeMovementQuality(input: MovementAnalysisInput): MovementQu
   const rightKneeAngle = angle(input.landmarks[24], input.landmarks[26], input.landmarks[28])
   const kneeAngle = (leftKneeAngle + rightKneeAngle) / 2
   const depth = squatDepthRating(kneeAngle, input.exercise)
-  const tempo = tempoRating(input.repHistory)
+  const tempo = input.exercise === 'plank' ? 'Good' : tempoRating(input.repHistory, input.elapsedMs)
   const consistency = consistencyRating(input.repHistory)
   const balance = balanceRating(input.landmarks)
   const movementScore = Math.round(

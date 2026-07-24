@@ -1431,6 +1431,7 @@ function mapOrganizationTrial(payload: {
   enable_executive_summary?: boolean
   enable_celebration_animations?: boolean
   enable_ai_for_jj_squat_demo?: boolean
+  enable_plank_demo?: boolean
   enable_ai_for_plank_demo?: boolean
   access_duration_minutes: number
   expires_at: string
@@ -1455,7 +1456,8 @@ function mapOrganizationTrial(payload: {
     enableExecutiveSummary: payload.enable_executive_summary ?? false,
     enableCelebrationAnimations: payload.enable_celebration_animations ?? DEFAULT_AI_DEMO_SETTINGS.enableCelebrationAnimations,
     enableAiForJjSquatDemo: payload.enable_ai_for_jj_squat_demo ?? true,
-    enableAiForPlankDemo: payload.enable_ai_for_plank_demo ?? true,
+    enablePlankDemo: payload.enable_plank_demo ?? false,
+    enableAiForPlankDemo: payload.enable_ai_for_plank_demo ?? false,
     accessDurationMinutes: Number(payload.access_duration_minutes),
     expiresAt: payload.expires_at,
     createdAt: payload.created_at,
@@ -1475,6 +1477,7 @@ export async function createOrganizationTrial(input: {
   enableNicknames: boolean
   aiSettings: AIDemoSettings
   enableAiForJjSquatDemo: boolean
+  enablePlankDemo: boolean
   enableAiForPlankDemo: boolean
   accessDurationMinutes: number
 }): Promise<OrganizationTrialRecord> {
@@ -1498,7 +1501,8 @@ export async function createOrganizationTrial(input: {
       enableExecutiveSummary: input.aiSettings.enableExecutiveSummary,
       enableCelebrationAnimations: input.aiSettings.enableCelebrationAnimations,
       enableAiForJjSquatDemo: input.enableAiForJjSquatDemo,
-      enableAiForPlankDemo: input.enableAiForPlankDemo,
+      enablePlankDemo: input.enablePlankDemo,
+      enableAiForPlankDemo: input.enablePlankDemo && input.enableAiForPlankDemo,
       accessDurationMinutes: input.accessDurationMinutes,
       expiresAt: now.add(input.accessDurationMinutes, 'minute').toISOString(),
       createdAt: now.toISOString(),
@@ -1525,6 +1529,7 @@ export async function createOrganizationTrial(input: {
     p_enable_executive_summary: input.aiSettings.enableExecutiveSummary,
     p_enable_celebration_animations: input.aiSettings.enableCelebrationAnimations,
     p_enable_ai_for_jj_squat_demo: input.enableAiForJjSquatDemo,
+    p_enable_plank_demo: input.enablePlankDemo,
     p_enable_ai_for_plank_demo: input.enableAiForPlankDemo,
     p_access_duration_minutes: input.accessDurationMinutes,
   }
@@ -1562,7 +1567,8 @@ export async function createOrganizationTrial(input: {
     enableExecutiveSummary: input.aiSettings.enableExecutiveSummary,
     enableCelebrationAnimations: input.aiSettings.enableCelebrationAnimations,
     enableAiForJjSquatDemo: input.enableAiForJjSquatDemo,
-    enableAiForPlankDemo: input.enableAiForPlankDemo,
+    enablePlankDemo: input.enablePlankDemo,
+    enableAiForPlankDemo: input.enablePlankDemo && input.enableAiForPlankDemo,
   }
 }
 

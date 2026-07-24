@@ -322,6 +322,7 @@ export type OrganizationTrialRecord = {
   enableExecutiveSummary: boolean
   enableCelebrationAnimations: boolean
   enableAiForJjSquatDemo: boolean
+  enablePlankDemo: boolean
   enableAiForPlankDemo: boolean
   accessDurationMinutes: number
   expiresAt: string

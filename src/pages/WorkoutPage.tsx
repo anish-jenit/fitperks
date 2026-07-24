@@ -694,6 +694,7 @@ export function WorkoutPage() {
           validReps: repCountRef.current,
           attemptedReps: Math.max(repCountRef.current, repHistoryRef.current.length),
           repHistory: repHistoryRef.current,
+          elapsedMs: performance.now(),
           confidenceValues: landmarks.map((landmark) => landmark.visibility ?? 1),
         }))
       }
@@ -1439,6 +1440,7 @@ export function WorkoutPage() {
     (standardExercise && !isTrialWorkout && !isSoloWorkout && !settings.enabledChallenges[standardExercise]) ||
     (standardExercise && activeChallenge && !isExerciseEnabled(activeChallenge, standardExercise)) ||
     (standardExercise && isGuestWorkout && guestChallenge && !guestChallenge.selectedExercises.includes(standardExercise)) ||
+    (isTrialPlankRoute && organizationTrial && !organizationTrial.enablePlankDemo) ||
     (isTrialWorkout && challenge.id !== 'squat' && challenge.id !== 'burpee' && challenge.id !== 'plank')
   ) {
     return (
@@ -1446,8 +1448,8 @@ export function WorkoutPage() {
         <section className="panel">
           <h1>{challenge.name} is currently disabled</h1>
           <p>The admin has paused this challenge for the current event session.</p>
-          <Link className="button ghost" to="/challenges">
-            Back to challenges
+          <Link className="button ghost" to={isTrialWorkout ? `/trial/${trialCode}/workout` : '/challenges'}>
+            {isTrialWorkout ? 'Back to trial workout' : 'Back to challenges'}
           </Link>
         </section>
       </main>

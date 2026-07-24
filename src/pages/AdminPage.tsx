@@ -43,6 +43,7 @@ type TrialDraft = {
   enableNicknames: boolean
   aiSettings: typeof DEFAULT_AI_DEMO_SETTINGS
   enableAiForJjSquatDemo: boolean
+  enablePlankDemo: boolean
   enableAiForPlankDemo: boolean
   accessDuration: string
 }
@@ -132,7 +133,8 @@ export function AdminPage() {
     enableNicknames: false,
     aiSettings: { ...DEFAULT_AI_DEMO_SETTINGS, enableAILiveCoach: false, enableAIAnnouncer: false, enableExecutiveSummary: false },
     enableAiForJjSquatDemo: true,
-    enableAiForPlankDemo: true,
+    enablePlankDemo: false,
+    enableAiForPlankDemo: false,
     accessDuration: '00:30',
   })
 
@@ -352,7 +354,8 @@ export function AdminPage() {
         enableNicknames: trialDraft.enableNicknames,
         aiSettings: trialDraft.aiSettings,
         enableAiForJjSquatDemo: trialDraft.enableAiForJjSquatDemo,
-        enableAiForPlankDemo: trialDraft.enableAiForPlankDemo,
+        enablePlankDemo: trialDraft.enablePlankDemo,
+        enableAiForPlankDemo: trialDraft.enablePlankDemo && trialDraft.enableAiForPlankDemo,
         accessDurationMinutes,
       })
       setGeneratedTrial(trial)
@@ -674,6 +677,22 @@ export function AdminPage() {
                       onChange={(aiSettings) => setTrialDraft((state) => ({ ...state, aiSettings }))}
                     />
                     <div>
+                      <h3 className="admin-subsection-title">Org demo availability</h3>
+                      <div className="exercise-toggle-grid">
+                        <label className="exercise-toggle-card">
+                          <input
+                            type="checkbox"
+                            checked={trialDraft.enablePlankDemo}
+                            onChange={(event) => setTrialDraft((state) => ({
+                              ...state,
+                              enablePlankDemo: event.target.checked,
+                              enableAiForPlankDemo: event.target.checked ? state.enableAiForPlankDemo : false,
+                            }))}
+                          />
+                          <span>Enable plank challenge</span>
+                        </label>
+                      </div>
+
                       <h3 className="admin-subsection-title">Org demo AI availability</h3>
                       <div className="exercise-toggle-grid">
                         <label className="exercise-toggle-card">
@@ -688,9 +707,10 @@ export function AdminPage() {
                           <input
                             type="checkbox"
                             checked={trialDraft.enableAiForPlankDemo}
+                            disabled={!trialDraft.enablePlankDemo}
                             onChange={(event) => setTrialDraft((state) => ({ ...state, enableAiForPlankDemo: event.target.checked }))}
                           />
-                          <span>Plank demo</span>
+                          <span>Plank demo AI</span>
                         </label>
                       </div>
                     </div>
@@ -728,7 +748,7 @@ export function AdminPage() {
                   {organizationTrials.length === 0 ? <p>No trial codes created yet.</p> : (
                     <div className="table-scroll"><table><thead><tr><th>Organization</th><th>Code</th><th>Features</th><th>Duration</th><th>Expires</th><th>Workout URL</th><th>Scoreboard URL</th></tr></thead><tbody>{organizationTrials.map((trial) => {
                       const hasScoreboard = trial.enableNicknames || trial.enableTeamNames
-                      const features = [trial.enableNicknames ? 'Nicknames' : null, trial.enableTeamNames ? 'Teams' : null, trial.enableAiOverlay ? 'AI overlay' : null, trial.enableAiLiveCoach ? 'Live coach API' : null].filter(Boolean).join(', ') || 'Demo only'
+                      const features = [trial.enableNicknames ? 'Nicknames' : null, trial.enableTeamNames ? 'Teams' : null, trial.enablePlankDemo ? 'Plank' : null, trial.enableAiOverlay ? 'AI overlay' : null, trial.enableAiLiveCoach ? 'Live coach API' : null].filter(Boolean).join(', ') || 'Demo only'
                       return <tr key={trial.id}><td>{trial.organizationName} <span className="table-muted">({trial.organizationCode})</span></td><td>{trial.code}</td><td>{features}</td><td>{formatTrialDuration(trial.accessDurationMinutes)}</td><td>{dayjs(trial.expiresAt).format('YYYY-MM-DD HH:mm')}</td><td><a href={buildAbsoluteUrl(trial.workoutUrlPath)} target="_blank" rel="noreferrer">Open</a></td><td>{hasScoreboard ? <a href={buildAbsoluteUrl(trial.scoreboardUrlPath)} target="_blank" rel="noreferrer">Open</a> : <span className="table-muted">Off</span>}</td></tr>
                     })}</tbody></table></div>
                   )}

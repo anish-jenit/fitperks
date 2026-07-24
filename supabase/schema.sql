@@ -370,7 +370,8 @@ create table if not exists organization_trials (
   enable_executive_summary boolean not null default false,
   enable_celebration_animations boolean not null default true,
   enable_ai_for_jj_squat_demo boolean not null default true,
-  enable_ai_for_plank_demo boolean not null default true,
+  enable_plank_demo boolean not null default false,
+  enable_ai_for_plank_demo boolean not null default false,
   access_duration_minutes int not null check (access_duration_minutes between 5 and 1440),
   expires_at timestamptz not null,
   created_by_user_id uuid references auth.users(id) on delete set null,
@@ -386,7 +387,9 @@ alter table organization_trials add column if not exists enable_ai_announcer boo
 alter table organization_trials add column if not exists enable_executive_summary boolean not null default false;
 alter table organization_trials add column if not exists enable_celebration_animations boolean not null default true;
 alter table organization_trials add column if not exists enable_ai_for_jj_squat_demo boolean not null default true;
-alter table organization_trials add column if not exists enable_ai_for_plank_demo boolean not null default true;
+alter table organization_trials add column if not exists enable_plank_demo boolean not null default false;
+alter table organization_trials add column if not exists enable_ai_for_plank_demo boolean not null default false;
+update organization_trials set enable_ai_for_plank_demo = false where enable_plank_demo = false;
 
 create table if not exists organization_trial_attempts (
   id uuid primary key default gen_random_uuid(),
@@ -2296,6 +2299,7 @@ $$;
 drop function if exists public.create_organization_trial(text, text, text, text, int);
 drop function if exists public.create_organization_trial(text, text, text, text, text[], int);
 drop function if exists public.create_organization_trial(text, text, text, text, text[], boolean, boolean, int);
+drop function if exists public.create_organization_trial(text, text, text, text, text[], boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean, int);
 
 create or replace function public.create_organization_trial(
   p_organization_name text,
@@ -2311,6 +2315,7 @@ create or replace function public.create_organization_trial(
   p_enable_executive_summary boolean,
   p_enable_celebration_animations boolean,
   p_enable_ai_for_jj_squat_demo boolean,
+  p_enable_plank_demo boolean,
   p_enable_ai_for_plank_demo boolean,
   p_access_duration_minutes int
 )
@@ -2331,6 +2336,7 @@ declare
   v_enable_executive_summary boolean;
   v_enable_celebration_animations boolean;
   v_enable_ai_for_jj_squat_demo boolean;
+  v_enable_plank_demo boolean;
   v_enable_ai_for_plank_demo boolean;
 begin
   if not is_platform_admin() then
@@ -2355,7 +2361,8 @@ begin
   v_enable_executive_summary := coalesce(p_enable_executive_summary, false);
   v_enable_celebration_animations := coalesce(p_enable_celebration_animations, true);
   v_enable_ai_for_jj_squat_demo := coalesce(p_enable_ai_for_jj_squat_demo, true);
-  v_enable_ai_for_plank_demo := coalesce(p_enable_ai_for_plank_demo, true);
+  v_enable_plank_demo := coalesce(p_enable_plank_demo, false);
+  v_enable_ai_for_plank_demo := v_enable_plank_demo and coalesce(p_enable_ai_for_plank_demo, false);
 
   select coalesce(array_agg(team_name order by team_name), '{}') into v_team_names
   from (
@@ -2392,6 +2399,7 @@ begin
         enable_executive_summary,
         enable_celebration_animations,
         enable_ai_for_jj_squat_demo,
+        enable_plank_demo,
         enable_ai_for_plank_demo,
         access_duration_minutes,
         expires_at,
@@ -2412,6 +2420,7 @@ begin
         v_enable_executive_summary,
         v_enable_celebration_animations,
         v_enable_ai_for_jj_squat_demo,
+        v_enable_plank_demo,
         v_enable_ai_for_plank_demo,
         p_access_duration_minutes,
         now() + make_interval(mins => p_access_duration_minutes),
@@ -2440,6 +2449,7 @@ begin
     'enable_executive_summary', v_trial.enable_executive_summary,
     'enable_celebration_animations', v_trial.enable_celebration_animations,
     'enable_ai_for_jj_squat_demo', v_trial.enable_ai_for_jj_squat_demo,
+    'enable_plank_demo', v_trial.enable_plank_demo,
     'enable_ai_for_plank_demo', v_trial.enable_ai_for_plank_demo,
     'access_duration_minutes', v_trial.access_duration_minutes,
     'expires_at', v_trial.expires_at,
@@ -2494,6 +2504,7 @@ begin
     'enable_executive_summary', v_trial.enable_executive_summary,
     'enable_celebration_animations', v_trial.enable_celebration_animations,
     'enable_ai_for_jj_squat_demo', v_trial.enable_ai_for_jj_squat_demo,
+    'enable_plank_demo', v_trial.enable_plank_demo,
     'enable_ai_for_plank_demo', v_trial.enable_ai_for_plank_demo,
     'access_duration_minutes', v_trial.access_duration_minutes,
     'expires_at', v_trial.expires_at,
@@ -2523,6 +2534,7 @@ returns table(
   enable_executive_summary boolean,
   enable_celebration_animations boolean,
   enable_ai_for_jj_squat_demo boolean,
+  enable_plank_demo boolean,
   enable_ai_for_plank_demo boolean,
   access_duration_minutes int,
   expires_at timestamptz,
@@ -2541,7 +2553,7 @@ begin
   select t.id, t.code, t.organization_name, t.organization_code, t.country_code,
     t.display_message, t.team_names, t.enable_team_names, t.enable_nicknames,
     t.enable_ai_overlay, t.enable_ai_live_coach, t.enable_ai_announcer, t.enable_executive_summary,
-    t.enable_celebration_animations, t.enable_ai_for_jj_squat_demo, t.enable_ai_for_plank_demo,
+    t.enable_celebration_animations, t.enable_ai_for_jj_squat_demo, t.enable_plank_demo, t.enable_ai_for_plank_demo,
     t.access_duration_minutes, t.expires_at, t.created_at
   from organization_trials t
   order by t.created_at desc;

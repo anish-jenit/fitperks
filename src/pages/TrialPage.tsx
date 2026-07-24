@@ -145,7 +145,7 @@ export function TrialExperiencePage() {
             </Link>
             <div className="hero-actions trial-workout-actions">
               <Link className="button primary" to={`/trial/${trial.code}/workout/burpee?camera=1`}>Start demo</Link>
-              <Link className="button ghost" to={`/trial/${trial.code}/workout/plank?camera=1`}>Plank challenge</Link>
+              {trial.enablePlankDemo ? <Link className="button ghost" to={`/trial/${trial.code}/workout/plank?camera=1`}>Plank challenge</Link> : null}
             </div>
             <Link className="button ghost trial-details-link" to={`/trial/${trial.code}`}>View trial details and URLs</Link>
           </div>
