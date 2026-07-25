@@ -21,7 +21,7 @@ import {
 } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
 import { clearParticipantProfile, getConfiguredOrganizationCode, getLastGuestChallengeCode, getLastGuestEmail, getLastGuestName, saveGuestJoinContext, saveParticipantProfile } from '../lib/storage'
-import { DEFAULT_AI_DEMO_SETTINGS, type AIDemoSettings, type ChallengeConfig, type ChallengeRecord, type ExerciseType, type GuestChallengeRecord, type OrganizationTrialRecord } from '../types'
+import { DEFAULT_AI_DEMO_SETTINGS, type AIDemoSettings, type ChallengeConfig, type ChallengeRecord, type ExerciseType, type GuestChallengeRecord, type OrganizationTrialRecord, type SoloExerciseType } from '../types'
 
 type NormalizedLandmark = {
   x: number
@@ -113,7 +113,7 @@ const TRIAL_COMPLETION_MESSAGES = [
 ]
 
 type TrialDemoStage = 'jumping-jacks' | 'transition' | 'squats' | 'plank' | 'complete'
-type TrialExerciseMode = ExerciseType | 'plank'
+type TrialExerciseMode = SoloExerciseType
 
 const PLANK_CHALLENGE: Omit<ChallengeConfig, 'id'> & { id: 'plank' } = {
   id: 'plank',
@@ -304,7 +304,7 @@ export function WorkoutPage() {
   const shouldAutoEnableCamera = isTrialWorkout
   const configuredOrgCode = getConfiguredOrganizationCode()
   const { settings, loading: settingsLoading } = useEventSettings()
-  const exercise = (exerciseParam ?? '') as ExerciseType
+  const exercise = (exerciseParam ?? '') as SoloExerciseType
   const initialTrialStage: TrialDemoStage = exerciseParam === 'plank' ? 'plank' : 'jumping-jacks'
   const [trialDemoStage, setTrialDemoStage] = useState<TrialDemoStage>(initialTrialStage)
   const trialExercise: TrialExerciseMode = exerciseParam === 'plank' ? 'plank' : trialDemoStage === 'squats' || trialDemoStage === 'transition' || trialDemoStage === 'complete' ? 'squat' : 'burpee'
@@ -487,7 +487,7 @@ export function WorkoutPage() {
 
     if (isSoloWorkout) {
       const now = new Date()
-      setSecondsLeft(settings.sessionDurationSeconds)
+      setSecondsLeft(exerciseParam === 'plank' ? 0 : settings.sessionDurationSeconds)
       setActiveChallenge({
         id: 'solo-challenge',
         organization_id: 'solo',
@@ -700,7 +700,7 @@ export function WorkoutPage() {
         }))
       }
 
-      if (challenge.id === 'plank') {
+      if (challenge?.id === 'plank') {
         setIsPlankPostureValid(pose.isPlank)
         return
       }
@@ -902,7 +902,7 @@ export function WorkoutPage() {
     }
 
     const interval = window.setInterval(() => {
-      if (isTrialPlank) {
+      if (challenge?.id === 'plank') {
         if (!isPlankPostureValid) {
           return
         }
@@ -912,7 +912,9 @@ export function WorkoutPage() {
           if (next >= totalSessionSeconds) {
             window.clearInterval(interval)
             setIsWorkoutRunning(false)
-            setTrialDemoStage('complete')
+            if (isTrialWorkout) {
+              setTrialDemoStage('complete')
+            }
             setIsSessionComplete(true)
             cameraRef.current?.stop()
           }
@@ -958,7 +960,7 @@ export function WorkoutPage() {
     return () => {
       window.clearInterval(interval)
     }
-  }, [isPlankPostureValid, isSessionComplete, isTrialPlank, isTrialWorkout, isWorkoutRunning, totalSessionSeconds, trialDemoStage])
+  }, [challenge, isPlankPostureValid, isSessionComplete, isTrialWorkout, isWorkoutRunning, totalSessionSeconds, trialDemoStage])
 
   useEffect(() => {
     if (!isTrialWorkout || trialDemoStage !== 'transition') {
@@ -1126,7 +1128,7 @@ export function WorkoutPage() {
     setPaceFeedback(null)
     setTrialBestScore(null)
     setTrialBestTeamScore(null)
-    setSecondsLeft(isTrialWorkout && exerciseParam === 'plank' ? 0 : guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds)
+    setSecondsLeft(challenge?.id === 'plank' ? 0 : guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds)
     setIsSessionComplete(false)
     setWasFinishedEarly(false)
     setIsWorkoutRunning(false)
@@ -1220,7 +1222,7 @@ export function WorkoutPage() {
     setPaceFeedback(null)
     setTrialBestScore(null)
     setTrialBestTeamScore(null)
-    setSecondsLeft(isTrialWorkout && exerciseParam === 'plank' ? 0 : totalSessionSeconds)
+    setSecondsLeft(challenge?.id === 'plank' ? 0 : totalSessionSeconds)
     setIsSessionComplete(false)
     setWasFinishedEarly(false)
     setIsWorkoutRunning(false)
@@ -1321,7 +1323,9 @@ export function WorkoutPage() {
       }
 
       if (isSoloWorkout) {
-        if (!standardExercise) {
+        const soloExercise: SoloExerciseType | null = challenge.id === 'plank' ? 'plank' : standardExercise
+
+        if (!soloExercise) {
           throw new Error('Invalid solo workout.')
         }
 
@@ -1333,7 +1337,7 @@ export function WorkoutPage() {
           playerName: saveName.trim() || 'Solo Player',
           playerEmail: saveEmail.trim(),
           sessionId,
-          exercise: standardExercise,
+          exercise: soloExercise,
           reps: repCount,
         })
 

@@ -1,4 +1,5 @@
 export type ExerciseType = 'squat' | 'burpee' | 'high-knees' | 'lunges'
+export type SoloExerciseType = ExerciseType | 'plank'
 
 export type AIDemoSettings = {
   enableAIOverlay: boolean
@@ -277,6 +278,13 @@ export type SoloProgressBucket = {
   activeDays: number
 }
 
+export type SoloAchievementBadge = {
+  code: string
+  title: string
+  description: string
+  tone: 'level' | 'streak' | 'gold' | 'star'
+}
+
 export type SoloComparisonRow = {
   rank: number
   playerName: string
@@ -291,6 +299,8 @@ export type SoloProgressSummary = {
   playerEmail: string
   currentStreak: number
   longestStreak: number
+  level: number
+  badges: SoloAchievementBadge[]
   todayBestScore: number
   todayMaxReps: number
   totalAttempts: number

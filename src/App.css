@@ -3510,6 +3510,75 @@ select:focus {
   margin-top: 0.25rem;
 }
 
+.solo-badge-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.solo-badge {
+  display: grid;
+  gap: 0.22rem;
+  min-width: 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  border-radius: var(--radius);
+  background: rgba(6, 78, 59, 0.22);
+}
+
+.solo-badge strong {
+  color: #dcfce7;
+  font-size: 0.82rem;
+  line-height: 1.15;
+}
+
+.solo-badge em {
+  color: #a7f3d0;
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.solo-badge-level {
+  border-color: rgba(17, 201, 244, 0.34);
+  background: rgba(17, 201, 244, 0.1);
+}
+
+.solo-badge-level em {
+  color: #c6f5ff;
+}
+
+.solo-badge-gold {
+  border-color: rgba(250, 204, 21, 0.42);
+  background: rgba(113, 63, 18, 0.24);
+}
+
+.solo-badge-gold strong,
+.solo-badge-gold em {
+  color: #fef3c7;
+}
+
+.solo-badge-star {
+  border-color: rgba(192, 132, 252, 0.38);
+  background: rgba(88, 28, 135, 0.18);
+}
+
+.solo-badge-star em {
+  color: #e9d5ff;
+}
+
+.solo-badge-muted {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.38);
+}
+
+.solo-badge-muted strong,
+.solo-badge-muted em {
+  color: #b8c5ca;
+}
+
 .solo-chart-head {
   display: flex;
   align-items: center;

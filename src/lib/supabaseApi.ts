@@ -12,6 +12,7 @@ import type {
   GuestChallengeRecord,
   GuestChallengeSummary,
   GuestScoreboardRow,
+  SoloExerciseType,
   SoloProgressSummary,
   InviteSetupContext,
   IndividualLeaderboardRow,
@@ -45,7 +46,7 @@ type StubFlowState = {
     playerName: string
     playerEmail: string
     sessionId: string
-    exercise: ExerciseType
+    exercise: SoloExerciseType
     reps: number
     score: number
     createdAt: string
@@ -394,7 +395,7 @@ export async function getOrganizationInvites(): Promise<OrganizationInviteRecord
 
 export async function submitWorkoutSecure(input: {
   sessionId: string
-  exercise: ExerciseType
+  exercise: SoloExerciseType
   reps: number
 }): Promise<{ workoutId: string; idempotent: boolean; pointsAdded: number; qualifying: boolean }> {
   const { data, error } = await supabase.rpc('submit_workout_secure', {
@@ -960,7 +961,7 @@ export async function updateChallengeConfig(input: {
   })
 }
 
-function scoreExercise(exercise: ExerciseType, reps: number): number {
+function scoreExercise(exercise: SoloExerciseType, reps: number): number {
   return reps * (exercise === 'burpee' || exercise === 'lunges' ? 2 : 1)
 }
 
@@ -974,6 +975,13 @@ function mapSoloProgressSummary(payload: any): SoloProgressSummary {
     playerEmail: payload?.player_email ?? '',
     currentStreak: Number(payload?.current_streak ?? 0),
     longestStreak: Number(payload?.longest_streak ?? 0),
+    level: Number(payload?.level ?? 1),
+    badges: ((payload?.badges ?? []) as any[]).map((row) => ({
+      code: String(row.code ?? ''),
+      title: String(row.title ?? ''),
+      description: String(row.description ?? ''),
+      tone: (['level', 'streak', 'gold', 'star'].includes(String(row.tone)) ? String(row.tone) : 'star') as 'level' | 'streak' | 'gold' | 'star',
+    })),
     todayBestScore: Number(payload?.today_best_score ?? 0),
     todayMaxReps: Number(payload?.today_max_reps ?? 0),
     totalAttempts: Number(payload?.total_attempts ?? 0),
@@ -1118,11 +1126,20 @@ function buildStubSoloProgress(playerEmail: string): SoloProgressSummary {
   })
 
   const todayBest = bestByDay.get(dayjs().format('YYYY-MM-DD'))
+  const level = Math.max(1, Math.floor(longestStreak / 7) + 1)
+  const badges = [
+    { code: `level_${level}`, title: `Level ${level}`, description: 'Solo performance level', tone: 'level' as const },
+    ...(currentStreak >= 7 ? [{ code: 'streak_7', title: '7-day streak', description: 'Completed solo workouts seven days in a row', tone: 'streak' as const }] : []),
+    ...(todayBest?.score ? [{ code: 'daily_champion', title: 'Best player of the day', description: 'Top solo score today', tone: 'gold' as const }] : []),
+  ]
+
   return {
     playerName,
     playerEmail: normalizedEmail,
     currentStreak,
     longestStreak,
+    level,
+    badges,
     todayBestScore: todayBest?.score ?? 0,
     todayMaxReps: todayBest?.reps ?? 0,
     totalAttempts: playerAttempts.length,
@@ -1325,7 +1342,7 @@ export async function submitSoloAttempt(input: {
   playerName: string
   playerEmail: string
   sessionId: string
-  exercise: ExerciseType
+  exercise: SoloExerciseType
   reps: number
 }): Promise<{ score: number }> {
   const normalizedEmail = input.playerEmail.trim().toLowerCase()

@@ -3,13 +3,15 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { CHALLENGES } from '../lib/constants'
 import { getSoloProgress } from '../lib/supabaseApi'
 import { getLastGuestEmail, getLastGuestName, saveGuestJoinContext } from '../lib/storage'
-import type { ExerciseType, SoloComparisonRow, SoloProgressBucket, SoloProgressSummary } from '../types'
+import type { SoloComparisonRow, SoloExerciseType, SoloProgressBucket, SoloProgressSummary } from '../types'
 
 const EMPTY_PROGRESS: SoloProgressSummary = {
   playerName: '',
   playerEmail: '',
   currentStreak: 0,
   longestStreak: 0,
+  level: 1,
+  badges: [],
   todayBestScore: 0,
   todayMaxReps: 0,
   totalAttempts: 0,
@@ -20,7 +22,7 @@ const EMPTY_PROGRESS: SoloProgressSummary = {
   maxRepLeaders: [],
 }
 
-const SOLO_EXERCISES: ExerciseType[] = ['squat', 'burpee', 'high-knees', 'lunges']
+const SOLO_EXERCISES: SoloExerciseType[] = ['squat', 'burpee', 'high-knees', 'lunges', 'plank']
 
 type ChartMode = 'daily' | 'weekly' | 'monthly'
 
@@ -59,6 +61,24 @@ function SoloEmptyProgress() {
         <span>Streak day 1</span>
         <span>Leaderboard ready</span>
       </div>
+    </div>
+  )
+}
+
+function SoloBadges({ badges }: { badges: SoloProgressSummary['badges'] }) {
+  return (
+    <div className="solo-badge-strip" aria-label="Solo achievements">
+      {badges.length ? badges.slice(0, 6).map((badge) => (
+        <span className={`solo-badge solo-badge-${badge.tone}`} title={badge.description} key={badge.code}>
+          <strong>{badge.title}</strong>
+          <em>{badge.description}</em>
+        </span>
+      )) : (
+        <span className="solo-badge solo-badge-muted">
+          <strong>Badges waiting</strong>
+          <em>Save a solo score to unlock achievements</em>
+        </span>
+      )}
     </div>
   )
 }
@@ -152,7 +172,9 @@ export function SoloPlayerPage() {
 
             <div className="solo-workouts">
               {SOLO_EXERCISES.map((exercise) => {
-                const workout = CHALLENGES.find((item) => item.id === exercise)
+                const workout = exercise === 'plank'
+                  ? { id: 'plank', name: 'Plank Challenge' }
+                  : CHALLENGES.find((item) => item.id === exercise)
                 return workout ? (
                   <Link
                     className={`button primary solo-workout-button solo-workout-${exercise}`}
@@ -179,8 +201,9 @@ export function SoloPlayerPage() {
               <article><span>Today best</span><strong>{progress.todayBestScore}</strong></article>
               <article><span>Max reps</span><strong>{progress.todayMaxReps}</strong></article>
               <article><span>Streak</span><strong>{progress.currentStreak}</strong></article>
-              <article><span>Attempts</span><strong>{progress.totalAttempts}</strong></article>
+              <article><span>Level</span><strong>{progress.level}</strong></article>
             </div>
+            <SoloBadges badges={progress.badges} />
 
             <div className="solo-chart-card">
               <div className="solo-chart-head">

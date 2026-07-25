@@ -342,6 +342,19 @@ alter table guest_challenge_attempts drop constraint if exists guest_challenge_a
 alter table guest_challenge_attempts add constraint guest_challenge_attempts_exercise_check check (exercise in ('squat', 'burpee', 'high-knees', 'lunges'));
 
 
+create table if not exists solo_player_profiles (
+  player_email text primary key,
+  player_name text not null default 'Solo Player',
+  level int not null default 1 check (level >= 1),
+  last_level_change_date date,
+  last_level_up_streak int not null default 0,
+  last_workout_date date,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table solo_player_profiles add column if not exists last_level_up_streak int not null default 0;
+
 create table if not exists solo_player_attempts (
   id uuid primary key default gen_random_uuid(),
   player_email text not null,
@@ -353,6 +366,9 @@ create table if not exists solo_player_attempts (
   created_at timestamptz not null default now(),
   unique (player_email, session_id)
 );
+
+alter table solo_player_attempts drop constraint if exists solo_player_attempts_exercise_check;
+alter table solo_player_attempts add constraint solo_player_attempts_exercise_check check (exercise in ('squat', 'burpee', 'high-knees', 'lunges', 'plank'));
 
 create table if not exists organization_trials (
   id uuid primary key default gen_random_uuid(),
@@ -469,6 +485,7 @@ create index if not exists idx_guest_challenge_players_email on guest_challenge_
 drop index if exists idx_guest_challenges_creator_email_active;
 create index if not exists idx_guest_challenges_creator_email on guest_challenges(lower(creator_email)) where deleted_at is null and creator_email <> '';
 create index if not exists idx_guest_challenge_attempts_challenge_created on guest_challenge_attempts(challenge_id, created_at desc);
+create index if not exists idx_solo_player_profiles_updated on solo_player_profiles(updated_at desc);
 create index if not exists idx_solo_player_attempts_email_created on solo_player_attempts(lower(player_email), created_at desc);
 create index if not exists idx_solo_player_attempts_created on solo_player_attempts(created_at desc);
 create index if not exists idx_organization_trials_code on organization_trials(code);
@@ -1215,7 +1232,7 @@ begin
     raise exception 'Authentication required';
   end if;
 
-  if p_exercise not in ('squat', 'burpee', 'high-knees', 'lunges') then
+  if p_exercise not in ('squat', 'burpee', 'high-knees', 'lunges', 'plank') then
     raise exception 'Invalid exercise';
   end if;
 
@@ -2066,7 +2083,7 @@ declare
 begin
   perform purge_expired_guest_challenges();
 
-  if p_exercise not in ('squat', 'burpee', 'high-knees', 'lunges') then
+  if p_exercise not in ('squat', 'burpee', 'high-knees', 'lunges', 'plank') then
     raise exception 'Invalid exercise';
   end if;
 
@@ -2728,8 +2745,12 @@ as $$
 declare
   v_score int;
   v_attempt solo_player_attempts%rowtype;
+  v_level int;
+  v_last_level_up_streak int;
+  v_last_workout_date date;
+  v_current_streak int := 0;
 begin
-  if p_exercise not in ('squat', 'burpee', 'high-knees', 'lunges') then
+  if p_exercise not in ('squat', 'burpee', 'high-knees', 'lunges', 'plank') then
     raise exception 'Invalid exercise';
   end if;
 
@@ -2746,6 +2767,18 @@ begin
     when p_exercise = 'lunges' then 2
     else 1
   end;
+
+  insert into solo_player_profiles (player_email, player_name)
+  values (lower(trim(p_player_email)), coalesce(nullif(trim(p_player_name), ''), 'Solo Player'))
+  on conflict (player_email) do update
+  set player_name = excluded.player_name,
+      level = case
+        when solo_player_profiles.last_workout_date is not null
+          and current_date - solo_player_profiles.last_workout_date >= 7
+          then greatest(1, solo_player_profiles.level - 1)
+        else solo_player_profiles.level
+      end,
+      updated_at = now();
 
   insert into solo_player_attempts (
     player_email,
@@ -2769,6 +2802,34 @@ begin
       reps = excluded.reps,
       score = excluded.score
   returning * into v_attempt;
+
+  while exists (
+    select 1
+    from solo_player_attempts
+    where lower(player_email) = lower(trim(p_player_email))
+      and created_at::date = current_date - v_current_streak
+  ) loop
+    v_current_streak := v_current_streak + 1;
+  end loop;
+
+  select level, last_level_up_streak, last_workout_date into v_level, v_last_level_up_streak, v_last_workout_date
+  from solo_player_profiles
+  where player_email = lower(trim(p_player_email));
+
+  if v_current_streak > 0
+    and v_current_streak % 7 = 0
+    and v_current_streak > coalesce(v_last_level_up_streak, 0) then
+    v_level := v_level + 1;
+    v_last_level_up_streak := v_current_streak;
+  end if;
+
+  update solo_player_profiles
+  set level = v_level,
+      last_level_change_date = case when level <> v_level then current_date else last_level_change_date end,
+      last_level_up_streak = coalesce(v_last_level_up_streak, last_level_up_streak),
+      last_workout_date = current_date,
+      updated_at = now()
+  where player_email = lower(trim(p_player_email));
 
   return jsonb_build_object('score', v_attempt.score);
 end;
@@ -2798,16 +2859,32 @@ declare
   v_today_max_reps int := 0;
   v_total_attempts int := 0;
   v_player_name text := '';
+  v_level int := 1;
+  v_last_workout_date date := null;
+  v_badges jsonb := '[]'::jsonb;
 begin
   if nullif(v_email, '') is null then
     v_email := '';
   end if;
 
-  select coalesce(player_name, '') into v_player_name
-  from solo_player_attempts
-  where lower(player_email) = v_email
-  order by created_at desc
-  limit 1;
+  select coalesce(player_name, ''), level, last_workout_date
+  into v_player_name, v_level, v_last_workout_date
+  from solo_player_profiles
+  where player_email = v_email;
+
+  if v_level is null then
+    select coalesce(player_name, '') into v_player_name
+    from solo_player_attempts
+    where lower(player_email) = v_email
+    order by created_at desc
+    limit 1;
+    v_level := 1;
+  elsif v_last_workout_date is not null and current_date - v_last_workout_date >= 7 then
+    v_level := greatest(1, v_level - 1);
+    update solo_player_profiles
+    set level = v_level, updated_at = now()
+    where player_email = v_email;
+  end if;
 
   select count(*)::int into v_total_attempts
   from solo_player_attempts
@@ -2969,23 +3046,83 @@ begin
     select *, dense_rank() over (order by max_reps desc, best_daily_score desc, player_name asc) as rank
     from player_rollup
   )
-  select coalesce(jsonb_agg(jsonb_build_object(
-    'rank', rank,
-    'player_name', player_name,
-    'player_email', player_email,
-    'consistency_days', consistency_days,
-    'max_reps', max_reps,
-    'best_daily_score', best_daily_score
-  ) order by rank, player_name), '[]'::jsonb)
-  into v_max_reps
-  from ranked
-  where rank <= 8;
+  select coalesce(jsonb_agg(badge), '[]'::jsonb)
+  into v_badges
+  from (
+    select jsonb_build_object(
+      'code', 'level_' || v_level,
+      'title', 'Level ' || v_level,
+      'description', 'Solo performance level',
+      'tone', 'level'
+    ) as badge
+    union all
+    select jsonb_build_object(
+      'code', 'streak_7',
+      'title', '7-day streak',
+      'description', 'Completed solo workouts seven days in a row',
+      'tone', 'streak'
+    )
+    where v_current_streak >= 7
+    union all
+    select jsonb_build_object(
+      'code', 'daily_champion',
+      'title', 'Best player of the day',
+      'description', 'Top solo score today',
+      'tone', 'gold'
+    )
+    where v_today_best_score > 0 and not exists (
+      select 1
+      from (
+        select lower(player_email) as player_email, max(score) as best_score
+        from solo_player_attempts
+        where created_at::date = current_date
+        group by lower(player_email)
+      ) today_scores
+      where today_scores.best_score > v_today_best_score
+    )
+    union all
+    select jsonb_build_object(
+      'code', 'weekly_champion',
+      'title', 'Best player of the week',
+      'description', 'Top solo score this week',
+      'tone', 'gold'
+    )
+    where exists (select 1 from solo_player_attempts where lower(player_email) = v_email and created_at >= date_trunc('week', current_date))
+      and not exists (
+        select 1
+        from (
+          select lower(player_email) as player_email, max(score) as best_score
+          from solo_player_attempts
+          where created_at >= date_trunc('week', current_date)
+          group by lower(player_email)
+        ) week_scores
+        where week_scores.best_score > (
+          select max(score) from solo_player_attempts where lower(player_email) = v_email and created_at >= date_trunc('week', current_date)
+        )
+      )
+    union all
+    select jsonb_build_object(
+      'code', 'star_' || exercise,
+      'title', 'Star ' || initcap(replace(exercise, '-', ' ')),
+      'description', 'Top reps for this workout',
+      'tone', 'star'
+    )
+    from (
+      select distinct exercise
+      from solo_player_attempts mine
+      where lower(mine.player_email) = v_email
+        and mine.reps > 0
+        and mine.reps >= (select max(all_attempts.reps) from solo_player_attempts all_attempts where all_attempts.exercise = mine.exercise)
+    ) exercise_stars
+  ) badges;
 
   return jsonb_build_object(
     'player_name', coalesce(v_player_name, ''),
     'player_email', v_email,
     'current_streak', v_current_streak,
     'longest_streak', v_longest_streak,
+    'level', coalesce(v_level, 1),
+    'badges', v_badges,
     'today_best_score', v_today_best_score,
     'today_max_reps', v_today_max_reps,
     'total_attempts', v_total_attempts,
@@ -3088,6 +3225,7 @@ alter table point_transactions enable row level security;
 alter table guest_challenges enable row level security;
 alter table guest_challenge_players enable row level security;
 alter table guest_challenge_attempts enable row level security;
+alter table solo_player_profiles enable row level security;
 alter table solo_player_attempts enable row level security;
 alter table organization_trials enable row level security;
 alter table organization_trial_attempts enable row level security;
