@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from '../router'
 import { getOrganizationTrial, getOrganizationTrialScoreboard } from '../lib/supabaseApi'
 import type { OrganizationTrialRecord, OrganizationTrialScoreboardRow } from '../types'
 

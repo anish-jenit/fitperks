@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams } from '../router'
 import { AILivePanel } from '../components/AILivePanel'
 import { useEventSettings } from '../hooks/useEventSettings'
 import { CHALLENGES, CHALLENGE_VIDEO_PATH } from '../lib/constants'

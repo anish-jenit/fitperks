@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from '../router'
 import { CHALLENGES } from '../lib/constants'
 import { getSoloProgress } from '../lib/supabaseApi'
 import { getLastGuestEmail, getLastGuestName, saveGuestJoinContext } from '../lib/storage'

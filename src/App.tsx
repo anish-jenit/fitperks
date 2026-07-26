@@ -1,4 +1,4 @@
-import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Link, Navigate, Route, Routes, useLocation } from './router'
 import './App.css'
 import { AdminPage } from './pages/AdminPage'
 import { ChallengeSelectPage } from './pages/ChallengeSelectPage'

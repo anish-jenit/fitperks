@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from '../router'
 import { CHALLENGES } from '../lib/constants'
 import { createGuestChallenge, getGuestChallenge, getGuestChallengeForCreator, getGuestChallengesForEmail, getGuestScoreboard } from '../lib/supabaseApi'
 import { getLastGuestChallengeCode, getLastGuestEmail, getLastGuestName, getOrCreateGuestCreatorKey, saveGuestJoinContext } from '../lib/storage'

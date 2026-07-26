@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from '../router'
 import { CommuteWorkoutAnime } from '../components/CommuteWorkoutAnime'
 import { getPublicLaunchContext } from '../lib/supabaseApi'
 import { setConfiguredOrganizationCode } from '../lib/storage'

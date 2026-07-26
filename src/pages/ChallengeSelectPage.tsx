@@ -1,6 +1,6 @@
 import dayjs from 'dayjs'
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from '../router'
 import { CHALLENGES, CHALLENGE_VIDEO_PATH } from '../lib/constants'
 import { getActiveChallenge } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'

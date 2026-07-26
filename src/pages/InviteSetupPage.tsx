@@ -1,6 +1,6 @@
 import dayjs from 'dayjs'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams } from '../router'
 import { cancelInviteChallenge, completeInviteSetup, getInviteSetupContext } from '../lib/supabaseApi'
 import type { InviteSetupContext } from '../types'
 

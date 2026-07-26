@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from '../router'
 import { joinOrganizationAndRegister } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
 import { saveParticipantProfile, setConfiguredOrganizationCode } from '../lib/storage'
