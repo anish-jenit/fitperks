@@ -115,6 +115,10 @@ const TRIAL_COMPLETION_MESSAGES = [
 type TrialDemoStage = 'jumping-jacks' | 'transition' | 'squats' | 'plank' | 'complete'
 type TrialExerciseMode = SoloExerciseType
 
+const DEFAULT_MIN_REP_INTERVAL_MS = 650
+const JUMPING_JACK_CONFIRM_FRAMES = 2
+const JUMPING_JACK_MIN_REP_INTERVAL_MS = 360
+
 const PLANK_CHALLENGE: Omit<ChallengeConfig, 'id'> & { id: 'plank' } = {
   id: 'plank',
   name: 'Plank Challenge',
@@ -653,10 +657,10 @@ export function WorkoutPage() {
     setCameraAttempt(1)
   }, [activeChallenge, cameraAttempt, challenge, isSessionComplete, shouldAutoEnableCamera])
 
-  const recordRep = useCallback(() => {
+  const recordRep = useCallback((minIntervalMs = DEFAULT_MIN_REP_INTERVAL_MS) => {
     const now = performance.now()
     const lastRepAt = lastRepAtRef.current
-    if (lastRepAt !== null && now - lastRepAt < 650) {
+    if (lastRepAt !== null && now - lastRepAt < minIntervalMs) {
       return
     }
 
@@ -720,7 +724,7 @@ export function WorkoutPage() {
         const now = performance.now()
         if (jumpingJackStageRef.current === 'closed' && pose.isJumpingJackOpen) {
           jumpingJackOpenFramesRef.current += 1
-          if (jumpingJackOpenFramesRef.current >= 5) {
+          if (jumpingJackOpenFramesRef.current >= JUMPING_JACK_CONFIRM_FRAMES) {
             jumpingJackStageRef.current = 'open'
             jumpingJackOpenFramesRef.current = 0
             jumpingJackClosedFramesRef.current = 0
@@ -729,12 +733,15 @@ export function WorkoutPage() {
           jumpingJackOpenFramesRef.current = 0
         } else if (pose.isJumpingJackClosed) {
           jumpingJackClosedFramesRef.current += 1
-          if (jumpingJackClosedFramesRef.current >= 5 && now - lastJumpingJackRepAtRef.current >= 900) {
+          if (
+            jumpingJackClosedFramesRef.current >= JUMPING_JACK_CONFIRM_FRAMES &&
+            now - lastJumpingJackRepAtRef.current >= JUMPING_JACK_MIN_REP_INTERVAL_MS
+          ) {
             jumpingJackStageRef.current = 'closed'
             jumpingJackOpenFramesRef.current = 0
             jumpingJackClosedFramesRef.current = 0
             lastJumpingJackRepAtRef.current = now
-            recordRep()
+            recordRep(JUMPING_JACK_MIN_REP_INTERVAL_MS)
           }
         } else {
           jumpingJackClosedFramesRef.current = 0
