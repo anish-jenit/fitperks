@@ -458,7 +458,7 @@ test('guest limited challenge creates shareable challenge and scoreboard links',
   await page.getByLabel('Email address').fill('maya@example.com')
   await page.getByRole('button', { name: 'Create Challenge' }).click()
 
-  await expect(page.getByText('Challenge code')).toBeVisible()
+  await expect(page.locator('.copy-card').filter({ hasText: 'Challenge code' })).toBeVisible()
   await expect(page.getByText('Challenge URL')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(2)
   await expect(page.getByRole('link', { name: 'Open WhatsApp' })).toBeVisible()
@@ -472,8 +472,10 @@ test('guest limited challenge creates shareable challenge and scoreboard links',
   await page.getByRole('button', { name: 'Join with code' }).click()
   await expect(page).toHaveURL(/\/guest\/weekend-move-abc123$/)
   await expect(page.getByRole('heading', { name: 'Weekend Move Challenge' })).toBeVisible()
+  await expect(page.getByText('WEEKEND-MOVE-ABC123')).toBeVisible()
 
   await page.goto('/guest/weekend-move-abc123')
+  await expect(page.getByText('WEEKEND-MOVE-ABC123')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Squat' })).toHaveAttribute('href', '/guest/weekend-move-abc123/workout/squat')
   await expect(page.getByRole('link', { name: 'Jumping Jack' })).toHaveAttribute(
     'href',

@@ -724,6 +724,35 @@
   gap: 0.75rem;
 }
 
+.challenge-code-reference {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: fit-content;
+  margin: 0.35rem 0 1rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(17, 201, 244, 0.42);
+  border-radius: var(--radius);
+  color: #dff8ff;
+  background: rgba(4, 40, 53, 0.45);
+}
+
+.challenge-code-reference span {
+  color: #11c9f4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.challenge-code-reference strong {
+  color: #f8fafc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+}
+
 .url-list article,
 .copy-card {
   display: grid;

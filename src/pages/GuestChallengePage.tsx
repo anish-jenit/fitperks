@@ -89,6 +89,15 @@ function getGuestWorkoutStartLabel(exercise: ExerciseType): string {
   return 'Start Lunge'
 }
 
+function ChallengeCodeReference({ code }: { code: string }) {
+  return (
+    <p className="challenge-code-reference">
+      <span>Challenge code</span>
+      <strong>{code.toUpperCase()}</strong>
+    </p>
+  )
+}
+
 const guestWorkoutActionGridStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
@@ -372,6 +381,7 @@ export function GuestChallengePage() {
         {created ? (
           <div className="setup-result">
             <h2>{created.title}</h2>
+            <ChallengeCodeReference code={created.code} />
             <div className="stats-cards">
               <article>
                 <p className="metric">{created.maxPlayers}</p>
@@ -556,6 +566,7 @@ export function GuestChallengeLandingPage() {
         <p className="hero-kicker">Player Challenge</p>
         <h1>{challenge.title}</h1>
         <p>{challenge.creatorName}</p>
+        <ChallengeCodeReference code={challenge.code} />
         <div className="stats-cards">
           <article>
             <p className="metric">{challenge.maxPlayers}</p>
