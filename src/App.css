@@ -4078,6 +4078,53 @@ select:focus {
 }
 
 @media (max-width: 640px) {
+  .top-nav-minimal {
+    padding: 0.58rem 1rem;
+  }
+
+  .public-home {
+    min-height: calc(100dvh - 3.4rem);
+    align-items: start;
+    padding: 0.65rem 0.85rem calc(env(safe-area-inset-bottom) + 5.25rem);
+  }
+
+  .public-home .minimal-hero {
+    gap: 0.48rem;
+    padding-block: 1rem;
+  }
+
+  .public-home .minimal-mark {
+    width: min(320px, 84vw);
+  }
+
+  .public-home .hero-kicker {
+    font-size: 0.66rem;
+  }
+
+  .public-home .minimal-hero h1 {
+    max-width: 12ch;
+    font-size: clamp(2.2rem, 11.5vw, 3rem);
+    line-height: 0.94;
+  }
+
+  .public-home .minimal-copy {
+    max-width: 30ch;
+    font-size: 0.82rem;
+    line-height: 1.25;
+  }
+
+  .public-home .minimal-actions {
+    gap: 0.5rem;
+    margin-top: 0.3rem;
+  }
+
+  .public-home .minimal-actions .button {
+    min-height: 42px;
+    padding: 0.52rem 0.7rem;
+    font-size: 0.72rem;
+    line-height: 1.08;
+  }
+
   .button,
   .button-small,
   .trial-workout-actions .button,
@@ -4304,12 +4351,12 @@ select:focus {
     position: absolute;
     left: 0.75rem;
     right: 0.75rem;
-    bottom: max(5.25rem, env(safe-area-inset-bottom));
+    bottom: calc(env(safe-area-inset-bottom) + 10.5rem);
     z-index: 7;
     display: grid;
-    gap: 0.55rem;
+    gap: 0.45rem;
     justify-items: center;
-    padding: 0.75rem;
+    padding: 0.6rem;
     border: 1px solid rgba(103, 232, 249, 0.36);
     border-radius: var(--radius);
     background: rgba(3, 7, 18, 0.74);
@@ -4353,7 +4400,7 @@ select:focus {
   .workout-camera-action-overlay p {
     margin: 0;
     color: #e0f2fe;
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     font-weight: 800;
     line-height: 1.15;
     text-align: center;
@@ -4361,7 +4408,7 @@ select:focus {
 
   .button.primary.workout-camera-action-button {
     width: 100%;
-    min-height: 3.15rem;
+    min-height: 2.85rem;
     border: 1px solid #67e8f9;
     border-radius: var(--radius);
     color: #06111f;
@@ -4390,7 +4437,7 @@ select:focus {
   }
 
   .workout-counter-overlay span {
-    font-size: 0.88rem;
+    font-size: 1rem;
     font-weight: 900;
     line-height: 1;
   }
@@ -4398,7 +4445,7 @@ select:focus {
   .workout-counter-overlay strong {
     min-width: 0;
     color: #5eead4;
-    font-size: 1.55rem;
+    font-size: 1.9rem;
     line-height: 1;
   }
 

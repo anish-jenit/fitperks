@@ -423,6 +423,15 @@ test('launch start, challenge list, leaderboards, and admin login render correct
   await expect(page.getByRole('heading', { name: 'Admin Login' })).toBeVisible()
 })
 
+test('mobile home shows all primary actions without scrolling', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+
+  await expect(page.getByRole('link', { name: 'Play Solo' })).toBeInViewport()
+  await expect(page.getByRole('link', { name: 'Create / Join Challenge' })).toBeInViewport()
+  await expect(page.getByRole('link', { name: 'Org Demo' })).toBeInViewport()
+})
+
 test('solo mode exposes push-ups and period high scorers', async ({ page }) => {
   await page.goto('/solo?email=maya@example.com')
 
@@ -500,7 +509,9 @@ test('mobile workout camera keeps score entry out of the camera view', async ({ 
   await expect(page.locator('.camera-privacy-note')).toBeHidden()
 
   const cameraBox = await camera.boundingBox()
+  const actionBox = await page.locator('.workout-camera-action-overlay').boundingBox()
   expect(cameraBox?.height ?? 0).toBeGreaterThan(830)
+  expect(actionBox?.y ?? 844).toBeLessThan(650)
 })
 
 test('organization request handles missing email service', async ({ page }) => {
