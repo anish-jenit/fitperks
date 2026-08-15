@@ -488,6 +488,19 @@ test('guest limited challenge creates shareable challenge and scoreboard links',
   await expect(page.getByText('Waiting for players')).toBeVisible()
 })
 
+test('mobile workout camera keeps score entry out of the camera view', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/guest/weekend-move-abc123/workout/squat')
+
+  const camera = page.locator('.camera-wrapper')
+  await expect(camera).toBeVisible()
+  await expect(page.locator('.workout-score-overlay')).toHaveCount(0)
+  await expect(page.locator('.camera-feed')).toHaveCSS('object-fit', 'contain')
+
+  const cameraBox = await camera.boundingBox()
+  expect(cameraBox?.height ?? 0).toBeGreaterThan(500)
+})
+
 test('organization request handles missing email service', async ({ page }) => {
   await page.goto('/organization-request')
 

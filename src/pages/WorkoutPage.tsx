@@ -1599,6 +1599,97 @@ export function WorkoutPage() {
     )
   }
 
+  if (isSessionComplete && !isTrialWorkout) {
+    const resultBackPath = isGuestWorkout ? `/guest/${challengeCode}` : isSoloWorkout ? '/solo' : '/challenges'
+    const resultBackLabel = isGuestWorkout ? 'Back to player challenge' : isSoloWorkout ? 'Back to solo' : 'Back to challenges'
+    const saveButtonLabel = isSubmitting ? 'Saving...' : isGuestWorkout ? 'Save Score' : isSoloWorkout ? 'Save Solo Score' : 'Save Workout'
+
+    return (
+      <main className="page workout-result-page">
+        <section className="panel workout-result-panel">
+          <p className="hero-kicker">Workout Complete</p>
+          <h1>{challenge.name.replace(' Challenge', '')}</h1>
+          <div className="workout-result-score" aria-live="polite">
+            <span>{challenge.id === 'plank' ? 'Valid hold' : 'Valid reps'}</span>
+            <strong>{repCount}</strong>
+            <em>{points} pts</em>
+          </div>
+
+          {error ? <p className="error">{error}</p> : null}
+          {wasFinishedEarly ? <p className="hint">Workout stopped. Your latest score is ready to save.</p> : null}
+          {saveResult ? (
+            <div className="success-message" role="status">
+              <strong>{saveResult.message}</strong>
+              <Link className="button ghost button-small" to={saveResult.leaderboardPath}>View leaderboard</Link>
+            </div>
+          ) : null}
+
+          {saveResult ? (
+            <div className="workout-result-actions">
+              <button className="button ghost" type="button" onClick={retakeWorkout} disabled={isSubmitting || captureCountdown !== null || captureRequested}>
+                New workout
+              </button>
+              <Link className="button ghost" to={saveResult.leaderboardPath}>Open leaderboard</Link>
+            </div>
+          ) : (
+            <div className="stack workout-result-form">
+              {isGuestWorkout || isSoloWorkout ? (
+                <label>
+                  Player email
+                  <input
+                    type="email"
+                    value={saveEmail}
+                    onChange={(event) => setSaveEmail(event.target.value)}
+                    placeholder="name@example.com"
+                    required
+                  />
+                </label>
+              ) : (
+                <label>
+                  Email
+                  <input
+                    type="email"
+                    value={saveEmail}
+                    onChange={(event) => setSaveEmail(event.target.value)}
+                    placeholder="name@company.com"
+                    required
+                  />
+                </label>
+              )}
+              <label>
+                {isGuestWorkout ? 'Nickname' : isSoloWorkout ? 'Name' : 'Nickname'}
+                <input
+                  value={saveName}
+                  onChange={(event) => setSaveName(event.target.value)}
+                  placeholder="Alex"
+                  required={isGuestWorkout || isSoloWorkout}
+                />
+              </label>
+              {isGuestWorkout || isSoloWorkout ? null : (
+                <label>
+                  Team
+                  <input
+                    value={saveTeam}
+                    onChange={(event) => setSaveTeam(event.target.value)}
+                    placeholder="Engineering"
+                  />
+                </label>
+              )}
+              <button className="button primary" type="button" onClick={() => void submitWorkout()} disabled={isSubmitting}>
+                {saveButtonLabel}
+              </button>
+              <button className="button ghost" type="button" onClick={retakeWorkout} disabled={isSubmitting || captureCountdown !== null || captureRequested}>
+                Retake workout
+              </button>
+            </div>
+          )}
+
+          <Link className="button ghost workout-back-link" to={resultBackPath}>{resultBackLabel}</Link>
+        </section>
+      </main>
+    )
+  }
+
   return (
     <main className="page">
       <section className="panel workout-panel">
@@ -1634,13 +1725,19 @@ export function WorkoutPage() {
                   {positioningMessage}
                 </div>
               ) : null}
+              {shouldShowAIOverlay && movementQuality ? (
+                <div className="workout-intel-icons" aria-label="Movement intelligence">
+                  <span title={`Movement score ${movementQuality.movementScore}/100`}>MI {movementQuality.movementScore}</span>
+                  {movementQuality.statusItems.slice(0, 3).map((item) => (
+                    <span className={`workout-intel-${item.tone}`} title={item.label} key={item.label}>
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
               <div className="workout-counter-overlay" aria-live="polite">
                 <span>Valid reps</span>
                 <strong className={paceFeedback ? 'counter-pulse' : ''}>{repCount}</strong>
-              </div>
-              <div className="workout-score-overlay" aria-live="polite">
-                <span>{isTrialWorkout ? 'Score' : 'Points'}</span>
-                <strong>{displayedScore}</strong>
               </div>
               {isWorkoutRunning ? (
                 <div className={`workout-timer-overlay ${finalTenSeconds ? 'workout-timer-overlay-urgent' : ''}`} aria-live="polite">
