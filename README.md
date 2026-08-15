@@ -24,6 +24,10 @@ FitPerks is an AI-powered wellness platform for companies, schools, and lightwei
 - Completed challenge read-only history in admin UI
 - Public homepage with two clear entry points: guest limited challenge and organization challenge request
 - Guest limited challenges without login, capped at 10 players and purged after the post-challenge grace period
+- Solo mode with daily, weekly, and monthly high-score boards
+- Monthly solo winner records ready for voucher fulfillment workflows
+- Solo anti-cheat flags for suspicious rep totals and unusually frequent attempts
+- Platform admin usage dashboard for solo volume, active demos, reward candidates, and flagged attempts
 
 ## UI/UX Theme Standard
 
@@ -43,6 +47,7 @@ Use the same theme across every FitPerks screen:
 Files:
 
 - `supabase/schema.sql`
+- `supabase/migrations/`
 - `supabase/seed.sql`
 - `supabase/tests.sql`
 
@@ -66,6 +71,9 @@ Key tables:
 - `guest_challenges`
 - `guest_challenge_players`
 - `guest_challenge_attempts`
+- `solo_player_profiles`
+- `solo_player_attempts`
+- `solo_monthly_winners`
 
 Security and validation:
 
@@ -88,6 +96,14 @@ Leaderboard functions:
 
 - `get_individual_leaderboard(challenge_id, period)`
 - `get_team_leaderboard(challenge_id, period)`
+
+Solo leaderboard/reward functions:
+
+- `submit_solo_attempt(player_name, player_email, session_id, exercise, reps)`
+- `get_solo_progress(player_email)`
+- `refresh_solo_monthly_winner(month_start)`
+- `get_solo_monthly_winner(month_start)`
+- `get_platform_usage_dashboard()`
 
 Guest challenge functions:
 
@@ -138,6 +154,8 @@ Set:
 1. `supabase/schema.sql`
 2. `supabase/seed.sql`
 3. `supabase/tests.sql`
+
+For existing Supabase projects, apply new files from `supabase/migrations/` in filename order instead of rerunning the full schema.
 
 4. Verify connectivity:
 

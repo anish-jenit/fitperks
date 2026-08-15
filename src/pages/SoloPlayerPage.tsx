@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from '../router'
-import { CHALLENGES } from '../lib/constants'
 import { getSoloProgress } from '../lib/supabaseApi'
 import { getLastGuestEmail, getLastGuestName, saveGuestJoinContext } from '../lib/storage'
-import type { SoloComparisonRow, SoloExerciseType, SoloProgressBucket, SoloProgressSummary } from '../types'
+import type { SoloComparisonRow, SoloExerciseType, SoloHighScorePeriod, SoloProgressBucket, SoloProgressSummary } from '../types'
 
 const EMPTY_PROGRESS: SoloProgressSummary = {
   playerName: '',
@@ -20,9 +19,25 @@ const EMPTY_PROGRESS: SoloProgressSummary = {
   monthly: [],
   consistencyLeaders: [],
   maxRepLeaders: [],
+  highScoreLeaders: {
+    daily: [],
+    weekly: [],
+    monthly: [],
+  },
 }
 
-const SOLO_EXERCISES: SoloExerciseType[] = ['squat', 'burpee', 'high-knees', 'lunges', 'plank']
+const SOLO_EXERCISES: SoloExerciseType[] = ['squat', 'burpee', 'high-knees', 'lunges', 'push-ups', 'plank']
+const SOLO_WORKOUTS: Record<Exclude<SoloExerciseType, 'plank' | 'push-ups'>, { id: SoloExerciseType; name: string }> & {
+  plank: { id: 'plank'; name: string }
+  'push-ups': { id: 'push-ups'; name: string }
+} = {
+  squat: { id: 'squat', name: 'Squat Challenge' },
+  burpee: { id: 'burpee', name: 'Jumping Jack Challenge' },
+  'high-knees': { id: 'high-knees', name: 'High Knees Challenge' },
+  lunges: { id: 'lunges', name: 'Lunge Challenge' },
+  'push-ups': { id: 'push-ups', name: 'Push-Up Challenge' },
+  plank: { id: 'plank', name: 'Plank Challenge' },
+}
 
 type ChartMode = 'daily' | 'weekly' | 'monthly'
 
@@ -83,7 +98,7 @@ function SoloBadges({ badges }: { badges: SoloProgressSummary['badges'] }) {
   )
 }
 
-function SoloLeaderboard({ title, rows, metric }: { title: string; rows: SoloComparisonRow[]; metric: 'consistency' | 'maxReps' }) {
+function SoloLeaderboard({ title, rows, metric }: { title: string; rows: SoloComparisonRow[]; metric: 'consistency' | 'maxReps' | 'score' }) {
   return (
     <article className="solo-board">
       <h3>{title}</h3>
@@ -93,7 +108,7 @@ function SoloLeaderboard({ title, rows, metric }: { title: string; rows: SoloCom
             <div className="solo-rank-row" key={`${title}-${row.playerEmail}`}>
               <span>{row.rank}</span>
               <strong>{row.playerName || row.playerEmail}</strong>
-              <em>{metric === 'consistency' ? `${row.consistencyDays} days` : `${row.maxReps} reps`}</em>
+              <em>{metric === 'consistency' ? `${row.consistencyDays} days` : metric === 'score' ? `${row.bestDailyScore} pts` : `${row.maxReps} reps`}</em>
             </div>
           ))}
         </div>
@@ -105,6 +120,12 @@ function SoloLeaderboard({ title, rows, metric }: { title: string; rows: SoloCom
       )}
     </article>
   )
+}
+
+function titleForHighScorePeriod(period: SoloHighScorePeriod): string {
+  if (period === 'daily') return 'Daily High Score'
+  if (period === 'weekly') return 'Weekly High Score'
+  return 'Monthly High Score'
 }
 
 export function SoloPlayerPage() {
@@ -172,9 +193,7 @@ export function SoloPlayerPage() {
 
             <div className="solo-workouts">
               {SOLO_EXERCISES.map((exercise) => {
-                const workout = exercise === 'plank'
-                  ? { id: 'plank', name: 'Plank Challenge' }
-                  : CHALLENGES.find((item) => item.id === exercise)
+                const workout = SOLO_WORKOUTS[exercise]
                 return workout ? (
                   <Link
                     className={`button primary solo-workout-button solo-workout-${exercise}`}
@@ -220,6 +239,9 @@ export function SoloPlayerPage() {
             </div>
 
             <div className="solo-board-grid">
+              {(['daily', 'weekly', 'monthly'] as SoloHighScorePeriod[]).map((period) => (
+                <SoloLeaderboard title={titleForHighScorePeriod(period)} rows={progress.highScoreLeaders[period]} metric="score" key={period} />
+              ))}
               <SoloLeaderboard title="Consistency" rows={progress.consistencyLeaders} metric="consistency" />
               <SoloLeaderboard title="Max Reps" rows={progress.maxRepLeaders} metric="maxReps" />
             </div>

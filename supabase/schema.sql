@@ -363,12 +363,36 @@ create table if not exists solo_player_attempts (
   exercise text not null check (exercise in ('squat', 'burpee', 'high-knees', 'lunges')),
   reps int not null check (reps >= 0),
   score int not null check (score >= 0),
+  is_flagged boolean not null default false,
+  flag_reasons text[] not null default '{}',
+  reviewed_at timestamptz,
+  reviewed_by_user_id uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   unique (player_email, session_id)
 );
 
 alter table solo_player_attempts drop constraint if exists solo_player_attempts_exercise_check;
-alter table solo_player_attempts add constraint solo_player_attempts_exercise_check check (exercise in ('squat', 'burpee', 'high-knees', 'lunges', 'plank'));
+alter table solo_player_attempts add constraint solo_player_attempts_exercise_check check (exercise in ('squat', 'burpee', 'high-knees', 'lunges', 'plank', 'push-ups'));
+alter table solo_player_attempts add column if not exists is_flagged boolean not null default false;
+alter table solo_player_attempts add column if not exists flag_reasons text[] not null default '{}';
+alter table solo_player_attempts add column if not exists reviewed_at timestamptz;
+alter table solo_player_attempts add column if not exists reviewed_by_user_id uuid references auth.users(id) on delete set null;
+
+create table if not exists solo_monthly_winners (
+  month_start date primary key,
+  player_email text not null,
+  player_name text not null,
+  score int not null check (score >= 0),
+  reps int not null check (reps >= 0),
+  exercise text not null check (exercise in ('squat', 'burpee', 'high-knees', 'lunges', 'plank', 'push-ups')),
+  winning_attempt_id uuid references solo_player_attempts(id) on delete set null,
+  status text not null default 'pending' check (status in ('pending', 'notified', 'awarded', 'void')),
+  voucher_code text,
+  awarded_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (month_start = date_trunc('month', month_start)::date)
+);
 
 create table if not exists organization_trials (
   id uuid primary key default gen_random_uuid(),
@@ -488,6 +512,9 @@ create index if not exists idx_guest_challenge_attempts_challenge_created on gue
 create index if not exists idx_solo_player_profiles_updated on solo_player_profiles(updated_at desc);
 create index if not exists idx_solo_player_attempts_email_created on solo_player_attempts(lower(player_email), created_at desc);
 create index if not exists idx_solo_player_attempts_created on solo_player_attempts(created_at desc);
+create index if not exists idx_solo_player_attempts_period_score on solo_player_attempts(created_at desc, score desc, reps desc);
+create index if not exists idx_solo_player_attempts_flagged_created on solo_player_attempts(is_flagged, created_at desc);
+create index if not exists idx_solo_monthly_winners_status on solo_monthly_winners(status, month_start desc);
 create index if not exists idx_organization_trials_code on organization_trials(code);
 create index if not exists idx_organization_trial_attempts_trial_created on organization_trial_attempts(trial_id, created_at desc);
 create index if not exists idx_organization_trial_attempts_player on organization_trial_attempts(player_id);
@@ -2749,8 +2776,11 @@ declare
   v_last_level_up_streak int;
   v_last_workout_date date;
   v_current_streak int := 0;
+  v_rep_cap int;
+  v_recent_attempts int := 0;
+  v_flag_reasons text[] := '{}';
 begin
-  if p_exercise not in ('squat', 'burpee', 'high-knees', 'lunges', 'plank') then
+  if p_exercise not in ('squat', 'burpee', 'high-knees', 'lunges', 'plank', 'push-ups') then
     raise exception 'Invalid exercise';
   end if;
 
@@ -2767,6 +2797,34 @@ begin
     when p_exercise = 'lunges' then 2
     else 1
   end;
+
+  v_rep_cap := case
+    when p_exercise = 'high-knees' then 220
+    when p_exercise = 'burpee' then 140
+    when p_exercise = 'push-ups' then 100
+    when p_exercise = 'squat' then 95
+    when p_exercise = 'lunges' then 90
+    when p_exercise = 'plank' then 180
+    else 120
+  end;
+
+  if p_reps > v_rep_cap then
+    v_flag_reasons := array_append(v_flag_reasons, 'Rep count exceeds expected 60s range for ' || p_exercise);
+  end if;
+
+  if v_score > 260 then
+    v_flag_reasons := array_append(v_flag_reasons, 'Score exceeds expected single-session range');
+  end if;
+
+  select count(*)::int into v_recent_attempts
+  from solo_player_attempts
+  where lower(player_email) = lower(trim(p_player_email))
+    and created_at >= now() - interval '10 minutes'
+    and session_id <> p_session_id;
+
+  if v_recent_attempts >= 8 then
+    v_flag_reasons := array_append(v_flag_reasons, 'High attempt frequency in 10 minutes');
+  end if;
 
   insert into solo_player_profiles (player_email, player_name)
   values (lower(trim(p_player_email)), coalesce(nullif(trim(p_player_name), ''), 'Solo Player'))
@@ -2786,7 +2844,9 @@ begin
     session_id,
     exercise,
     reps,
-    score
+    score,
+    is_flagged,
+    flag_reasons
   )
   values (
     lower(trim(p_player_email)),
@@ -2794,13 +2854,19 @@ begin
     p_session_id,
     p_exercise,
     p_reps,
-    v_score
+    v_score,
+    cardinality(v_flag_reasons) > 0,
+    v_flag_reasons
   )
   on conflict (player_email, session_id) do update
   set player_name = excluded.player_name,
       exercise = excluded.exercise,
       reps = excluded.reps,
-      score = excluded.score
+      score = excluded.score,
+      is_flagged = excluded.is_flagged,
+      flag_reasons = excluded.flag_reasons,
+      reviewed_at = null,
+      reviewed_by_user_id = null
   returning * into v_attempt;
 
   while exists (
@@ -2808,6 +2874,7 @@ begin
     from solo_player_attempts
     where lower(player_email) = lower(trim(p_player_email))
       and created_at::date = current_date - v_current_streak
+      and not is_flagged
   ) loop
     v_current_streak := v_current_streak + 1;
   end loop;
@@ -2855,6 +2922,9 @@ declare
   v_monthly jsonb;
   v_consistency jsonb;
   v_max_reps jsonb;
+  v_daily_high_scores jsonb;
+  v_weekly_high_scores jsonb;
+  v_monthly_high_scores jsonb;
   v_today_best_score int := 0;
   v_today_max_reps int := 0;
   v_total_attempts int := 0;
@@ -2876,6 +2946,7 @@ begin
     select coalesce(player_name, '') into v_player_name
     from solo_player_attempts
     where lower(player_email) = v_email
+      and not is_flagged
     order by created_at desc
     limit 1;
     v_level := 1;
@@ -2888,7 +2959,8 @@ begin
 
   select count(*)::int into v_total_attempts
   from solo_player_attempts
-  where lower(player_email) = v_email;
+  where lower(player_email) = v_email
+    and not is_flagged;
 
   with ranked as (
     select
@@ -2898,6 +2970,7 @@ begin
       row_number() over (partition by created_at::date order by score desc, reps desc, created_at asc) as score_rank
     from solo_player_attempts
     where lower(player_email) = v_email
+      and not is_flagged
   )
   select coalesce(max(score), 0), coalesce(max(reps), 0)
   into v_today_best_score, v_today_max_reps
@@ -2909,6 +2982,7 @@ begin
     select distinct created_at::date
     from solo_player_attempts
     where lower(player_email) = v_email
+      and not is_flagged
     order by created_at::date
   loop
     if v_previous_day is null or v_day = v_previous_day + 1 then
@@ -2925,6 +2999,7 @@ begin
     from solo_player_attempts
     where lower(player_email) = v_email
       and created_at::date = current_date - v_current_streak
+      and not is_flagged
   ) loop
     v_current_streak := v_current_streak + 1;
   end loop;
@@ -2939,6 +3014,7 @@ begin
         row_number() over (partition by created_at::date order by score desc, reps desc, created_at asc) as score_rank
       from solo_player_attempts
       where lower(player_email) = v_email
+        and not is_flagged
     ) ranked
     where score_rank = 1
   )
@@ -2962,6 +3038,7 @@ begin
         row_number() over (partition by created_at::date order by score desc, reps desc, created_at asc) as score_rank
       from solo_player_attempts
       where lower(player_email) = v_email
+        and not is_flagged
     ) ranked
     where score_rank = 1
   )
@@ -2990,6 +3067,7 @@ begin
         row_number() over (partition by created_at::date order by score desc, reps desc, created_at asc) as score_rank
       from solo_player_attempts
       where lower(player_email) = v_email
+        and not is_flagged
     ) ranked
     where score_rank = 1
   )
@@ -3016,6 +3094,7 @@ begin
       max(reps)::int as max_reps,
       max(score)::int as best_daily_score
     from solo_player_attempts
+    where not is_flagged
     group by lower(player_email)
   ), ranked as (
     select *, dense_rank() over (order by consistency_days desc, best_daily_score desc, player_name asc) as rank
@@ -3041,11 +3120,107 @@ begin
       max(reps)::int as max_reps,
       max(score)::int as best_daily_score
     from solo_player_attempts
+    where not is_flagged
     group by lower(player_email)
   ), ranked as (
     select *, dense_rank() over (order by max_reps desc, best_daily_score desc, player_name asc) as rank
     from player_rollup
   )
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'rank', rank,
+    'player_name', player_name,
+    'player_email', player_email,
+    'consistency_days', consistency_days,
+    'max_reps', max_reps,
+    'best_daily_score', best_daily_score
+  ) order by rank, player_name), '[]'::jsonb)
+  into v_max_reps
+  from ranked
+  where rank <= 8;
+
+  with player_rollup as (
+    select
+      lower(player_email) as player_email,
+      (array_agg(player_name order by created_at desc))[1] as player_name,
+      count(distinct created_at::date)::int as consistency_days,
+      max(reps)::int as max_reps,
+      max(score)::int as best_daily_score
+    from solo_player_attempts
+    where created_at::date = current_date
+      and not is_flagged
+    group by lower(player_email)
+  ), ranked as (
+    select *, dense_rank() over (order by best_daily_score desc, max_reps desc, player_name asc) as rank
+    from player_rollup
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'rank', rank,
+    'player_name', player_name,
+    'player_email', player_email,
+    'consistency_days', consistency_days,
+    'max_reps', max_reps,
+    'best_daily_score', best_daily_score
+  ) order by rank, player_name), '[]'::jsonb)
+  into v_daily_high_scores
+  from ranked
+  where rank <= 8;
+
+  with player_rollup as (
+    select
+      lower(player_email) as player_email,
+      (array_agg(player_name order by created_at desc))[1] as player_name,
+      count(distinct created_at::date)::int as consistency_days,
+      max(reps)::int as max_reps,
+      max(score)::int as best_daily_score
+    from solo_player_attempts
+    where created_at >= date_trunc('week', current_date)
+      and created_at < date_trunc('week', current_date) + interval '1 week'
+      and not is_flagged
+    group by lower(player_email)
+  ), ranked as (
+    select *, dense_rank() over (order by best_daily_score desc, max_reps desc, player_name asc) as rank
+    from player_rollup
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'rank', rank,
+    'player_name', player_name,
+    'player_email', player_email,
+    'consistency_days', consistency_days,
+    'max_reps', max_reps,
+    'best_daily_score', best_daily_score
+  ) order by rank, player_name), '[]'::jsonb)
+  into v_weekly_high_scores
+  from ranked
+  where rank <= 8;
+
+  with player_rollup as (
+    select
+      lower(player_email) as player_email,
+      (array_agg(player_name order by created_at desc))[1] as player_name,
+      count(distinct created_at::date)::int as consistency_days,
+      max(reps)::int as max_reps,
+      max(score)::int as best_daily_score
+    from solo_player_attempts
+    where created_at >= date_trunc('month', current_date)
+      and created_at < date_trunc('month', current_date) + interval '1 month'
+      and not is_flagged
+    group by lower(player_email)
+  ), ranked as (
+    select *, dense_rank() over (order by best_daily_score desc, max_reps desc, player_name asc) as rank
+    from player_rollup
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'rank', rank,
+    'player_name', player_name,
+    'player_email', player_email,
+    'consistency_days', consistency_days,
+    'max_reps', max_reps,
+    'best_daily_score', best_daily_score
+  ) order by rank, player_name), '[]'::jsonb)
+  into v_monthly_high_scores
+  from ranked
+  where rank <= 8;
+
   select coalesce(jsonb_agg(badge), '[]'::jsonb)
   into v_badges
   from (
@@ -3076,6 +3251,7 @@ begin
         select lower(player_email) as player_email, max(score) as best_score
         from solo_player_attempts
         where created_at::date = current_date
+          and not is_flagged
         group by lower(player_email)
       ) today_scores
       where today_scores.best_score > v_today_best_score
@@ -3087,17 +3263,18 @@ begin
       'description', 'Top solo score this week',
       'tone', 'gold'
     )
-    where exists (select 1 from solo_player_attempts where lower(player_email) = v_email and created_at >= date_trunc('week', current_date))
+    where exists (select 1 from solo_player_attempts where lower(player_email) = v_email and created_at >= date_trunc('week', current_date) and not is_flagged)
       and not exists (
         select 1
         from (
           select lower(player_email) as player_email, max(score) as best_score
           from solo_player_attempts
           where created_at >= date_trunc('week', current_date)
+            and not is_flagged
           group by lower(player_email)
         ) week_scores
         where week_scores.best_score > (
-          select max(score) from solo_player_attempts where lower(player_email) = v_email and created_at >= date_trunc('week', current_date)
+          select max(score) from solo_player_attempts where lower(player_email) = v_email and created_at >= date_trunc('week', current_date) and not is_flagged
         )
       )
     union all
@@ -3112,7 +3289,8 @@ begin
       from solo_player_attempts mine
       where lower(mine.player_email) = v_email
         and mine.reps > 0
-        and mine.reps >= (select max(all_attempts.reps) from solo_player_attempts all_attempts where all_attempts.exercise = mine.exercise)
+        and not mine.is_flagged
+        and mine.reps >= (select max(all_attempts.reps) from solo_player_attempts all_attempts where all_attempts.exercise = mine.exercise and not all_attempts.is_flagged)
     ) exercise_stars
   ) badges;
 
@@ -3130,7 +3308,225 @@ begin
     'weekly', v_weekly,
     'monthly', v_monthly,
     'consistency_leaders', v_consistency,
-    'max_rep_leaders', v_max_reps
+    'max_rep_leaders', v_max_reps,
+    'daily_high_score_leaders', v_daily_high_scores,
+    'weekly_high_score_leaders', v_weekly_high_scores,
+    'monthly_high_score_leaders', v_monthly_high_scores
+  );
+end;
+$$;
+
+drop function if exists public.refresh_solo_monthly_winner(date);
+
+create or replace function public.refresh_solo_monthly_winner(p_month_start date default date_trunc('month', current_date)::date)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_month_start date := date_trunc('month', coalesce(p_month_start, current_date))::date;
+  v_month_end date := (date_trunc('month', coalesce(p_month_start, current_date)) + interval '1 month')::date;
+  v_existing solo_monthly_winners%rowtype;
+  v_winner record;
+begin
+  if auth.uid() is null or not is_platform_admin() then
+    raise exception 'Unauthorized';
+  end if;
+
+  select * into v_existing
+  from solo_monthly_winners
+  where month_start = v_month_start;
+
+  if v_existing.status = 'awarded' then
+    return jsonb_build_object(
+      'month_start', v_existing.month_start,
+      'player_email', v_existing.player_email,
+      'player_name', v_existing.player_name,
+      'score', v_existing.score,
+      'reps', v_existing.reps,
+      'exercise', v_existing.exercise,
+      'status', v_existing.status,
+      'voucher_code', v_existing.voucher_code,
+      'awarded_at', v_existing.awarded_at
+    );
+  end if;
+
+  select id, player_email, player_name, score, reps, exercise
+  into v_winner
+  from solo_player_attempts
+  where created_at >= v_month_start
+    and created_at < v_month_end
+    and not is_flagged
+  order by score desc, reps desc, created_at asc
+  limit 1;
+
+  if v_winner.id is null then
+    delete from solo_monthly_winners
+    where month_start = v_month_start
+      and status in ('pending', 'notified', 'void');
+    return null;
+  end if;
+
+  insert into solo_monthly_winners (
+    month_start,
+    player_email,
+    player_name,
+    score,
+    reps,
+    exercise,
+    winning_attempt_id,
+    status
+  )
+  values (
+    v_month_start,
+    lower(v_winner.player_email),
+    v_winner.player_name,
+    v_winner.score,
+    v_winner.reps,
+    v_winner.exercise,
+    v_winner.id,
+    'pending'
+  )
+  on conflict (month_start) do update
+  set player_email = excluded.player_email,
+      player_name = excluded.player_name,
+      score = excluded.score,
+      reps = excluded.reps,
+      exercise = excluded.exercise,
+      winning_attempt_id = excluded.winning_attempt_id,
+      status = case
+        when solo_monthly_winners.status = 'void' then 'pending'
+        else solo_monthly_winners.status
+      end,
+      voucher_code = case
+        when solo_monthly_winners.status = 'void' then null
+        else solo_monthly_winners.voucher_code
+      end,
+      awarded_at = case
+        when solo_monthly_winners.status = 'void' then null
+        else solo_monthly_winners.awarded_at
+      end,
+      updated_at = now()
+  returning * into v_existing;
+
+  return jsonb_build_object(
+    'month_start', v_existing.month_start,
+    'player_email', v_existing.player_email,
+    'player_name', v_existing.player_name,
+    'score', v_existing.score,
+    'reps', v_existing.reps,
+    'exercise', v_existing.exercise,
+    'status', v_existing.status,
+    'voucher_code', v_existing.voucher_code,
+    'awarded_at', v_existing.awarded_at
+  );
+end;
+$$;
+
+drop function if exists public.get_solo_monthly_winner(date);
+
+create or replace function public.get_solo_monthly_winner(p_month_start date default date_trunc('month', current_date)::date)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_month_start date := date_trunc('month', coalesce(p_month_start, current_date))::date;
+  v_winner solo_monthly_winners%rowtype;
+begin
+  select * into v_winner
+  from solo_monthly_winners
+  where month_start = v_month_start;
+
+  if v_winner.month_start is null then
+    return null;
+  end if;
+
+  return jsonb_build_object(
+    'month_start', v_winner.month_start,
+    'player_email', v_winner.player_email,
+    'player_name', v_winner.player_name,
+    'score', v_winner.score,
+    'reps', v_winner.reps,
+    'exercise', v_winner.exercise,
+    'status', v_winner.status,
+    'voucher_code', case when auth.uid() is not null and is_platform_admin() then v_winner.voucher_code else null end,
+    'awarded_at', case when auth.uid() is not null and is_platform_admin() then v_winner.awarded_at else null end
+  );
+end;
+$$;
+
+drop function if exists public.get_platform_usage_dashboard();
+
+create or replace function public.get_platform_usage_dashboard()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_summary jsonb;
+  v_recent_flagged jsonb;
+  v_monthly_winner jsonb;
+begin
+  if auth.uid() is null or not is_platform_admin() then
+    raise exception 'Unauthorized';
+  end if;
+
+  select jsonb_build_object(
+    'solo_attempts_total', (select count(*)::int from solo_player_attempts),
+    'solo_attempts_today', (select count(*)::int from solo_player_attempts where created_at::date = current_date),
+    'solo_attempts_this_week', (select count(*)::int from solo_player_attempts where created_at >= date_trunc('week', current_date)),
+    'solo_attempts_this_month', (select count(*)::int from solo_player_attempts where created_at >= date_trunc('month', current_date)),
+    'solo_players_total', (select count(distinct lower(player_email))::int from solo_player_attempts),
+    'solo_flagged_total', (select count(*)::int from solo_player_attempts where is_flagged),
+    'solo_flagged_unreviewed', (select count(*)::int from solo_player_attempts where is_flagged and reviewed_at is null),
+    'active_guest_challenges', (select count(*)::int from guest_challenges where deleted_at is null and end_date >= now()),
+    'active_organization_trials', (select count(*)::int from organization_trials where expires_at >= now())
+  )
+  into v_summary;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', id,
+    'player_name', player_name,
+    'player_email', player_email,
+    'exercise', exercise,
+    'reps', reps,
+    'score', score,
+    'flag_reasons', flag_reasons,
+    'reviewed_at', reviewed_at,
+    'created_at', created_at
+  ) order by created_at desc), '[]'::jsonb)
+  into v_recent_flagged
+  from (
+    select *
+    from solo_player_attempts
+    where is_flagged
+    order by created_at desc
+    limit 12
+  ) flagged;
+
+  select jsonb_build_object(
+    'month_start', month_start,
+    'player_email', player_email,
+    'player_name', player_name,
+    'score', score,
+    'reps', reps,
+    'exercise', exercise,
+    'status', status,
+    'voucher_code', voucher_code,
+    'awarded_at', awarded_at
+  )
+  into v_monthly_winner
+  from solo_monthly_winners
+  where month_start = date_trunc('month', current_date)::date;
+
+  return jsonb_build_object(
+    'summary', v_summary,
+    'recent_flagged_attempts', v_recent_flagged,
+    'monthly_winner', v_monthly_winner
   );
 end;
 $$;
@@ -3227,6 +3623,7 @@ alter table guest_challenge_players enable row level security;
 alter table guest_challenge_attempts enable row level security;
 alter table solo_player_profiles enable row level security;
 alter table solo_player_attempts enable row level security;
+alter table solo_monthly_winners enable row level security;
 alter table organization_trials enable row level security;
 alter table organization_trial_attempts enable row level security;
 alter table organization_trial_players enable row level security;

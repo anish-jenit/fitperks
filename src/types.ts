@@ -1,5 +1,5 @@
 export type ExerciseType = 'squat' | 'burpee' | 'high-knees' | 'lunges'
-export type SoloExerciseType = ExerciseType | 'plank'
+export type SoloExerciseType = ExerciseType | 'plank' | 'push-ups'
 
 export type AIDemoSettings = {
   enableAIOverlay: boolean
@@ -294,6 +294,54 @@ export type SoloComparisonRow = {
   bestDailyScore: number
 }
 
+export type SoloHighScorePeriod = 'daily' | 'weekly' | 'monthly'
+
+export type SoloHighScoreRow = SoloComparisonRow & {
+  period: SoloHighScorePeriod
+}
+
+export type SoloMonthlyWinnerStatus = 'pending' | 'notified' | 'awarded' | 'void'
+
+export type SoloMonthlyWinner = {
+  monthStart: string
+  playerEmail: string
+  playerName: string
+  score: number
+  reps: number
+  exercise: SoloExerciseType
+  status: SoloMonthlyWinnerStatus
+  voucherCode: string | null
+  awardedAt: string | null
+}
+
+export type SoloFlaggedAttempt = {
+  id: string
+  playerName: string
+  playerEmail: string
+  exercise: SoloExerciseType
+  reps: number
+  score: number
+  flagReasons: string[]
+  reviewedAt: string | null
+  createdAt: string
+}
+
+export type PlatformUsageDashboard = {
+  summary: {
+    soloAttemptsTotal: number
+    soloAttemptsToday: number
+    soloAttemptsThisWeek: number
+    soloAttemptsThisMonth: number
+    soloPlayersTotal: number
+    soloFlaggedTotal: number
+    soloFlaggedUnreviewed: number
+    activeGuestChallenges: number
+    activeOrganizationTrials: number
+  }
+  recentFlaggedAttempts: SoloFlaggedAttempt[]
+  monthlyWinner: SoloMonthlyWinner | null
+}
+
 export type SoloProgressSummary = {
   playerName: string
   playerEmail: string
@@ -309,6 +357,7 @@ export type SoloProgressSummary = {
   monthly: SoloProgressBucket[]
   consistencyLeaders: SoloComparisonRow[]
   maxRepLeaders: SoloComparisonRow[]
+  highScoreLeaders: Record<SoloHighScorePeriod, SoloHighScoreRow[]>
 }
 
 export type GuestChallengeSummary = GuestChallengeRecord & {

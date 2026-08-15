@@ -462,7 +462,6 @@
     opacity: 1;
   }
 }
-
 @keyframes exercise-loop {
   0% {
     transform: translateY(0px) scaleY(1);
@@ -599,6 +598,12 @@
   align-content: center;
   justify-items: center;
   border-top: 3px solid var(--exercise-color, var(--line));
+}
+
+.setup-exercise-action.primary {
+  border-color: var(--accent);
+  color: #07111f;
+  background: var(--accent);
 }
 
 .setup-exercise-action::before {
@@ -818,6 +823,13 @@ textarea {
   text-align: center;
   background: linear-gradient(160deg, #111827, var(--panel-soft));
   box-shadow: 0 18px 30px -30px rgba(0, 0, 0, 0.9);
+}
+
+.challenge-card .button.primary {
+  width: 100%;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #07111f;
 }
 
 .challenge-doodle {
@@ -1185,6 +1197,32 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
+.workout-score-overlay {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 4;
+  display: grid;
+  justify-items: end;
+  gap: 0.1rem;
+  color: #f8fafc;
+  text-align: right;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+.workout-score-overlay span {
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.workout-score-overlay strong {
+  color: #5eead4;
+  font-size: clamp(2rem, 4.4vw, 3.2rem);
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+}
+
 .workout-timer-overlay {
   position: absolute;
   top: 1rem;
@@ -1225,6 +1263,23 @@ textarea {
   line-height: 1;
   text-shadow: 0 4px 24px rgba(0, 0, 0, 0.85);
   pointer-events: none;
+}
+
+.success-message {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  border-radius: var(--radius);
+  color: #dcfce7;
+  background: rgba(22, 101, 52, 0.82);
+}
+
+.success-message strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .camera-control {
@@ -2838,6 +2893,30 @@ select:focus {
     display: none;
   }
 
+  .challenge-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+  }
+
+  .challenge-card {
+    gap: 0.45rem;
+    padding: 0.62rem;
+  }
+
+  .challenge-card h2 {
+    min-height: 2.1rem;
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.12;
+  }
+
+  .challenge-card .button {
+    min-height: 48px;
+    padding: 0.45rem 0.25rem;
+    font-size: 0.76rem;
+    line-height: 1.08;
+  }
+
   .challenge-video {
     display: none;
   }
@@ -2892,7 +2971,13 @@ select:focus {
   }
 
   .setup-actions {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .guest-workout-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
   }
 
   .minimal-actions {
@@ -2904,6 +2989,18 @@ select:focus {
     padding-inline: 0.2rem;
     font-size: 0.72rem;
     line-height: 1.1;
+  }
+
+  .guest-workout-actions .setup-exercise-action {
+    min-height: 52px;
+    padding: 0.55rem 0.35rem;
+    font-size: 0.78rem;
+  }
+
+  .guest-workout-actions .setup-exercise-name {
+    display: block;
+    max-width: 100%;
+    line-height: 1.08;
   }
 
   .setup-exercise-name {
@@ -3847,5 +3944,268 @@ select:focus {
 
   .solo-empty-orbit {
     justify-self: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .button,
+  .button-small,
+  .trial-workout-actions .button,
+  .trial-details-link,
+  .workout-start-button,
+  .workout-finish-button,
+  .workout-back-link,
+  .solo-workout-button,
+  .setup-exercise-action {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    line-height: 1.18;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+
+  .button,
+  .trial-workout-actions .button,
+  .trial-details-link {
+    padding-block: 0.72rem;
+    padding-inline: 0.85rem;
+  }
+
+  .button-small {
+    padding-block: 0.5rem;
+    padding-inline: 0.65rem;
+  }
+
+  .sidebar-exercise-line {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    row-gap: 0.1rem;
+    white-space: normal;
+  }
+
+  .sidebar-exercise-line strong,
+  .solo-rank-row strong,
+  .setup-exercise-name {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .ai-live-panel-heading {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-score-pill {
+    justify-self: start;
+    max-width: 100%;
+    text-align: left;
+    white-space: normal;
+    line-height: 1.15;
+  }
+
+  .ai-status-item {
+    min-height: 2.3rem;
+    line-height: 1.15;
+  }
+
+  .camera-privacy-note,
+  .trial-session-status,
+  .solo-badge,
+  .solo-empty-milestones span {
+    line-height: 1.25;
+  }
+
+  input,
+  select,
+  textarea {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  .page:has(.workout-panel) {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+  }
+
+  .workout-panel {
+    min-height: 100svh;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: #020617;
+  }
+
+  .workout-panel > h1,
+  .workout-panel > .hint,
+  .workout-panel > .error,
+  .workout-panel > .success-message {
+    margin-inline: 0.75rem;
+  }
+
+  .workout-panel > h1 {
+    margin-top: 0.75rem;
+    color: #f8fafc;
+    font-size: 1rem;
+    line-height: 1.15;
+  }
+
+  .workout-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .workout-live-view {
+    display: block;
+  }
+
+  .camera-wrapper,
+  .camera-wrapper.camera-wrapper-maximized {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    height: min(78svh, calc(100svh - 5.25rem));
+    min-height: 420px;
+    max-height: none;
+    border-radius: 0;
+    aspect-ratio: auto;
+    box-shadow: none;
+  }
+
+  .camera-feed,
+  .camera-overlay {
+    object-fit: cover;
+  }
+
+  .camera-privacy-note {
+    margin: 0;
+    border-inline: 0;
+    border-radius: 0;
+    color: rgba(226, 232, 240, 0.72);
+    background: #07111f;
+  }
+
+  .stats-panel {
+    border-inline: 0;
+    border-bottom: 0;
+    border-radius: 0;
+    background: #f8fafc;
+  }
+
+  .workout-score-overlay {
+    right: 0.75rem;
+    bottom: 4.25rem;
+  }
+
+  .workout-score-overlay span {
+    font-size: 0.68rem;
+  }
+
+  .workout-score-overlay strong {
+    font-size: 2rem;
+  }
+
+  .video-size-toggle {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) and (orientation: portrait) {
+  .camera-wrapper,
+  .camera-wrapper.camera-wrapper-maximized {
+    height: min(78svh, calc(100svh - 5rem));
+    min-height: 480px;
+  }
+}
+
+@media (max-width: 900px) and (orientation: landscape) {
+  .top-nav-workout {
+    display: none;
+  }
+
+  .page:has(.workout-panel) {
+    min-height: 100svh;
+  }
+
+  .workout-panel {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .workout-panel > h1 {
+    position: absolute;
+    top: 0.55rem;
+    left: 0;
+    z-index: 6;
+    max-width: calc(100% - 12rem);
+    margin: 0;
+    padding: 0.3rem 0.55rem;
+    border-radius: var(--radius);
+    background: rgba(3, 7, 18, 0.72);
+  }
+
+  .camera-wrapper,
+  .camera-wrapper.camera-wrapper-maximized {
+    height: 100svh;
+    min-height: 320px;
+  }
+
+  .camera-privacy-note,
+  .stats-panel .sidebar-exercise-line,
+  .stats-panel > p:not(.hint),
+  .stats-panel .ai-live-panel {
+    display: none;
+  }
+
+  .stats-panel {
+    position: absolute;
+    right: 0.6rem;
+    bottom: 0.6rem;
+    z-index: 7;
+    width: min(17rem, 36vw);
+    max-height: calc(100svh - 1.2rem);
+    padding: 0.6rem;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: var(--radius);
+    background: rgba(3, 7, 18, 0.78);
+    backdrop-filter: blur(10px);
+  }
+
+  .stats-panel .hint {
+    color: rgba(248, 250, 252, 0.82);
+  }
+
+  .stats-panel .stack {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .stats-panel label {
+    color: #f8fafc;
+    font-size: 0.72rem;
+  }
+
+  .stats-panel input,
+  .stats-panel select {
+    min-height: 2rem;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.78rem;
+  }
+
+  .stats-panel .button {
+    min-height: 2.1rem;
+    padding: 0.4rem 0.55rem;
+    font-size: 0.72rem;
+  }
+
+  .workout-counter-overlay strong {
+    font-size: 3rem;
+  }
+
+  .workout-score-overlay {
+    bottom: 0.8rem;
   }
 }

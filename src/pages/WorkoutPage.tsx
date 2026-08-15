@@ -20,7 +20,7 @@ import {
   submitWorkoutSecure,
 } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
-import { clearParticipantProfile, getConfiguredOrganizationCode, getLastGuestChallengeCode, getLastGuestEmail, getLastGuestName, saveGuestJoinContext, saveParticipantProfile } from '../lib/storage'
+import { clearParticipantProfile, getConfiguredOrganizationCode, getLastGuestChallengeCode, getLastGuestEmail, getLastGuestName, getParticipantProfile, saveGuestJoinContext, saveParticipantProfile } from '../lib/storage'
 import { DEFAULT_AI_DEMO_SETTINGS, type AIDemoSettings, type ChallengeConfig, type ChallengeRecord, type ExerciseType, type GuestChallengeRecord, type OrganizationTrialRecord, type SoloExerciseType } from '../types'
 
 type NormalizedLandmark = {
@@ -77,6 +77,8 @@ type JumpingJackStage = 'closed' | 'open'
 
 type HighKneeStage = 'lowered' | 'raised'
 
+type PushUpStage = 'up' | 'down'
+
 type PaceFeedback = {
   id: number
   tone: 'fast' | 'slow'
@@ -124,6 +126,17 @@ const PLANK_CHALLENGE: Omit<ChallengeConfig, 'id'> & { id: 'plank' } = {
   name: 'Plank Challenge',
   pointsPerRep: 1,
   description: 'Hold a straight plank. The timer advances only while your posture is valid.',
+}
+
+const PUSH_UP_CHALLENGE: Omit<ChallengeConfig, 'id'> & { id: 'push-ups' } = {
+  id: 'push-ups',
+  name: 'Push-Up Challenge',
+  pointsPerRep: 1,
+  description: 'Start in a straight-arm plank, lower with bent elbows, then press back up to complete a rep.',
+}
+
+function isStandardExercise(exercise: SoloExerciseType): exercise is ExerciseType {
+  return exercise !== 'plank' && exercise !== 'push-ups'
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -231,6 +244,21 @@ function getPositioningMessage(landmarks: NormalizedLandmark[]): string | null {
   return null
 }
 
+function getCameraDimensions(): { width: number; height: number } {
+  if (typeof window === 'undefined') {
+    return { width: 960, height: 540 }
+  }
+
+  const isPortrait = window.matchMedia('(orientation: portrait)').matches
+  const isMobileWidth = window.matchMedia('(max-width: 900px)').matches
+
+  if (!isMobileWidth) {
+    return { width: 960, height: 540 }
+  }
+
+  return isPortrait ? { width: 720, height: 1280 } : { width: 1280, height: 720 }
+}
+
 function drawExerciseGuides(
   context: CanvasRenderingContext2D,
   width: number,
@@ -313,7 +341,11 @@ export function WorkoutPage() {
   const [trialDemoStage, setTrialDemoStage] = useState<TrialDemoStage>(initialTrialStage)
   const trialExercise: TrialExerciseMode = exerciseParam === 'plank' ? 'plank' : trialDemoStage === 'squats' || trialDemoStage === 'transition' || trialDemoStage === 'complete' ? 'squat' : 'burpee'
   const activeExercise: TrialExerciseMode = isTrialWorkout ? trialExercise : exercise
-  const challenge = activeExercise === 'plank' ? PLANK_CHALLENGE : CHALLENGES.find((item) => item.id === activeExercise)
+  const challenge = activeExercise === 'plank'
+    ? PLANK_CHALLENGE
+    : activeExercise === 'push-ups'
+      ? PUSH_UP_CHALLENGE
+      : CHALLENGES.find((item) => item.id === activeExercise)
   const [activeChallenge, setActiveChallenge] = useState<ChallengeRecord | null>(null)
   const [guestChallenge, setGuestChallenge] = useState<GuestChallengeRecord | null>(null)
   const [organizationTrial, setOrganizationTrial] = useState<OrganizationTrialRecord | null>(null)
@@ -349,6 +381,10 @@ export function WorkoutPage() {
   const jumpingJackClosedFramesRef = useRef(0)
   const lastJumpingJackRepAtRef = useRef(0)
   const highKneeStageRef = useRef<HighKneeStage>('lowered')
+  const pushUpStageRef = useRef<PushUpStage>('up')
+  const pushUpDownFramesRef = useRef(0)
+  const pushUpUpFramesRef = useRef(0)
+  const lastPushUpRepAtRef = useRef(0)
   const [repCount, setRepCount] = useState(0)
   const [secondsLeft, setSecondsLeft] = useState(settings.sessionDurationSeconds)
   const [countdown, setCountdown] = useState<number | null>(null)
@@ -365,9 +401,10 @@ export function WorkoutPage() {
   const [, setShareImageUrl] = useState<string | null>(null)
   const [positioningMessage, setPositioningMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [saveEmail, setSaveEmail] = useState(() => getLastGuestEmail())
-  const [saveName, setSaveName] = useState(() => getLastGuestName())
+  const [saveEmail, setSaveEmail] = useState('')
+  const [saveName, setSaveName] = useState('')
   const [saveTeam, setSaveTeam] = useState('')
+  const [saveResult, setSaveResult] = useState<{ message: string; leaderboardPath: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [paceFeedback, setPaceFeedback] = useState<PaceFeedback | null>(null)
   const lastRepAtRef = useRef<number | null>(null)
@@ -389,7 +426,7 @@ export function WorkoutPage() {
       return 0
     }
 
-    if (challenge.id === 'plank') {
+    if (challenge.id === 'plank' || challenge.id === 'push-ups') {
       return repCount
     }
 
@@ -448,6 +485,7 @@ export function WorkoutPage() {
   }, [isTrialWorkout, points, repCount, trialDemoStage])
 
   useEffect(() => {
+    setSaveResult(null)
     if (isTrialWorkout) {
       void getOrganizationTrial(trialCode)
         .then((payload) => {
@@ -491,6 +529,10 @@ export function WorkoutPage() {
 
     if (isSoloWorkout) {
       const now = new Date()
+      if (getLastGuestChallengeCode() === 'solo') {
+        setSaveName(getLastGuestName())
+        setSaveEmail(getLastGuestEmail())
+      }
       setSecondsLeft(exerciseParam === 'plank' ? 0 : settings.sessionDurationSeconds)
       setActiveChallenge({
         id: 'solo-challenge',
@@ -531,9 +573,17 @@ export function WorkoutPage() {
       void getGuestChallenge(challengeCode)
         .then((payload) => {
           setGuestChallenge(payload)
-          if (getLastGuestChallengeCode() === payload.code) {
-            setSaveName((current) => current.trim() || payload.creatorName)
-            setSaveEmail((current) => current.trim() || payload.creatorEmail)
+          const lastChallengeCode = getLastGuestChallengeCode()
+          const lastEmail = getLastGuestEmail()
+          const lastName = getLastGuestName()
+          const isSameChallenge = lastChallengeCode === payload.code
+          const isCreatorIdentity = lastEmail && lastEmail === payload.creatorEmail.trim().toLowerCase()
+          if (isSameChallenge && lastEmail && !isCreatorIdentity) {
+            setSaveName(lastName)
+            setSaveEmail(lastEmail)
+          } else {
+            setSaveName('')
+            setSaveEmail('')
           }
           setSecondsLeft(payload.sessionDurationSeconds)
           setActiveChallenge({
@@ -614,6 +664,17 @@ export function WorkoutPage() {
     if (!configuredOrgCode) {
       setError('Organization context is missing. Open your organization launch URL and tap Start first.')
       return
+    }
+
+    const participantProfile = getParticipantProfile()
+    if (participantProfile?.organizationCode === configuredOrgCode) {
+      setSaveName(participantProfile.name)
+      setSaveEmail(participantProfile.email ?? '')
+      setSaveTeam(participantProfile.team)
+    } else {
+      setSaveName('')
+      setSaveEmail('')
+      setSaveTeam('')
     }
 
     void getActiveChallenge(configuredOrgCode)
@@ -707,6 +768,29 @@ export function WorkoutPage() {
       if (challenge?.id === 'plank') {
         setIsPlankPostureValid(pose.isPlank)
         return
+      }
+
+      if (challenge.id === 'push-ups') {
+        const now = performance.now()
+        if (pushUpStageRef.current === 'up') {
+          pushUpUpFramesRef.current = 0
+          pushUpDownFramesRef.current = pose.isPushUpDown ? pushUpDownFramesRef.current + 1 : 0
+
+          if (pushUpDownFramesRef.current >= 3) {
+            pushUpStageRef.current = 'down'
+            pushUpDownFramesRef.current = 0
+          }
+        } else {
+          pushUpDownFramesRef.current = 0
+          pushUpUpFramesRef.current = pose.isPushUpUp ? pushUpUpFramesRef.current + 1 : 0
+
+          if (pushUpUpFramesRef.current >= 3 && now - lastPushUpRepAtRef.current >= DEFAULT_MIN_REP_INTERVAL_MS) {
+            pushUpStageRef.current = 'up'
+            pushUpUpFramesRef.current = 0
+            lastPushUpRepAtRef.current = now
+            recordRep()
+          }
+        }
       }
 
       if (challenge.id === 'squat') {
@@ -864,6 +948,7 @@ export function WorkoutPage() {
 
       poseRef.current = pose
 
+      const cameraDimensions = getCameraDimensions()
       const camera = new Camera(videoRef.current, {
         onFrame: async () => {
           if (!active || !videoRef.current || isSessionComplete) {
@@ -871,8 +956,8 @@ export function WorkoutPage() {
           }
           await pose.send({ image: videoRef.current })
         },
-        width: window.matchMedia('(max-width: 640px)').matches ? 720 : 960,
-        height: window.matchMedia('(max-width: 640px)').matches ? 1280 : 540,
+        width: cameraDimensions.width,
+        height: cameraDimensions.height,
       })
 
       cameraRef.current = camera
@@ -1086,7 +1171,7 @@ export function WorkoutPage() {
     context.fillStyle = '#94a3b8'
     context.font = `600 ${Math.max(16, Math.round(width * 0.022))}px Arial`
     context.textAlign = 'right'
-    context.fillText('fitperks.org', width - Math.round(width * 0.06), height - panelHeight + Math.round(panelHeight * 0.86))
+    context.fillText('fitperks.ai', width - Math.round(width * 0.06), height - panelHeight + Math.round(panelHeight * 0.86))
     context.textAlign = 'left'
 
     setShareImageUrl(canvas.toDataURL('image/jpeg', 0.9))
@@ -1122,6 +1207,7 @@ export function WorkoutPage() {
     }
 
     setError(null)
+    setSaveResult(null)
     if (isTrialWorkout) {
       setTrialDemoStage(exerciseParam === 'plank' ? 'plank' : 'jumping-jacks')
       setTrialTransitionSecondsLeft(15)
@@ -1149,6 +1235,10 @@ export function WorkoutPage() {
     jumpingJackClosedFramesRef.current = 0
     lastJumpingJackRepAtRef.current = 0
     highKneeStageRef.current = 'lowered'
+    pushUpStageRef.current = 'up'
+    pushUpDownFramesRef.current = 0
+    pushUpUpFramesRef.current = 0
+    lastPushUpRepAtRef.current = 0
     lastRepAtRef.current = null
     lastRepIntervalRef.current = null
     repHistoryRef.current = []
@@ -1217,6 +1307,7 @@ export function WorkoutPage() {
 
   function retakeWorkout() {
     setError(null)
+    setSaveResult(null)
     setSessionId(nowSessionId())
     setTrialDemoStage(exerciseParam === 'plank' ? 'plank' : 'jumping-jacks')
     setTrialTransitionSecondsLeft(15)
@@ -1248,6 +1339,10 @@ export function WorkoutPage() {
     jumpingJackClosedFramesRef.current = 0
     lastJumpingJackRepAtRef.current = 0
     highKneeStageRef.current = 'lowered'
+    pushUpStageRef.current = 'up'
+    pushUpDownFramesRef.current = 0
+    pushUpUpFramesRef.current = 0
+    lastPushUpRepAtRef.current = 0
     lastRepAtRef.current = null
     lastRepIntervalRef.current = null
     repHistoryRef.current = []
@@ -1330,7 +1425,7 @@ export function WorkoutPage() {
       }
 
       if (isSoloWorkout) {
-        const soloExercise: SoloExerciseType | null = challenge.id === 'plank' ? 'plank' : standardExercise
+        const soloExercise: SoloExerciseType | null = isSoloWorkout ? challenge.id : standardExercise
 
         if (!soloExercise) {
           throw new Error('Invalid solo workout.')
@@ -1411,7 +1506,10 @@ export function WorkoutPage() {
       })
 
       clearParticipantProfile()
-      navigate('/challenges')
+      setSaveResult({
+        message: `${repCount} reps saved for ${saveName.trim() || 'Participant'}.`,
+        leaderboardPath: '/leaderboard',
+      })
     } catch (err) {
       const message = getErrorMessage(err, 'Unable to submit workout.')
       setError(message)
@@ -1444,7 +1542,7 @@ export function WorkoutPage() {
     )
   }
 
-  const standardExercise = challenge.id === 'plank' ? null : challenge.id
+  const standardExercise = isStandardExercise(challenge.id) ? challenge.id : null
   const challengeVideoPath = standardExercise ? CHALLENGE_VIDEO_PATH[standardExercise] : null
   const shouldShowInstructionVideo = showInstructionVideo && challengeVideoPath && trialDemoStage !== 'transition'
 
@@ -1478,6 +1576,12 @@ export function WorkoutPage() {
         ) : null}
 
         {error ? <p className="error">{error}</p> : null}
+        {saveResult ? (
+          <div className="success-message" role="status">
+            <strong>{saveResult.message}</strong>
+            <Link className="button ghost button-small" to={saveResult.leaderboardPath}>View leaderboard</Link>
+          </div>
+        ) : null}
 
         <div className="workout-grid">
           <div className="workout-live-view">
@@ -1500,6 +1604,10 @@ export function WorkoutPage() {
               <div className="workout-counter-overlay" aria-live="polite">
                 <span>Valid reps</span>
                 <strong className={paceFeedback ? 'counter-pulse' : ''}>{repCount}</strong>
+              </div>
+              <div className="workout-score-overlay" aria-live="polite">
+                <span>{isTrialWorkout ? 'Score' : 'Points'}</span>
+                <strong>{displayedScore}</strong>
               </div>
               {isWorkoutRunning ? (
                 <div className={`workout-timer-overlay ${finalTenSeconds ? 'workout-timer-overlay-urgent' : ''}`} aria-live="polite">
@@ -1678,6 +1786,15 @@ export function WorkoutPage() {
                   </>
                 ) : (
                   <>
+                {saveResult ? (
+                  <div className="workout-finish-actions">
+                    <button className="button ghost" type="button" onClick={retakeWorkout} disabled={isSubmitting || captureCountdown !== null || captureRequested}>
+                      New workout
+                    </button>
+                    <Link className="button ghost" to={saveResult.leaderboardPath}>Open leaderboard</Link>
+                  </div>
+                ) : (
+                  <>
                 {isGuestWorkout || isSoloWorkout ? (
                   <label>
                     Player email
@@ -1726,6 +1843,8 @@ export function WorkoutPage() {
                 <button className="button ghost" type="button" onClick={retakeWorkout} disabled={isSubmitting || captureCountdown !== null || captureRequested}>
                   Retake workout
                 </button>
+                  </>
+                )}
                   </>
                 )}
               </div>

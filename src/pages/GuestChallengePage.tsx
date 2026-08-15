@@ -82,6 +82,13 @@ const SCOREBOARD_EXERCISE_META: Record<ExerciseType, { short: string; name: stri
   lunges: { short: 'LN', name: 'Lunge' },
 }
 
+function getGuestWorkoutStartLabel(exercise: ExerciseType): string {
+  if (exercise === 'squat') return 'Start Squat'
+  if (exercise === 'burpee') return 'Start Jumping Jack'
+  if (exercise === 'high-knees') return 'Start High Knees'
+  return 'Start Lunge'
+}
+
 function CopyableField({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false)
 
@@ -361,13 +368,12 @@ export function GuestChallengePage() {
               </article>
             </div>
             <p className="hint setup-meta">Daily Scoreboard: Best of 3 attempts. Session timer: {created.sessionDurationSeconds / 60} minutes</p>
-            <div className="hero-actions setup-actions">
+            <div className="hero-actions setup-actions guest-workout-actions">
               {created.selectedExercises.map((exercise) => {
                 const workout = CHALLENGES.find((item) => item.id === exercise)
                 return workout ? (
-                  <Link className={`button ghost setup-exercise-action setup-exercise-${exercise}`} to={`/guest/${created.code}/workout/${exercise}`} key={exercise}>
-                    <span className="setup-exercise-label">Start</span>
-                    <strong className="setup-exercise-name">{workout.name.replace(' Challenge', '')}</strong>
+                  <Link className={`button primary setup-exercise-action setup-exercise-${exercise}`} to={`/guest/${created.code}/workout/${exercise}`} key={exercise}>
+                    <strong className="setup-exercise-name">{getGuestWorkoutStartLabel(exercise)}</strong>
                   </Link>
                 ) : null
               })}
@@ -544,9 +550,8 @@ export function GuestChallengeLandingPage() {
           {challenge.selectedExercises.map((exercise) => {
             const workout = CHALLENGES.find((item) => item.id === exercise)
             return workout ? (
-              <Link className={`button ghost setup-exercise-action setup-exercise-${exercise}`} to={`/guest/${challenge.code}/workout/${exercise}`} key={exercise}>
-                <span className="setup-exercise-label">Start</span>
-                <strong className="setup-exercise-name">{workout.name.replace(' Challenge', '')}</strong>
+              <Link className={`button primary setup-exercise-action setup-exercise-${exercise}`} to={`/guest/${challenge.code}/workout/${exercise}`} key={exercise}>
+                <strong className="setup-exercise-name">{getGuestWorkoutStartLabel(exercise)}</strong>
               </Link>
             ) : null
           })}

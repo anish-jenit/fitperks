@@ -15,11 +15,11 @@ function scoreLabel(score: number): string {
 
 export function AILivePanel({ quality, liveCoachMessage, liveCoachEnabled }: Props) {
   return (
-    <aside className="ai-live-panel" aria-label="FitPerks AI live analysis">
+    <aside className="ai-live-panel" aria-label="Live movement analysis">
       <div className="ai-live-panel-heading">
         <div>
           <span className="ai-panel-kicker">Movement intelligence</span>
-          <h2>FitPerks AI</h2>
+          <h2>Movement Check</h2>
         </div>
         <span className={`ai-score-pill ai-score-${quality.movementScore >= 75 ? 'good' : 'warn'}`}>
           {quality.movementScore}/100 · {scoreLabel(quality.movementScore)}

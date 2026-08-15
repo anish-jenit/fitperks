@@ -13,6 +13,10 @@ import type {
   GuestChallengeSummary,
   GuestScoreboardRow,
   SoloExerciseType,
+  SoloHighScorePeriod,
+  SoloHighScoreRow,
+  SoloMonthlyWinner,
+  SoloMonthlyWinnerStatus,
   SoloProgressSummary,
   InviteSetupContext,
   IndividualLeaderboardRow,
@@ -22,6 +26,8 @@ import type {
   OrganizationTrialScoreboardRow,
   ParticipantInput,
   ParticipantProfile,
+  PlatformUsageDashboard,
+  SoloFlaggedAttempt,
   PublicLaunchContext,
   TeamLeaderboardRow,
   AIDemoSettings,
@@ -49,6 +55,8 @@ type StubFlowState = {
     exercise: SoloExerciseType
     reps: number
     score: number
+    isFlagged?: boolean
+    flagReasons?: string[]
     createdAt: string
   }>
   organizationTrialAttempts?: Array<{
@@ -965,11 +973,45 @@ function scoreExercise(exercise: SoloExerciseType, reps: number): number {
   return reps * (exercise === 'burpee' || exercise === 'lunges' ? 2 : 1)
 }
 
+function soloRepCap(exercise: SoloExerciseType): number {
+  if (exercise === 'high-knees') return 220
+  if (exercise === 'burpee') return 140
+  if (exercise === 'push-ups') return 100
+  if (exercise === 'squat') return 95
+  if (exercise === 'lunges') return 90
+  if (exercise === 'plank') return 180
+  return 120
+}
+
+function soloFlagReasons(input: { exercise: SoloExerciseType; reps: number; score: number; recentAttemptCount: number }): string[] {
+  const reasons: string[] = []
+  if (input.reps > soloRepCap(input.exercise)) {
+    reasons.push(`Rep count exceeds expected 60s range for ${input.exercise}`)
+  }
+  if (input.score > 260) {
+    reasons.push('Score exceeds expected single-session range')
+  }
+  if (input.recentAttemptCount >= 8) {
+    reasons.push('High attempt frequency in 10 minutes')
+  }
+  return reasons
+}
+
 function dayLabel(date: dayjs.Dayjs): string {
   return date.format('MMM D')
 }
 
 function mapSoloProgressSummary(payload: any): SoloProgressSummary {
+  const mapHighScoreRows = (rows: any[], period: SoloHighScorePeriod): SoloHighScoreRow[] => rows.map((row) => ({
+    rank: Number(row.rank ?? 0),
+    playerName: String(row.player_name ?? row.playerName ?? ''),
+    playerEmail: String(row.player_email ?? row.playerEmail ?? ''),
+    consistencyDays: Number(row.consistency_days ?? row.consistencyDays ?? 0),
+    maxReps: Number(row.max_reps ?? row.maxReps ?? 0),
+    bestDailyScore: Number(row.best_daily_score ?? row.bestDailyScore ?? 0),
+    period,
+  }))
+
   return {
     playerName: payload?.player_name ?? '',
     playerEmail: payload?.player_email ?? '',
@@ -1019,6 +1061,63 @@ function mapSoloProgressSummary(payload: any): SoloProgressSummary {
       maxReps: Number(row.max_reps ?? row.maxReps ?? 0),
       bestDailyScore: Number(row.best_daily_score ?? row.bestDailyScore ?? 0),
     })),
+    highScoreLeaders: {
+      daily: mapHighScoreRows((payload?.daily_high_score_leaders ?? payload?.highScoreLeaders?.daily ?? []) as any[], 'daily'),
+      weekly: mapHighScoreRows((payload?.weekly_high_score_leaders ?? payload?.highScoreLeaders?.weekly ?? []) as any[], 'weekly'),
+      monthly: mapHighScoreRows((payload?.monthly_high_score_leaders ?? payload?.highScoreLeaders?.monthly ?? []) as any[], 'monthly'),
+    },
+  }
+}
+
+function mapSoloMonthlyWinner(payload: any): SoloMonthlyWinner | null {
+  if (!payload) {
+    return null
+  }
+
+  const status = String(payload.status ?? 'pending')
+  return {
+    monthStart: String(payload.month_start ?? payload.monthStart ?? ''),
+    playerEmail: String(payload.player_email ?? payload.playerEmail ?? ''),
+    playerName: String(payload.player_name ?? payload.playerName ?? ''),
+    score: Number(payload.score ?? 0),
+    reps: Number(payload.reps ?? 0),
+    exercise: String(payload.exercise ?? 'squat') as SoloExerciseType,
+    status: (['pending', 'notified', 'awarded', 'void'].includes(status) ? status : 'pending') as SoloMonthlyWinnerStatus,
+    voucherCode: payload.voucher_code ?? payload.voucherCode ?? null,
+    awardedAt: payload.awarded_at ?? payload.awardedAt ?? null,
+  }
+}
+
+function mapSoloFlaggedAttempt(row: any): SoloFlaggedAttempt {
+  return {
+    id: String(row.id ?? ''),
+    playerName: String(row.player_name ?? row.playerName ?? ''),
+    playerEmail: String(row.player_email ?? row.playerEmail ?? ''),
+    exercise: String(row.exercise ?? 'squat') as SoloExerciseType,
+    reps: Number(row.reps ?? 0),
+    score: Number(row.score ?? 0),
+    flagReasons: ((row.flag_reasons ?? row.flagReasons ?? []) as unknown[]).map(String),
+    reviewedAt: row.reviewed_at ?? row.reviewedAt ?? null,
+    createdAt: String(row.created_at ?? row.createdAt ?? ''),
+  }
+}
+
+function mapPlatformUsageDashboard(payload: any): PlatformUsageDashboard {
+  const summary = payload?.summary ?? {}
+  return {
+    summary: {
+      soloAttemptsTotal: Number(summary.solo_attempts_total ?? summary.soloAttemptsTotal ?? 0),
+      soloAttemptsToday: Number(summary.solo_attempts_today ?? summary.soloAttemptsToday ?? 0),
+      soloAttemptsThisWeek: Number(summary.solo_attempts_this_week ?? summary.soloAttemptsThisWeek ?? 0),
+      soloAttemptsThisMonth: Number(summary.solo_attempts_this_month ?? summary.soloAttemptsThisMonth ?? 0),
+      soloPlayersTotal: Number(summary.solo_players_total ?? summary.soloPlayersTotal ?? 0),
+      soloFlaggedTotal: Number(summary.solo_flagged_total ?? summary.soloFlaggedTotal ?? 0),
+      soloFlaggedUnreviewed: Number(summary.solo_flagged_unreviewed ?? summary.soloFlaggedUnreviewed ?? 0),
+      activeGuestChallenges: Number(summary.active_guest_challenges ?? summary.activeGuestChallenges ?? 0),
+      activeOrganizationTrials: Number(summary.active_organization_trials ?? summary.activeOrganizationTrials ?? 0),
+    },
+    recentFlaggedAttempts: ((payload?.recent_flagged_attempts ?? payload?.recentFlaggedAttempts ?? []) as any[]).map(mapSoloFlaggedAttempt),
+    monthlyWinner: mapSoloMonthlyWinner(payload?.monthly_winner ?? payload?.monthlyWinner ?? null),
   }
 }
 
@@ -1027,10 +1126,12 @@ function buildStubSoloProgress(playerEmail: string): SoloProgressSummary {
   const state = readStubFlowState()
   const attempts = state.soloAttempts ?? []
   const playerAttempts = attempts.filter((attempt) => attempt.playerEmail === normalizedEmail)
+  const eligibleAttempts = attempts.filter((attempt) => !attempt.isFlagged)
+  const eligiblePlayerAttempts = eligibleAttempts.filter((attempt) => attempt.playerEmail === normalizedEmail)
   const playerName = playerAttempts[0]?.playerName ?? ''
   const bestByDay = new Map<string, { score: number; reps: number }>()
 
-  for (const attempt of playerAttempts) {
+  for (const attempt of eligiblePlayerAttempts) {
     const key = dayjs(attempt.createdAt).format('YYYY-MM-DD')
     const current = bestByDay.get(key)
     if (!current || attempt.score > current.score || (attempt.score === current.score && attempt.reps > current.reps)) {
@@ -1075,7 +1176,7 @@ function buildStubSoloProgress(playerEmail: string): SoloProgressSummary {
   })
 
   const players = new Map<string, { playerName: string; playerEmail: string; days: Set<string>; maxReps: number; bestDailyScore: number }>()
-  for (const attempt of attempts) {
+  for (const attempt of eligibleAttempts) {
     const current = players.get(attempt.playerEmail) ?? {
       playerName: attempt.playerName,
       playerEmail: attempt.playerEmail,
@@ -1106,6 +1207,11 @@ function buildStubSoloProgress(playerEmail: string): SoloProgressSummary {
     .sort((left, right) => right.maxReps - left.maxReps || right.bestDailyScore - left.bestDailyScore)
     .slice(0, 8)
     .map((row, index) => ({ ...row, rank: index + 1 }))
+  const highScoreLeaders = {
+    daily: buildStubHighScoreLeaders(eligibleAttempts, dayjs().startOf('day'), dayjs().endOf('day'), 'daily'),
+    weekly: buildStubHighScoreLeaders(eligibleAttempts, dayjs().startOf('week'), dayjs().endOf('week'), 'weekly'),
+    monthly: buildStubHighScoreLeaders(eligibleAttempts, dayjs().startOf('month'), dayjs().endOf('month'), 'monthly'),
+  }
 
   let currentStreak = 0
   for (let i = 0; i < 365; i += 1) {
@@ -1148,6 +1254,77 @@ function buildStubSoloProgress(playerEmail: string): SoloProgressSummary {
     monthly,
     consistencyLeaders,
     maxRepLeaders,
+    highScoreLeaders,
+  }
+}
+
+function buildStubHighScoreLeaders(
+  attempts: NonNullable<StubFlowState['soloAttempts']>,
+  start: dayjs.Dayjs,
+  end: dayjs.Dayjs,
+  period: SoloHighScorePeriod,
+): SoloHighScoreRow[] {
+  const players = new Map<string, { playerName: string; playerEmail: string; days: Set<string>; maxReps: number; bestDailyScore: number }>()
+
+  for (const attempt of attempts) {
+    const createdAt = dayjs(attempt.createdAt)
+    if (createdAt.isBefore(start) || createdAt.isAfter(end)) {
+      continue
+    }
+
+    const current = players.get(attempt.playerEmail) ?? {
+      playerName: attempt.playerName,
+      playerEmail: attempt.playerEmail,
+      days: new Set<string>(),
+      maxReps: 0,
+      bestDailyScore: 0,
+    }
+    current.days.add(createdAt.format('YYYY-MM-DD'))
+    current.maxReps = Math.max(current.maxReps, attempt.reps)
+    current.bestDailyScore = Math.max(current.bestDailyScore, attempt.score)
+    players.set(attempt.playerEmail, current)
+  }
+
+  return Array.from(players.values())
+    .sort((left, right) => right.bestDailyScore - left.bestDailyScore || right.maxReps - left.maxReps || left.playerName.localeCompare(right.playerName))
+    .slice(0, 8)
+    .map((row, index) => ({
+      rank: index + 1,
+      playerName: row.playerName,
+      playerEmail: row.playerEmail,
+      consistencyDays: row.days.size,
+      maxReps: row.maxReps,
+      bestDailyScore: row.bestDailyScore,
+      period,
+    }))
+}
+
+function buildStubMonthlyWinner(monthStart = dayjs().startOf('month')): SoloMonthlyWinner | null {
+  const state = readStubFlowState()
+  const start = monthStart.startOf('month')
+  const end = start.endOf('month')
+  const winner = (state.soloAttempts ?? [])
+    .filter((attempt) => !attempt.isFlagged)
+    .filter((attempt) => {
+      const createdAt = dayjs(attempt.createdAt)
+      return !createdAt.isBefore(start) && !createdAt.isAfter(end)
+    })
+    .sort((left, right) => right.score - left.score || right.reps - left.reps || dayjs(left.createdAt).valueOf() - dayjs(right.createdAt).valueOf())[0]
+
+  if (!winner) {
+    return null
+  }
+
+  return {
+    monthStart: start.format('YYYY-MM-DD'),
+    playerEmail: winner.playerEmail,
+    playerName: winner.playerName,
+    score: winner.score,
+    reps: winner.reps,
+    exercise: winner.exercise,
+    status: 'pending',
+    voucherCode: null,
+    awardedAt: null,
   }
 }
 
@@ -1352,13 +1529,22 @@ export async function submitSoloAttempt(input: {
 
   if (useFlowStubs) {
     const state = readStubFlowState()
+    const recentAttemptCount = (state.soloAttempts ?? []).filter((row) =>
+      row.playerEmail === normalizedEmail &&
+      row.sessionId !== input.sessionId &&
+      dayjs(row.createdAt).isAfter(dayjs().subtract(10, 'minute')),
+    ).length
+    const score = scoreExercise(input.exercise, input.reps)
+    const flagReasons = soloFlagReasons({ exercise: input.exercise, reps: input.reps, score, recentAttemptCount })
     const attempt = {
       playerName: input.playerName.trim() || 'Solo Player',
       playerEmail: normalizedEmail,
       sessionId: input.sessionId,
       exercise: input.exercise,
       reps: input.reps,
-      score: scoreExercise(input.exercise, input.reps),
+      score,
+      isFlagged: flagReasons.length > 0,
+      flagReasons,
       createdAt: dayjs().toISOString(),
     }
     state.soloAttempts = [attempt, ...(state.soloAttempts ?? []).filter((row) => row.sessionId !== input.sessionId)]
@@ -1401,6 +1587,85 @@ export async function getSoloProgress(playerEmail: string): Promise<SoloProgress
   }
 
   return mapSoloProgressSummary(data)
+}
+
+export async function getSoloMonthlyWinner(monthStart?: string): Promise<SoloMonthlyWinner | null> {
+  if (useFlowStubs) {
+    return buildStubMonthlyWinner(monthStart ? dayjs(monthStart) : dayjs().startOf('month'))
+  }
+
+  const { data, error } = await supabase.rpc('get_solo_monthly_winner', {
+    p_month_start: monthStart ?? null,
+  })
+
+  if (error) {
+    throw error
+  }
+
+  return mapSoloMonthlyWinner(data)
+}
+
+export async function refreshSoloMonthlyWinner(monthStart?: string): Promise<SoloMonthlyWinner | null> {
+  if (useFlowStubs) {
+    return buildStubMonthlyWinner(monthStart ? dayjs(monthStart) : dayjs().startOf('month'))
+  }
+
+  const { data, error } = await supabase.rpc('refresh_solo_monthly_winner', {
+    p_month_start: monthStart ?? null,
+  })
+
+  if (error) {
+    throw error
+  }
+
+  return mapSoloMonthlyWinner(data)
+}
+
+export async function getPlatformUsageDashboard(): Promise<PlatformUsageDashboard> {
+  if (useFlowStubs) {
+    const state = readStubFlowState()
+    const attempts = state.soloAttempts ?? []
+    const now = dayjs()
+    const recentFlaggedAttempts = attempts
+      .filter((attempt) => attempt.isFlagged)
+      .sort((left, right) => dayjs(right.createdAt).valueOf() - dayjs(left.createdAt).valueOf())
+      .slice(0, 12)
+      .map((attempt, index) => ({
+        id: `${attempt.sessionId}-${index}`,
+        playerName: attempt.playerName,
+        playerEmail: attempt.playerEmail,
+        exercise: attempt.exercise,
+        reps: attempt.reps,
+        score: attempt.score,
+        flagReasons: attempt.flagReasons ?? [],
+        reviewedAt: null,
+        createdAt: attempt.createdAt,
+      }))
+
+    return {
+      summary: {
+        soloAttemptsTotal: attempts.length,
+        soloAttemptsToday: attempts.filter((attempt) => dayjs(attempt.createdAt).isSame(now, 'day')).length,
+        soloAttemptsThisWeek: attempts.filter((attempt) => dayjs(attempt.createdAt).isSame(now, 'week')).length,
+        soloAttemptsThisMonth: attempts.filter((attempt) => dayjs(attempt.createdAt).isSame(now, 'month')).length,
+        soloPlayersTotal: new Set(attempts.map((attempt) => attempt.playerEmail)).size,
+        soloFlaggedTotal: attempts.filter((attempt) => attempt.isFlagged).length,
+        soloFlaggedUnreviewed: attempts.filter((attempt) => attempt.isFlagged).length,
+        activeGuestChallenges: (state.guestChallenges ?? []).filter((challenge) => dayjs(challenge.endDate).isAfter(now)).length,
+        activeOrganizationTrials: (state.organizationTrials ?? []).filter((trial) => dayjs(trial.expiresAt).isAfter(now)).length,
+      },
+      recentFlaggedAttempts,
+      monthlyWinner: buildStubMonthlyWinner(now.startOf('month')),
+    }
+  }
+
+  const { data, error } = await supabase.rpc('get_platform_usage_dashboard')
+
+  if (error) {
+    throw error
+  }
+
+  return mapPlatformUsageDashboard(data)
 }
 
 export async function submitGuestAttempt(input: {

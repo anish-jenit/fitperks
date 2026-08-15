@@ -11,6 +11,8 @@ export type PoseState = {
   isHighKneeRaised: boolean
   isHighKneeLowered: boolean
   isLungeDepth: boolean
+  isPushUpDown: boolean
+  isPushUpUp: boolean
 }
 
 function angle(a: NormalizedLandmark, b: NormalizedLandmark, c: NormalizedLandmark): number {
@@ -42,6 +44,8 @@ export function analyzePose(landmarks: NormalizedLandmark[], calibration: Calibr
   const rightAnkle = landmarks[28]
   const leftWrist = landmarks[15]
   const rightWrist = landmarks[16]
+  const leftElbow = landmarks[13]
+  const rightElbow = landmarks[14]
 
   const leftKneeAngle = angle(leftHip, leftKnee, leftAnkle)
   const rightKneeAngle = angle(rightHip, rightKnee, rightAnkle)
@@ -50,6 +54,9 @@ export function analyzePose(landmarks: NormalizedLandmark[], calibration: Calibr
   const leftHipAngle = angle(leftShoulder, leftHip, leftKnee)
   const rightHipAngle = angle(rightShoulder, rightHip, rightKnee)
   const avgHipAngle = (leftHipAngle + rightHipAngle) / 2
+  const leftElbowAngle = angle(leftShoulder, leftElbow, leftWrist)
+  const rightElbowAngle = angle(rightShoulder, rightElbow, rightWrist)
+  const avgElbowAngle = (leftElbowAngle + rightElbowAngle) / 2
 
   const avgHipY = (leftHip.y + rightHip.y) / 2
   const avgKneeY = (leftKnee.y + rightKnee.y) / 2
@@ -92,6 +99,11 @@ export function analyzePose(landmarks: NormalizedLandmark[], calibration: Calibr
   const otherLegStable = Math.max(leftKneeAngle, rightKneeAngle) > 125
   const kneesSeparated = Math.abs(leftKnee.x - rightKnee.x) > shoulderWidth * 0.18
   const isLungeDepth = oneLegBent && otherLegStable && kneesSeparated && avgHipY > avgShoulderY + 0.18
+  const isPushUpBodyLine =
+    avgHipAngle > calibration.burpee.plankHipMin - 10 &&
+    shoulderHipDelta < calibration.burpee.plankShoulderHipMax + 0.06
+  const isPushUpDown = isPushUpBodyLine && avgElbowAngle < 112
+  const isPushUpUp = isPushUpBodyLine && avgElbowAngle > 152
 
   return {
     isStanding,
@@ -103,5 +115,7 @@ export function analyzePose(landmarks: NormalizedLandmark[], calibration: Calibr
     isHighKneeRaised,
     isHighKneeLowered,
     isLungeDepth,
+    isPushUpDown,
+    isPushUpUp,
   }
 }

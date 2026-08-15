@@ -10,15 +10,17 @@ import {
   getChallengeHistory,
   getCurrentAdminUser,
   getIndividualLeaderboard,
+  getPlatformUsageDashboard,
   getApplicationSettings,
   getOrganizationInvites,
   getOrganizationTrials,
   getOrganizations,
+  refreshSoloMonthlyWinner,
   toCsv,
   updateApplicationSettings,
   updateChallengeConfig,
 } from '../lib/supabaseApi'
-import { DEFAULT_AI_DEMO_SETTINGS, type ApplicationSettings, type ChallengeRecord, type OrganizationInviteRecord, type OrganizationRecord, type OrganizationTrialRecord } from '../types'
+import { DEFAULT_AI_DEMO_SETTINGS, type ApplicationSettings, type ChallengeRecord, type OrganizationInviteRecord, type OrganizationRecord, type OrganizationTrialRecord, type PlatformUsageDashboard } from '../types'
 
 type LoginState = {
   email: string
@@ -48,7 +50,7 @@ type TrialDraft = {
   accessDuration: string
 }
 
-type PlatformTab = 'defaults' | 'organizations' | 'trials'
+type PlatformTab = 'defaults' | 'organizations' | 'trials' | 'usage'
 
 const MIN_TRIAL_DURATION_MINUTES = 5
 const MAX_TRIAL_DURATION_MINUTES = 24 * 60
@@ -114,6 +116,7 @@ export function AdminPage() {
   const [organizations, setOrganizations] = useState<OrganizationRecord[]>([])
   const [organizationInvites, setOrganizationInvites] = useState<OrganizationInviteRecord[]>([])
   const [organizationTrials, setOrganizationTrials] = useState<OrganizationTrialRecord[]>([])
+  const [usageDashboard, setUsageDashboard] = useState<PlatformUsageDashboard | null>(null)
   const [generatedInviteUrl, setGeneratedInviteUrl] = useState<string | null>(null)
   const [generatedTrial, setGeneratedTrial] = useState<OrganizationTrialRecord | null>(null)
   const [organizationDraft, setOrganizationDraft] = useState<OrganizationDraft>({
@@ -153,6 +156,7 @@ export function AdminPage() {
         setOrganizations([])
         setOrganizationInvites([])
         setOrganizationTrials([])
+        setUsageDashboard(await getPlatformUsageDashboard())
         setMessage('Stub mode active: admin and POC invite flow is running locally without Supabase.')
         setError(null)
         return
@@ -175,17 +179,19 @@ export function AdminPage() {
       setIsPlatformAdmin(admin.role === 'platform_admin')
 
       if (admin.role === 'platform_admin') {
-        const [nextSettings, nextOrganizations, nextInvites, nextTrials, nextHistory] = await Promise.all([
+        const [nextSettings, nextOrganizations, nextInvites, nextTrials, nextHistory, nextUsage] = await Promise.all([
           getApplicationSettings(),
           getOrganizations(),
           getOrganizationInvites(),
           getOrganizationTrials(),
           getChallengeHistory(),
+          getPlatformUsageDashboard(),
         ])
         setApplicationSettings(nextSettings)
         setOrganizations(nextOrganizations)
         setOrganizationInvites(nextInvites)
         setOrganizationTrials(nextTrials)
+        setUsageDashboard(nextUsage)
         setChallengeHistory(nextHistory)
         setActiveChallenge(null)
         setDraft(null)
@@ -368,6 +374,21 @@ export function AdminPage() {
     }
   }
 
+  async function onRefreshMonthlyWinner() {
+    try {
+      setBusy(true)
+      setError(null)
+      setMessage(null)
+      await refreshSoloMonthlyWinner()
+      setUsageDashboard(await getPlatformUsageDashboard())
+      setMessage('Monthly solo winner candidate refreshed.')
+    } catch (err) {
+      setError(getAdminErrorMessage(err, 'Unable to refresh monthly winner.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const readOnlyHistory = useMemo(
     () => challengeHistory.filter((c) => c.status === 'completed' || c.status === 'archived'),
     [challengeHistory],
@@ -485,6 +506,15 @@ export function AdminPage() {
                 onClick={() => setPlatformTab('trials')}
               >
                 Organization Trials
+              </button>
+              <button
+                className={`admin-tab ${platformTab === 'usage' ? 'active' : ''}`}
+                type="button"
+                role="tab"
+                aria-selected={platformTab === 'usage'}
+                onClick={() => setPlatformTab('usage')}
+              >
+                Usage & Guardrails
               </button>
             </div>
 
@@ -635,7 +665,7 @@ export function AdminPage() {
                   )}
                 </div>
               </section>
-            ) : (
+            ) : platformTab === 'trials' ? (
               <section className="panel settings-panel">
                 <h2>Organization Trial</h2>
                 <p>Create a time-limited demo code. Trial participants can use only squats and jumping jacks; their scores update live until the access window ends.</p>
@@ -753,6 +783,77 @@ export function AdminPage() {
                     })}</tbody></table></div>
                   )}
                 </div>
+              </section>
+            ) : (
+              <section className="panel settings-panel">
+                <h2>Usage & Guardrails</h2>
+                <p>Track solo usage, prize eligibility signals, active challenge activity, and recent suspicious attempts.</p>
+
+                {usageDashboard ? (
+                  <div className="stack">
+                    <div className="stats-cards">
+                      <article><span>Solo attempts</span><strong>{usageDashboard.summary.soloAttemptsTotal}</strong></article>
+                      <article><span>Today</span><strong>{usageDashboard.summary.soloAttemptsToday}</strong></article>
+                      <article><span>This week</span><strong>{usageDashboard.summary.soloAttemptsThisWeek}</strong></article>
+                      <article><span>This month</span><strong>{usageDashboard.summary.soloAttemptsThisMonth}</strong></article>
+                      <article><span>Solo players</span><strong>{usageDashboard.summary.soloPlayersTotal}</strong></article>
+                      <article><span>Unreviewed flags</span><strong>{usageDashboard.summary.soloFlaggedUnreviewed}</strong></article>
+                      <article><span>Active guest challenges</span><strong>{usageDashboard.summary.activeGuestChallenges}</strong></article>
+                      <article><span>Active trials</span><strong>{usageDashboard.summary.activeOrganizationTrials}</strong></article>
+                    </div>
+
+                    <div className="admin-management-block admin-management-block-wide">
+                      <h3 className="admin-subsection-title">Monthly reward candidate</h3>
+                      {usageDashboard.monthlyWinner ? (
+                        <div className="table-scroll">
+                          <table>
+                            <thead><tr><th>Month</th><th>Player</th><th>Exercise</th><th>Score</th><th>Reps</th><th>Status</th><th>Voucher</th></tr></thead>
+                            <tbody>
+                              <tr>
+                                <td>{dayjs(usageDashboard.monthlyWinner.monthStart).format('MMM YYYY')}</td>
+                                <td>{usageDashboard.monthlyWinner.playerName || usageDashboard.monthlyWinner.playerEmail}</td>
+                                <td>{usageDashboard.monthlyWinner.exercise}</td>
+                                <td>{usageDashboard.monthlyWinner.score}</td>
+                                <td>{usageDashboard.monthlyWinner.reps}</td>
+                                <td>{usageDashboard.monthlyWinner.status}</td>
+                                <td>{usageDashboard.monthlyWinner.voucherCode ?? 'Not assigned'}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p>No eligible monthly solo attempt yet.</p>
+                      )}
+                      <button className="button ghost button-small" type="button" onClick={() => void onRefreshMonthlyWinner()} disabled={busy}>
+                        {busy ? 'Refreshing...' : 'Refresh Winner Candidate'}
+                      </button>
+                    </div>
+
+                    <div className="admin-list-block">
+                      <h3 className="admin-subsection-title">Recent suspicious solo attempts</h3>
+                      {usageDashboard.recentFlaggedAttempts.length === 0 ? <p>No suspicious attempts flagged yet.</p> : (
+                        <div className="table-scroll">
+                          <table>
+                            <thead><tr><th>Time</th><th>Player</th><th>Exercise</th><th>Reps</th><th>Score</th><th>Reasons</th><th>Review</th></tr></thead>
+                            <tbody>{usageDashboard.recentFlaggedAttempts.map((attempt) => (
+                              <tr key={attempt.id}>
+                                <td>{dayjs(attempt.createdAt).format('YYYY-MM-DD HH:mm')}</td>
+                                <td>{attempt.playerName || attempt.playerEmail}</td>
+                                <td>{attempt.exercise}</td>
+                                <td>{attempt.reps}</td>
+                                <td>{attempt.score}</td>
+                                <td>{attempt.flagReasons.join(', ')}</td>
+                                <td>{attempt.reviewedAt ? dayjs(attempt.reviewedAt).format('YYYY-MM-DD') : 'Pending'}</td>
+                              </tr>
+                            ))}</tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p>Usage dashboard is unavailable.</p>
+                )}
               </section>
             )}
           </>

@@ -7,24 +7,11 @@ import { hasSupabaseConfig } from '../lib/supabase'
 import { getConfiguredOrganizationCode } from '../lib/storage'
 import { DEFAULT_AI_DEMO_SETTINGS, type ChallengeRecord, type ExerciseType } from '../types'
 
-const CTA_PHRASES = ['Let\'s Go', 'Start Now', 'Let\'s Move', 'Game On', 'Bring It On']
-function createRandomCtaLabels() {
-  const shuffled = [...CTA_PHRASES]
-
-  for (let index = shuffled.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1))
-    const current = shuffled[index]
-    shuffled[index] = shuffled[swapIndex]
-    shuffled[swapIndex] = current
-  }
-
-  return CHALLENGES.reduce(
-    (labels, challenge, index) => ({
-      ...labels,
-      [challenge.id]: shuffled[index % shuffled.length] ?? 'Start',
-    }),
-    {} as Record<ExerciseType, string>,
-  )
+function getChallengeStartLabel(exerciseId: ExerciseType): string {
+  if (exerciseId === 'squat') return 'Start Squat'
+  if (exerciseId === 'burpee') return 'Start Jumping Jack'
+  if (exerciseId === 'high-knees') return 'Start High Knees'
+  return 'Start Lunge'
 }
 
 function isExerciseEnabled(challenge: ChallengeRecord, exerciseId: ExerciseType): boolean {
@@ -168,7 +155,6 @@ function ChallengeDoodle({ exerciseId }: { exerciseId: ExerciseType }) {
 export function ChallengeSelectPage() {
   const [activeChallenge, setActiveChallenge] = useState<ChallengeRecord | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [ctaLabelByChallenge] = useState(() => createRandomCtaLabels())
   const orgCode = getConfiguredOrganizationCode()?.trim().toUpperCase()
 
   useEffect(() => {
@@ -240,11 +226,11 @@ export function ChallengeSelectPage() {
               <h2>{challenge.name}</h2>
               {activeChallenge && isExerciseEnabled(activeChallenge, challenge.id) ? (
                 <Link className="button primary" to={`/workout/${challenge.id}`}>
-                  {ctaLabelByChallenge[challenge.id]}
+                  {getChallengeStartLabel(challenge.id)}
                 </Link>
               ) : (
                 <button className="button ghost" disabled>
-                  {ctaLabelByChallenge[challenge.id]}
+                  {getChallengeStartLabel(challenge.id)}
                 </button>
               )}
             </article>

@@ -27,7 +27,7 @@ export type RepHistoryEntry = {
 }
 
 export type MovementAnalysisInput = {
-  exercise: ExerciseType | 'plank'
+  exercise: ExerciseType | 'plank' | 'push-ups'
   landmarks: NormalizedLandmark[]
   validReps: number
   attemptedReps: number
@@ -81,7 +81,7 @@ function scoreFromRating(rating: QualityRating): number {
   return 45
 }
 
-function squatDepthRating(kneeAngle: number, hipHeightFromKnee: number, exercise: ExerciseType | 'plank', calibration?: CalibrationSettings): QualityRating {
+function squatDepthRating(kneeAngle: number, hipHeightFromKnee: number, exercise: ExerciseType | 'plank' | 'push-ups', calibration?: CalibrationSettings): QualityRating {
   if (exercise !== 'squat') return 'Good'
 
   const squatKneeMax = calibration?.squat.squatKneeMax ?? 145
@@ -167,7 +167,7 @@ function wasRepDetectedRecently(repHistory: RepHistoryEntry[]): boolean {
 }
 
 function hintFor(input: {
-  exercise: ExerciseType | 'plank'
+  exercise: ExerciseType | 'plank' | 'push-ups'
   kneeAngle: number
   depth: QualityRating
   tempo: QualityRating

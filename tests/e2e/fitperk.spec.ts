@@ -97,12 +97,67 @@ test.beforeEach(async ({ page }) => {
       total_score: 30,
     },
   ]
+  const soloProgress = {
+    player_name: 'Maya',
+    player_email: 'maya@example.com',
+    current_streak: 2,
+    longest_streak: 5,
+    level: 1,
+    badges: [],
+    today_best_score: 42,
+    today_max_reps: 42,
+    total_attempts: 3,
+    daily: [{ label: 'Aug 10', score: 42, max_reps: 42, active_days: 1 }],
+    weekly: [{ label: 'W 08/10', score: 42, max_reps: 42, active_days: 1 }],
+    monthly: [{ label: 'Aug', score: 42, max_reps: 42, active_days: 1 }],
+    consistency_leaders: [{ rank: 1, player_name: 'Maya', player_email: 'maya@example.com', consistency_days: 2, max_reps: 42, best_daily_score: 42 }],
+    max_rep_leaders: [{ rank: 1, player_name: 'Maya', player_email: 'maya@example.com', consistency_days: 2, max_reps: 42, best_daily_score: 42 }],
+    daily_high_score_leaders: [{ rank: 1, player_name: 'Maya', player_email: 'maya@example.com', consistency_days: 1, max_reps: 42, best_daily_score: 42 }],
+    weekly_high_score_leaders: [{ rank: 1, player_name: 'Maya', player_email: 'maya@example.com', consistency_days: 2, max_reps: 42, best_daily_score: 42 }],
+    monthly_high_score_leaders: [{ rank: 1, player_name: 'Maya', player_email: 'maya@example.com', consistency_days: 2, max_reps: 42, best_daily_score: 42 }],
+  }
+  const platformUsageDashboard = {
+    summary: {
+      solo_attempts_total: 12,
+      solo_attempts_today: 3,
+      solo_attempts_this_week: 9,
+      solo_attempts_this_month: 12,
+      solo_players_total: 4,
+      solo_flagged_total: 1,
+      solo_flagged_unreviewed: 1,
+      active_guest_challenges: 1,
+      active_organization_trials: 1,
+    },
+    recent_flagged_attempts: [{
+      id: 'flag-1',
+      player_name: 'Maya',
+      player_email: 'maya@example.com',
+      exercise: 'push-ups',
+      reps: 180,
+      score: 180,
+      flag_reasons: ['Rep count exceeds expected 60s range for push-ups'],
+      reviewed_at: null,
+      created_at: new Date().toISOString(),
+    }],
+    monthly_winner: {
+      month_start: new Date().toISOString().slice(0, 8) + '01',
+      player_name: 'Maya',
+      player_email: 'maya@example.com',
+      exercise: 'push-ups',
+      reps: 42,
+      score: 42,
+      status: 'pending',
+      voucher_code: null,
+      awarded_at: null,
+    },
+  }
 
   await page.route('http://127.0.0.1:54321/auth/v1/**', async (route) => {
     const request = route.request()
+    const url = new URL(request.url())
     const body = request.postData() ?? ''
 
-    if (request.method() === 'POST' && body.includes('grant_type=password')) {
+    if (request.method() === 'POST' && (body.includes('grant_type=password') || url.searchParams.get('grant_type') === 'password')) {
       return route.fulfill({
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -110,13 +165,14 @@ test.beforeEach(async ({ page }) => {
           access_token: 'admin-token',
           token_type: 'bearer',
           expires_in: 3600,
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
           refresh_token: 'admin-refresh',
-          user: { id: 'admin-user-id' },
+          user: { id: 'admin-user-id', aud: 'authenticated', role: 'authenticated', email: 'admin@example.com' },
         }),
       })
     }
 
-    if (request.method() === 'POST' && body.includes('grant_type=anon')) {
+    if (request.method() === 'POST' && (body.includes('grant_type=anon') || url.searchParams.get('grant_type') === 'anon')) {
       return route.fulfill({
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -124,9 +180,18 @@ test.beforeEach(async ({ page }) => {
           access_token: 'anon-token',
           token_type: 'bearer',
           expires_in: 3600,
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
           refresh_token: 'anon-refresh',
-          user: { id: 'anon-user-id' },
+          user: { id: 'anon-user-id', aud: 'authenticated', role: 'authenticated' },
         }),
+      })
+    }
+
+    if (request.method() === 'GET' && request.headers().authorization?.includes('admin-token')) {
+      return route.fulfill({
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id: 'admin-user-id', email: 'admin@example.com' }),
       })
     }
 
@@ -211,6 +276,10 @@ test.beforeEach(async ({ page }) => {
       })
     }
 
+    if (path.endsWith('/rpc/get_current_admin_user') && method === 'POST') {
+      return json({ id: 'admin-1', organization_id: null, user_id: 'admin-user-id', role: 'platform_admin', created_at: new Date().toISOString() })
+    }
+
     if (path.endsWith('/rpc/get_invite_setup_context') && method === 'POST') {
       return json({
         token: 'INNOSETUP2026',
@@ -285,6 +354,18 @@ test.beforeEach(async ({ page }) => {
       return json(individualRows)
     }
 
+    if (path.endsWith('/rpc/get_solo_progress') && method === 'POST') {
+      return json(soloProgress)
+    }
+
+    if (path.endsWith('/rpc/get_platform_usage_dashboard') && method === 'POST') {
+      return json(platformUsageDashboard)
+    }
+
+    if (path.endsWith('/rpc/refresh_solo_monthly_winner') && method === 'POST') {
+      return json(platformUsageDashboard.monthly_winner)
+    }
+
     if (path.endsWith('/rpc/submit_workout_secure') && method === 'POST') {
       return json({ workout_id: 'w-1', idempotent: false, points_added: 10, qualifying: true })
     }
@@ -328,7 +409,9 @@ test('launch start, challenge list, leaderboards, and admin login render correct
   await expect(page).toHaveURL(/\/challenges$/)
   await expect(page.getByRole('heading', { name: 'Choose a Challenge' })).toBeVisible()
   await expect(page.getByText(/to .*\(.+\)/)).toBeVisible()
-  await expect(page.getByRole('link', { name: /^(Let's Go|Start Now|Let's Move|Game On|Bring It On)$/ })).toHaveCount(4)
+  await expect(page.getByRole('link', { name: /^Start (Squat|Jumping Jack|High Knees|Lunge)$/ })).toHaveCount(4)
+  await expect(page.getByRole('link', { name: 'Start Squat' })).toHaveAttribute('href', '/workout/squat')
+  await expect(page.getByRole('link', { name: 'Start Jumping Jack' })).toHaveAttribute('href', '/workout/burpee')
 
   await page.goto('/leaderboard')
   await expect(page.getByRole('heading', { name: 'Leaderboards' })).toBeVisible()
@@ -338,6 +421,33 @@ test('launch start, challenge list, leaderboards, and admin login render correct
 
   await page.goto('/admin')
   await expect(page.getByRole('heading', { name: 'Admin Login' })).toBeVisible()
+})
+
+test('solo mode exposes push-ups and period high scorers', async ({ page }) => {
+  await page.goto('/solo?email=maya@example.com')
+
+  await expect(page.getByRole('heading', { name: 'Your daily best counts.' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Push-Up' })).toHaveAttribute('href', '/solo/workout/push-ups')
+  await expect(page.getByRole('heading', { name: 'Daily High Score' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Weekly High Score' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Monthly High Score' })).toBeVisible()
+  await expect(page.getByText('42 pts')).toHaveCount(3)
+})
+
+test('platform admin can inspect usage and anti-cheat guardrails', async ({ page }) => {
+  await page.goto('/admin')
+
+  await page.getByLabel('Email').fill('admin@example.com')
+  await page.getByLabel('Password').fill('password123')
+  await page.getByRole('button', { name: 'Sign In' }).click()
+  await expect(page.getByRole('heading', { name: 'Platform Admin Dashboard' })).toBeVisible()
+
+  await page.getByRole('tab', { name: 'Usage & Guardrails' }).click()
+  await expect(page.getByRole('heading', { name: 'Usage & Guardrails' })).toBeVisible()
+  await expect(page.getByText('Unreviewed flags')).toBeVisible()
+  await expect(page.getByText('Monthly reward candidate')).toBeVisible()
+  await expect(page.getByText('Recent suspicious solo attempts')).toBeVisible()
+  await expect(page.getByText('Rep count exceeds expected 60s range for push-ups')).toBeVisible()
 })
 
 test('guest limited challenge creates shareable challenge and scoreboard links', async ({ page }) => {
