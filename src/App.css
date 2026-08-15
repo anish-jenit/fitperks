@@ -1338,6 +1338,10 @@ textarea {
   display: none;
 }
 
+.workout-camera-finish-button {
+  display: none;
+}
+
 .success-message {
   display: flex;
   align-items: center;
@@ -4152,6 +4156,17 @@ select:focus {
 }
 
 @media (max-width: 900px) {
+  .top-nav-workout {
+    display: none;
+  }
+
+  .workout-camera-page {
+    width: 100%;
+    max-width: none;
+    min-height: 100dvh;
+    padding: 0;
+  }
+
   .challenge-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.55rem;
@@ -4197,14 +4212,15 @@ select:focus {
     line-height: 1.08;
   }
 
-  .page:has(.workout-panel) {
+  .page:has(.workout-panel),
+  .workout-camera-page {
     width: 100%;
     max-width: none;
     padding: 0;
   }
 
   .workout-panel {
-    min-height: 100svh;
+    min-height: 100dvh;
     padding: 0;
     border: 0;
     border-radius: 0;
@@ -4228,6 +4244,7 @@ select:focus {
   .workout-grid {
     grid-template-columns: 1fr;
     gap: 0;
+    min-height: 100dvh;
   }
 
   .workout-live-view {
@@ -4239,8 +4256,8 @@ select:focus {
     position: relative;
     inset: auto;
     width: 100%;
-    height: calc(100svh - 4.1rem);
-    min-height: 540px;
+    height: 100dvh;
+    min-height: 100dvh;
     max-height: none;
     border-radius: 0;
     aspect-ratio: auto;
@@ -4253,11 +4270,11 @@ select:focus {
   }
 
   .camera-privacy-note {
-    margin: 0;
-    border-inline: 0;
-    border-radius: 0;
-    color: rgba(226, 232, 240, 0.72);
-    background: #07111f;
+    display: none;
+  }
+
+  .workout-panel-standard .stats-panel {
+    display: none;
   }
 
   .stats-panel {
@@ -4299,10 +4316,24 @@ select:focus {
     backdrop-filter: blur(10px);
   }
 
+  .workout-camera-finish-button {
+    position: absolute;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    z-index: 7;
+    display: inline-flex;
+    min-height: 2.55rem;
+    padding-inline: 1rem;
+    border-color: rgba(103, 232, 249, 0.45);
+    color: #e0f2fe;
+    background: rgba(3, 7, 18, 0.72);
+    backdrop-filter: blur(10px);
+  }
+
   .workout-intel-icons {
     left: 0.75rem;
     right: 0.75rem;
-    bottom: 0.75rem;
+    bottom: 3.8rem;
     flex-wrap: wrap;
     align-items: center;
     max-width: calc(100% - 1.5rem);
@@ -4378,8 +4409,8 @@ select:focus {
 @media (max-width: 900px) and (orientation: portrait) {
   .camera-wrapper,
   .camera-wrapper.camera-wrapper-maximized {
-    height: calc(100svh - 4.1rem);
-    min-height: 540px;
+    height: 100dvh;
+    min-height: 100dvh;
   }
 }
 

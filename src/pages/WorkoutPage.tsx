@@ -1691,8 +1691,8 @@ export function WorkoutPage() {
   }
 
   return (
-    <main className="page">
-      <section className="panel workout-panel">
+    <main className="page workout-camera-page">
+      <section className={`panel workout-panel ${isTrialWorkout ? 'workout-panel-trial' : 'workout-panel-standard'}`}>
         <h1>{organizationTrial?.organizationName ?? guestChallenge?.title ?? challenge.name}</h1>
 
         {!hasSupabaseConfig && !isGuestWorkout && !isSoloWorkout ? (
@@ -1763,6 +1763,11 @@ export function WorkoutPage() {
                     </button>
                   )}
                 </div>
+              ) : null}
+              {isWorkoutRunning ? (
+                <button className="button ghost workout-camera-finish-button" type="button" onClick={finishWorkoutEarly}>
+                  Finish
+                </button>
               ) : null}
               {isTrialWorkout && trialDemoStage === 'transition' ? (
                 <section className="trial-camera-result" aria-live="polite">
@@ -1891,106 +1896,39 @@ export function WorkoutPage() {
               </div>
             ) : null}
 
-            {isSessionComplete ? (
+            {isSessionComplete && isTrialWorkout ? (
               <div className="stack">
-                {wasFinishedEarly && !isTrialWorkout ? <p className="hint">Workout stopped. Your latest score is ready to save.</p> : null}
-                {isTrialWorkout ? (
-                  <>
-                    {organizationTrial?.enableNicknames && !isTrialPlankRoute ? (
-                      <label>
-                        Nickname
-                        <input
-                          value={saveName}
-                          onChange={(event) => setSaveName(event.target.value)}
-                          placeholder="Your scoreboard name"
-                        />
-                      </label>
-                    ) : null}
-                    {organizationTrial?.enableTeamNames && !isTrialPlankRoute ? (
-                      <label>
-                        Team
-                        <select
-                          value={saveTeam}
-                          onChange={(event) => setSaveTeam(event.target.value)}
-                        >
-                          <option value="">No team</option>
-                          {organizationTrial.teamNames.map((teamName) => <option key={teamName} value={teamName}>{teamName}</option>)}
-                        </select>
-                      </label>
-                    ) : null}
-                    {isTrialScoreboardEnabled && !isTrialPlankRoute ? (
-                      <button className="button primary" type="button" onClick={() => void submitWorkout()} disabled={isSubmitting}>
-                        {isSubmitting ? 'Finishing...' : 'Finish session'}
-                      </button>
-                    ) : null}
-                    <button className="button ghost" type="button" onClick={retakeWorkout} disabled={isSubmitting || captureCountdown !== null || captureRequested}>
-                      {isTrialScoreboardEnabled && !isTrialPlankRoute ? 'Retake workout' : 'New workout'}
-                    </button>
-                    <Link className="button ghost" to={`/trial/${trialCode}/workout`}>Back to trial</Link>
-                  </>
-                ) : (
-                  <>
-                {saveResult ? (
-                  <div className="workout-finish-actions">
-                    <button className="button ghost" type="button" onClick={retakeWorkout} disabled={isSubmitting || captureCountdown !== null || captureRequested}>
-                      New workout
-                    </button>
-                    <Link className="button ghost" to={saveResult.leaderboardPath}>Open leaderboard</Link>
-                  </div>
-                ) : (
-                  <>
-                {isGuestWorkout || isSoloWorkout ? (
+                {organizationTrial?.enableNicknames && !isTrialPlankRoute ? (
                   <label>
-                    Player email
+                    Nickname
                     <input
-                      type="email"
-                      value={saveEmail}
-                      onChange={(event) => setSaveEmail(event.target.value)}
-                      placeholder="name@example.com"
-                      required
+                      value={saveName}
+                      onChange={(event) => setSaveName(event.target.value)}
+                      placeholder="Your scoreboard name"
                     />
                   </label>
-                ) : (
+                ) : null}
+                {organizationTrial?.enableTeamNames && !isTrialPlankRoute ? (
                   <label>
-                    Email (required for streak storage)
-                    <input
-                      type="email"
-                      value={saveEmail}
-                      onChange={(event) => setSaveEmail(event.target.value)}
-                      placeholder="name@company.com"
-                      required
-                    />
-                  </label>
-                )}
-                <label>
-                  {isGuestWorkout ? 'Nickname' : isSoloWorkout ? 'Name' : 'Nickname (optional)'}
-                  <input
-                    value={saveName}
-                    onChange={(event) => setSaveName(event.target.value)}
-                    placeholder="Alex"
-                    required={isGuestWorkout || isSoloWorkout}
-                  />
-                </label>
-                {isGuestWorkout || isSoloWorkout ? null : (
-                  <label>
-                    Team (optional)
-                    <input
+                    Team
+                    <select
                       value={saveTeam}
                       onChange={(event) => setSaveTeam(event.target.value)}
-                      placeholder="Engineering"
-                    />
+                    >
+                      <option value="">No team</option>
+                      {organizationTrial.teamNames.map((teamName) => <option key={teamName} value={teamName}>{teamName}</option>)}
+                    </select>
                   </label>
-                )}
-                <button className="button primary" onClick={() => void submitWorkout()} disabled={isSubmitting}>
-                  {isSubmitting ? 'Saving...' : isGuestWorkout ? 'Save Score' : isSoloWorkout ? 'Save Solo Score' : 'Save Workout'}
-                </button>
+                ) : null}
+                {isTrialScoreboardEnabled && !isTrialPlankRoute ? (
+                  <button className="button primary" type="button" onClick={() => void submitWorkout()} disabled={isSubmitting}>
+                    {isSubmitting ? 'Finishing...' : 'Finish session'}
+                  </button>
+                ) : null}
                 <button className="button ghost" type="button" onClick={retakeWorkout} disabled={isSubmitting || captureCountdown !== null || captureRequested}>
-                  Retake workout
+                  {isTrialScoreboardEnabled && !isTrialPlankRoute ? 'Retake workout' : 'New workout'}
                 </button>
-                  </>
-                )}
-                  </>
-                )}
+                <Link className="button ghost" to={`/trial/${trialCode}/workout`}>Back to trial</Link>
               </div>
             ) : null}
 
