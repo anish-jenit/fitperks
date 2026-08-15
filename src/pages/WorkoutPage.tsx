@@ -20,7 +20,7 @@ import {
   submitWorkoutSecure,
 } from '../lib/supabaseApi'
 import { hasSupabaseConfig } from '../lib/supabase'
-import { clearParticipantProfile, getConfiguredOrganizationCode, getLastGuestChallengeCode, getLastGuestEmail, getLastGuestName, getParticipantProfile, saveGuestJoinContext, saveParticipantProfile } from '../lib/storage'
+import { clearParticipantProfile, getConfiguredOrganizationCode, getLastGuestEmail, getLastGuestName, getParticipantProfile, saveGuestJoinContext, saveParticipantProfile } from '../lib/storage'
 import { DEFAULT_AI_DEMO_SETTINGS, type AIDemoSettings, type ChallengeConfig, type ChallengeRecord, type ExerciseType, type GuestChallengeRecord, type OrganizationTrialRecord, type SoloExerciseType } from '../types'
 
 type NormalizedLandmark = {
@@ -590,10 +590,8 @@ export function WorkoutPage() {
 
     if (isSoloWorkout) {
       const now = new Date()
-      if (getLastGuestChallengeCode() === 'solo') {
-        setSaveName(getLastGuestName())
-        setSaveEmail(getLastGuestEmail())
-      }
+      setSaveName(getLastGuestName())
+      setSaveEmail(getLastGuestEmail())
       setSecondsLeft(exerciseParam === 'plank' ? 0 : settings.sessionDurationSeconds)
       setActiveChallenge({
         id: 'solo-challenge',
@@ -634,12 +632,10 @@ export function WorkoutPage() {
       void getGuestChallenge(challengeCode)
         .then((payload) => {
           setGuestChallenge(payload)
-          const lastChallengeCode = getLastGuestChallengeCode()
           const lastEmail = getLastGuestEmail()
           const lastName = getLastGuestName()
-          const isSameChallenge = lastChallengeCode === payload.code
           const isCreatorIdentity = lastEmail && lastEmail === payload.creatorEmail.trim().toLowerCase()
-          if (isSameChallenge && lastEmail && !isCreatorIdentity) {
+          if (lastEmail && !isCreatorIdentity) {
             setSaveName(lastName)
             setSaveEmail(lastEmail)
           } else {
