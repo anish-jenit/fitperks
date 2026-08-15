@@ -4026,6 +4026,51 @@ select:focus {
 }
 
 @media (max-width: 900px) {
+  .challenge-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+  }
+
+  .challenge-card {
+    gap: 0.45rem;
+    padding: 0.62rem;
+  }
+
+  .challenge-card h2 {
+    min-height: 2.1rem;
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.12;
+  }
+
+  .challenge-card .button {
+    min-height: 48px;
+    padding: 0.45rem 0.25rem;
+    font-size: 0.76rem;
+    line-height: 1.08;
+  }
+
+  .guest-workout-actions,
+  .hero-actions.guest-workout-actions,
+  .setup-actions.guest-workout-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 0.55rem;
+  }
+
+  .guest-workout-actions .setup-exercise-action {
+    min-height: 52px;
+    padding: 0.55rem 0.35rem;
+    font-size: 0.78rem;
+  }
+
+  .guest-workout-actions .setup-exercise-name {
+    display: block;
+    max-width: 100%;
+    line-height: 1.08;
+  }
+
   .page:has(.workout-panel) {
     width: 100%;
     max-width: none;
