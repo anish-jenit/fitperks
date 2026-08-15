@@ -190,7 +190,7 @@ function getCameraErrorHint(err: unknown): string {
   const raw = err instanceof Error ? `${err.name} ${err.message}`.toLowerCase() : String(err).toLowerCase()
 
   if (raw.includes('notallowederror') || raw.includes('permission') || raw.includes('denied')) {
-    return 'Camera permission is blocked. Allow camera access for this site, then tap Retry Camera.'
+    return "Camera permission is blocked. If you tapped Don't Allow, enable camera access for this site in your browser settings, then tap Retry Camera."
   }
 
   if (raw.includes('notfounderror') || raw.includes('overconstrainederror') || raw.includes('no camera')) {
@@ -323,6 +323,16 @@ function drawExerciseGuides(
   }
 
   // The live pose landmarks provide a more useful guide than the old full-width line.
+}
+
+function stopVideoElementStream(video: HTMLVideoElement | null) {
+  const stream = video?.srcObject
+  if (stream instanceof MediaStream) {
+    stream.getTracks().forEach((track) => track.stop())
+    if (video) {
+      video.srcObject = null
+    }
+  }
 }
 
 export function WorkoutPage() {
@@ -876,6 +886,7 @@ export function WorkoutPage() {
     }
 
     let active = true
+    const activeVideo = videoRef.current
 
     const setup = async () => {
       if (!videoRef.current || !canvasRef.current) {
@@ -961,6 +972,7 @@ export function WorkoutPage() {
       })
 
       cameraRef.current = camera
+      setError(null)
       await camera.start()
       setIsCameraReady(true)
     }
@@ -974,6 +986,7 @@ export function WorkoutPage() {
       active = false
       cameraRef.current?.stop()
       poseRef.current?.close()
+      stopVideoElementStream(activeVideo)
       cameraRef.current = null
       poseRef.current = null
       setIsCameraReady(false)
@@ -1280,14 +1293,34 @@ export function WorkoutPage() {
     cameraRef.current?.stop()
   }
 
-  function retryCamera() {
+  async function retryCamera() {
     setError(null)
     cameraRef.current?.stop()
     poseRef.current?.close()
+    stopVideoElementStream(videoRef.current)
     cameraRef.current = null
     poseRef.current = null
     setHasRequestedCamera(true)
     setIsCameraReady(false)
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError('Camera access is not available in this browser. Open FitPerks in Safari or Chrome over HTTPS and try again.')
+      return
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: 'user',
+        },
+      })
+      stream.getTracks().forEach((track) => track.stop())
+    } catch (err) {
+      setError(getCameraErrorHint(err))
+      return
+    }
+
     setCameraAttempt((value) => value + 1)
   }
 
@@ -1624,7 +1657,7 @@ export function WorkoutPage() {
                 <div className="workout-camera-action-overlay">
                   <p>{isCameraReady ? 'Ready when you are' : hasRequestedCamera ? 'Waiting for camera access' : 'Allow camera to begin'}</p>
                   {!isCameraReady ? (
-                    <button className="button primary workout-camera-action-button" type="button" onClick={retryCamera}>
+                    <button className="button primary workout-camera-action-button" type="button" onClick={() => void retryCamera()}>
                       {hasRequestedCamera ? 'Retry Camera' : 'Enable Camera'}
                     </button>
                   ) : (
@@ -1741,7 +1774,7 @@ export function WorkoutPage() {
               <div className="workout-start-actions">
                 <p className="hint">Step into frame, then start.</p>
                 {!isCameraReady ? (
-                  <button className="button primary workout-start-button" type="button" onClick={retryCamera}>
+                  <button className="button primary workout-start-button" type="button" onClick={() => void retryCamera()}>
                     {hasRequestedCamera ? 'Retry Camera' : 'Enable Camera'}
                   </button>
                 ) : (
