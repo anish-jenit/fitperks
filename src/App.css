@@ -4412,6 +4412,11 @@ select:focus {
     height: 100dvh;
     min-height: 100dvh;
   }
+
+  .camera-feed,
+  .camera-overlay {
+    object-fit: cover;
+  }
 }
 
 @media (max-width: 900px) and (orientation: landscape) {

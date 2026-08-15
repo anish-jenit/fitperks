@@ -495,7 +495,7 @@ test('mobile workout camera keeps score entry out of the camera view', async ({ 
   const camera = page.locator('.camera-wrapper')
   await expect(camera).toBeVisible()
   await expect(page.locator('.workout-score-overlay')).toHaveCount(0)
-  await expect(page.locator('.camera-feed')).toHaveCSS('object-fit', 'contain')
+  await expect(page.locator('.camera-feed')).toHaveCSS('object-fit', 'cover')
   await expect(page.locator('.workout-panel-standard .stats-panel')).toBeHidden()
   await expect(page.locator('.camera-privacy-note')).toBeHidden()
 

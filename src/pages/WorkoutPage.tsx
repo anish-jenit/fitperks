@@ -47,15 +47,6 @@ type CameraInstance = {
   stop: () => void
 }
 
-type CameraConstructor = new (
-  video: HTMLVideoElement,
-  config: {
-    onFrame: () => Promise<void>
-    width: number
-    height: number
-  },
-) => CameraInstance
-
 type PoseConstructor = new (config: { locateFile: (file: string) => string }) => PoseInstance
 
 type DrawConnectorFn = (
@@ -257,6 +248,66 @@ function getCameraDimensions(): { width: number; height: number } {
   }
 
   return isPortrait ? { width: 720, height: 1280 } : { width: 1280, height: 720 }
+}
+
+function getCameraVideoConstraints(): MediaTrackConstraints {
+  const { width, height } = getCameraDimensions()
+  const isPortrait = height > width
+
+  return {
+    facingMode: 'user',
+    width: { ideal: width },
+    height: { ideal: height },
+    aspectRatio: { ideal: isPortrait ? height / width : width / height },
+  }
+}
+
+function createNativePoseCamera(video: HTMLVideoElement, onFrame: () => Promise<void>): CameraInstance {
+  let stream: MediaStream | null = null
+  let frameId = 0
+  let stopped = false
+  let processing = false
+
+  const runFrame = () => {
+    if (stopped) {
+      return
+    }
+
+    if (!processing && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      processing = true
+      void onFrame()
+        .catch(() => undefined)
+        .finally(() => {
+          processing = false
+        })
+    }
+
+    frameId = window.requestAnimationFrame(runFrame)
+  }
+
+  return {
+    async start() {
+      stopped = false
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: getCameraVideoConstraints(),
+      })
+      video.srcObject = stream
+      video.setAttribute('playsinline', 'true')
+      video.muted = true
+      await video.play()
+      frameId = window.requestAnimationFrame(runFrame)
+    },
+    stop() {
+      stopped = true
+      if (frameId) {
+        window.cancelAnimationFrame(frameId)
+      }
+      stream?.getTracks().forEach((track) => track.stop())
+      stream = null
+      video.srcObject = null
+    },
+  }
 }
 
 function drawExerciseGuides(
@@ -893,13 +944,12 @@ export function WorkoutPage() {
         return
       }
 
-      const Camera = (window as Window & { Camera?: CameraConstructor }).Camera
       const Pose = (window as Window & { Pose?: PoseConstructor }).Pose
       const drawConnectors = (window as Window & { drawConnectors?: DrawConnectorFn }).drawConnectors
       const drawLandmarks = (window as Window & { drawLandmarks?: DrawLandmarksFn }).drawLandmarks
       const POSE_CONNECTIONS = (window as Window & { POSE_CONNECTIONS?: unknown }).POSE_CONNECTIONS
 
-      if (!Camera || !Pose || !drawConnectors || !drawLandmarks || !POSE_CONNECTIONS) {
+      if (!Pose || !drawConnectors || !drawLandmarks || !POSE_CONNECTIONS) {
         throw new Error('MediaPipe scripts did not load. Refresh and try again.')
       }
 
@@ -959,16 +1009,11 @@ export function WorkoutPage() {
 
       poseRef.current = pose
 
-      const cameraDimensions = getCameraDimensions()
-      const camera = new Camera(videoRef.current, {
-        onFrame: async () => {
-          if (!active || !videoRef.current || isSessionComplete) {
-            return
-          }
-          await pose.send({ image: videoRef.current })
-        },
-        width: cameraDimensions.width,
-        height: cameraDimensions.height,
+      const camera = createNativePoseCamera(videoRef.current, async () => {
+        if (!active || !videoRef.current || isSessionComplete) {
+          return
+        }
+        await pose.send({ image: videoRef.current })
       })
 
       cameraRef.current = camera
@@ -1311,9 +1356,7 @@ export function WorkoutPage() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
-        video: {
-          facingMode: 'user',
-        },
+        video: getCameraVideoConstraints(),
       })
       stream.getTracks().forEach((track) => track.stop())
     } catch (err) {
