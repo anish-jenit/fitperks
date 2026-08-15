@@ -634,8 +634,7 @@ export function WorkoutPage() {
           setGuestChallenge(payload)
           const lastEmail = getLastGuestEmail()
           const lastName = getLastGuestName()
-          const isCreatorIdentity = lastEmail && lastEmail === payload.creatorEmail.trim().toLowerCase()
-          if (lastEmail && !isCreatorIdentity) {
+          if (lastEmail) {
             setSaveName(lastName)
             setSaveEmail(lastEmail)
           } else {

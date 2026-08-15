@@ -177,6 +177,7 @@ export function JoinChallengePage() {
     try {
       setBusy(true)
       setError(null)
+      saveGuestJoinContext({ guestName, guestEmail, challengeCode: challengeCode.trim() || getLastGuestChallengeCode() })
       const rows = await getGuestChallengesForEmail(guestEmail)
       setChallenges(rows)
       setSearched(true)
