@@ -1620,6 +1620,20 @@ export function WorkoutPage() {
               {countdown !== null ? (
                 <div className="workout-start-countdown" aria-live="assertive">{countdown || 'GO!'}</div>
               ) : null}
+              {!isSessionComplete && trialDemoStage !== 'transition' && countdown === null && !isWorkoutRunning ? (
+                <div className="workout-camera-action-overlay">
+                  <p>{isCameraReady ? 'Ready when you are' : hasRequestedCamera ? 'Waiting for camera access' : 'Allow camera to begin'}</p>
+                  {!isCameraReady ? (
+                    <button className="button primary workout-camera-action-button" type="button" onClick={retryCamera}>
+                      {hasRequestedCamera ? 'Retry Camera' : 'Enable Camera'}
+                    </button>
+                  ) : (
+                    <button className="button primary workout-camera-action-button" type="button" onClick={startWorkout}>
+                      Start Workout
+                    </button>
+                  )}
+                </div>
+              ) : null}
               {isTrialWorkout && trialDemoStage === 'transition' ? (
                 <section className="trial-camera-result" aria-live="polite">
                   <p className="trial-camera-result-title">1/2 Completed</p>
@@ -1725,7 +1739,7 @@ export function WorkoutPage() {
 
             {!isSessionComplete && trialDemoStage !== 'transition' && countdown === null && !isWorkoutRunning ? (
               <div className="workout-start-actions">
-                <p className="hint">Step into frame, then start from the side panel.</p>
+                <p className="hint">Step into frame, then start.</p>
                 {!isCameraReady ? (
                   <button className="button primary workout-start-button" type="button" onClick={retryCamera}>
                     {hasRequestedCamera ? 'Retry Camera' : 'Enable Camera'}

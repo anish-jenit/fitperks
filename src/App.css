@@ -1294,6 +1294,10 @@ textarea {
   pointer-events: none;
 }
 
+.workout-camera-action-overlay {
+  display: none;
+}
+
 .success-message {
   display: flex;
   align-items: center;
@@ -4142,8 +4146,8 @@ select:focus {
     position: relative;
     inset: auto;
     width: 100%;
-    height: min(78svh, calc(100svh - 5.25rem));
-    min-height: 420px;
+    height: min(58svh, calc(100svh - 14rem));
+    min-height: 320px;
     max-height: none;
     border-radius: 0;
     aspect-ratio: auto;
@@ -4167,12 +4171,64 @@ select:focus {
     border-inline: 0;
     border-bottom: 0;
     border-radius: 0;
-    background: #f8fafc;
+    color: #f8fafc;
+    background: #07111f;
+  }
+
+  .stats-panel p,
+  .stats-panel .hint,
+  .stats-panel label {
+    color: rgba(248, 250, 252, 0.82);
+  }
+
+  .stats-panel strong,
+  .stats-panel .counter-value {
+    color: #f8fafc;
+  }
+
+  .stats-panel .workout-start-actions {
+    display: none;
+  }
+
+  .workout-camera-action-overlay {
+    position: absolute;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    z-index: 7;
+    display: grid;
+    gap: 0.55rem;
+    justify-items: center;
+    padding: 0.75rem;
+    border: 1px solid rgba(103, 232, 249, 0.36);
+    border-radius: var(--radius);
+    background: rgba(3, 7, 18, 0.74);
+    backdrop-filter: blur(10px);
+  }
+
+  .workout-camera-action-overlay p {
+    margin: 0;
+    color: #e0f2fe;
+    font-size: 0.82rem;
+    font-weight: 800;
+    line-height: 1.15;
+    text-align: center;
+  }
+
+  .button.primary.workout-camera-action-button {
+    width: 100%;
+    min-height: 3.15rem;
+    border: 1px solid #67e8f9;
+    border-radius: var(--radius);
+    color: #06111f;
+    background: linear-gradient(180deg, #67e8f9 0%, #11c9f4 100%);
+    font-size: 0.95rem;
+    box-shadow: 0 18px 34px -28px rgba(17, 201, 244, 0.95);
   }
 
   .workout-score-overlay {
     right: 0.75rem;
-    bottom: 4.25rem;
+    bottom: 5.8rem;
   }
 
   .workout-score-overlay span {
@@ -4191,8 +4247,8 @@ select:focus {
 @media (max-width: 900px) and (orientation: portrait) {
   .camera-wrapper,
   .camera-wrapper.camera-wrapper-maximized {
-    height: min(78svh, calc(100svh - 5rem));
-    min-height: 480px;
+    height: min(58svh, 31rem);
+    min-height: 320px;
   }
 }
 
