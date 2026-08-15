@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { Link, Navigate, useNavigate, useParams } from '../router'
 import { CHALLENGES } from '../lib/constants'
 import { createGuestChallenge, getGuestChallenge, getGuestChallengeForCreator, getGuestChallengesForEmail, getGuestScoreboard } from '../lib/supabaseApi'
@@ -87,6 +87,25 @@ function getGuestWorkoutStartLabel(exercise: ExerciseType): string {
   if (exercise === 'burpee') return 'Start Jumping Jack'
   if (exercise === 'high-knees') return 'Start High Knees'
   return 'Start Lunge'
+}
+
+const guestWorkoutActionGridStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  gap: '0.8rem',
+  width: 'min(100%, 52rem)',
+}
+
+const guestWorkoutActionButtonStyle: CSSProperties = {
+  display: 'grid',
+  placeItems: 'center',
+  minHeight: '4.6rem',
+  padding: '0.9rem 1rem',
+  border: '1px solid #67e8f9',
+  borderRadius: '8px',
+  color: '#06111f',
+  background: 'linear-gradient(180deg, #67e8f9 0%, #11c9f4 100%)',
+  boxShadow: '0 18px 34px -28px rgba(17, 201, 244, 0.85)',
 }
 
 function CopyableField({ label, value }: { label: string; value: string }) {
@@ -368,12 +387,17 @@ export function GuestChallengePage() {
               </article>
             </div>
             <p className="hint setup-meta">Daily Scoreboard: Best of 3 attempts. Session timer: {created.sessionDurationSeconds / 60} minutes</p>
-            <div className="hero-actions setup-actions guest-workout-actions">
+            <div className="hero-actions setup-actions guest-workout-actions" style={guestWorkoutActionGridStyle}>
               {created.selectedExercises.map((exercise) => {
                 const workout = CHALLENGES.find((item) => item.id === exercise)
                 return workout ? (
-                  <Link className={`button primary setup-exercise-action setup-exercise-${exercise}`} to={`/guest/${created.code}/workout/${exercise}`} key={exercise}>
-                    <strong className="setup-exercise-name">{getGuestWorkoutStartLabel(exercise)}</strong>
+                  <Link
+                    className={`button primary setup-exercise-action setup-exercise-${exercise}`}
+                    style={guestWorkoutActionButtonStyle}
+                    to={`/guest/${created.code}/workout/${exercise}`}
+                    key={exercise}
+                  >
+                    <strong className="setup-exercise-name" style={{ color: 'inherit', lineHeight: 1.08, textAlign: 'center' }}>{getGuestWorkoutStartLabel(exercise)}</strong>
                   </Link>
                 ) : null
               })}
@@ -546,12 +570,17 @@ export function GuestChallengeLandingPage() {
             <p>Attempts/day</p>
           </article>
         </div>
-        <div className="hero-actions setup-actions guest-workout-actions">
+        <div className="hero-actions setup-actions guest-workout-actions" style={guestWorkoutActionGridStyle}>
           {challenge.selectedExercises.map((exercise) => {
             const workout = CHALLENGES.find((item) => item.id === exercise)
             return workout ? (
-              <Link className={`button primary setup-exercise-action setup-exercise-${exercise}`} to={`/guest/${challenge.code}/workout/${exercise}`} key={exercise}>
-                <strong className="setup-exercise-name">{getGuestWorkoutStartLabel(exercise)}</strong>
+              <Link
+                className={`button primary setup-exercise-action setup-exercise-${exercise}`}
+                style={guestWorkoutActionButtonStyle}
+                to={`/guest/${challenge.code}/workout/${exercise}`}
+                key={exercise}
+              >
+                <strong className="setup-exercise-name" style={{ color: 'inherit', lineHeight: 1.08, textAlign: 'center' }}>{getGuestWorkoutStartLabel(exercise)}</strong>
               </Link>
             ) : null
           })}
