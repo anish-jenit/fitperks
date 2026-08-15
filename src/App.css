@@ -1409,7 +1409,14 @@ textarea {
 
 .workout-result-form,
 .workout-result-actions {
+  display: grid;
+  gap: 0.75rem;
   margin-top: 1rem;
+}
+
+.workout-result-panel > .workout-back-link {
+  width: 100%;
+  margin-top: 0.75rem;
 }
 
 .camera-control {
@@ -4375,6 +4382,17 @@ select:focus {
     color: #e0f2fe;
     background: rgba(3, 7, 18, 0.72);
     backdrop-filter: blur(10px);
+  }
+
+  .workout-positioning-message {
+    top: 4.75rem;
+    left: 0.75rem;
+    right: 0.75rem;
+    max-width: none;
+    padding: 0.45rem 0.65rem;
+    border-radius: var(--radius);
+    font-size: 0.78rem;
+    transform: none;
   }
 
   .workout-intel-icons {
