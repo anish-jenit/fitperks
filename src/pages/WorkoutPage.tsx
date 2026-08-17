@@ -30,6 +30,11 @@ type NormalizedLandmark = {
   visibility?: number
 }
 
+type CameraInstance = {
+  start: () => Promise<void>
+  stop: () => void
+}
+
 type PoseResults = {
   image: CanvasImageSource
   poseLandmarks?: NormalizedLandmark[]
@@ -40,11 +45,6 @@ type PoseInstance = {
   onResults: (callback: (results: PoseResults) => void) => void
   send: (input: { image: HTMLVideoElement }) => Promise<void>
   close: () => void
-}
-
-type CameraInstance = {
-  start: () => Promise<void>
-  stop: () => void
 }
 
 type PoseConstructor = new (config: { locateFile: (file: string) => string }) => PoseInstance
@@ -111,6 +111,7 @@ type TrialExerciseMode = SoloExerciseType
 const DEFAULT_MIN_REP_INTERVAL_MS = 650
 const JUMPING_JACK_CONFIRM_FRAMES = 2
 const JUMPING_JACK_MIN_REP_INTERVAL_MS = 360
+const MEDIAPIPE_POSE_ASSET_BASE = '/vendor/mediapipe/pose'
 
 const PLANK_CHALLENGE: Omit<ChallengeConfig, 'id'> & { id: 'plank' } = {
   id: 'plank',
@@ -949,7 +950,7 @@ export function WorkoutPage() {
       }
 
       const pose = new Pose({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+        locateFile: (file) => `${MEDIAPIPE_POSE_ASSET_BASE}/${file}`,
       })
 
       pose.setOptions({
