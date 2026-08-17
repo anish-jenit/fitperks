@@ -206,7 +206,9 @@ function getCameraErrorHint(err: unknown): string {
 
 function getPositioningMessage(landmarks: NormalizedLandmark[]): string | null {
   const requiredLandmarks = [11, 12, 23, 24, 27, 28]
-  const hasReliableLandmarks = requiredLandmarks.every((index) => (landmarks[index]?.visibility ?? 1) >= 0.45)
+  const isReliableLandmark = (landmark?: NormalizedLandmark) =>
+    Boolean(landmark) && Number.isFinite(landmark?.x) && Number.isFinite(landmark?.y) && (landmark?.visibility ?? 1) >= 0.45
+  const hasReliableLandmarks = requiredLandmarks.every((index) => isReliableLandmark(landmarks[index]))
 
   if (!hasReliableLandmarks) {
     return 'Step back so your full body is visible'
@@ -216,12 +218,20 @@ function getPositioningMessage(landmarks: NormalizedLandmark[]): string | null {
   const hipCenterX = (landmarks[23].x + landmarks[24].x) / 2
   const screenCenterX = 1 - (shoulderCenterX + hipCenterX) / 2
   const bodyHeight = Math.max(landmarks[27].y, landmarks[28].y) - Math.min(landmarks[11].y, landmarks[12].y)
+  const shoulderWidth = Math.abs(landmarks[11].x - landmarks[12].x)
+  const visibleLandmarks = landmarks.filter(isReliableLandmark)
+  const visibleMinX = Math.min(...visibleLandmarks.map((landmark) => landmark.x))
+  const visibleMaxX = Math.max(...visibleLandmarks.map((landmark) => landmark.x))
+  const visibleMinY = Math.min(...visibleLandmarks.map((landmark) => landmark.y))
+  const visibleMaxY = Math.max(...visibleLandmarks.map((landmark) => landmark.y))
+  const visibleWidth = visibleMaxX - visibleMinX
+  const visibleHeight = visibleMaxY - visibleMinY
 
-  if (bodyHeight > 0.86) {
+  if (bodyHeight > 0.86 || shoulderWidth > 0.38 || visibleWidth > 0.72 || visibleHeight > 0.92) {
     return 'Step back'
   }
 
-  if (bodyHeight < 0.4) {
+  if (bodyHeight < 0.34 && shoulderWidth < 0.22 && visibleWidth < 0.5 && visibleHeight < 0.48) {
     return 'Move closer'
   }
 
