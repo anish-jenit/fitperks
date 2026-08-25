@@ -2132,7 +2132,7 @@ begin
     raise exception 'Guest challenge has ended';
   end if;
 
-  if now() < v_challenge.start_date then
+  if current_date < v_challenge.start_date::date then
     raise exception 'Guest challenge has not started yet';
   end if;
 

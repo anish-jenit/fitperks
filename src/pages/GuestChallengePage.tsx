@@ -6,7 +6,19 @@ import { getLastGuestChallengeCode, getLastGuestEmail, getLastGuestName, getOrCr
 import type { ExerciseType, GuestChallengeRecord, GuestChallengeSummary, GuestScoreboardRow } from '../types'
 
 function dateInputValue(date: Date): string {
-  return date.toISOString().slice(0, 10)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function getGuestChallengeStartIso(dateValue: string): string {
+  const today = dateInputValue(new Date())
+  if (dateValue === today) {
+    return new Date().toISOString()
+  }
+
+  return new Date(`${dateValue}T00:00:00`).toISOString()
 }
 
 function buildUrl(path: string): string {
@@ -296,7 +308,7 @@ export function GuestChallengePage() {
         title,
         durationDays,
         attemptsPerDay,
-        startDate: new Date(`${startDate}T12:00:00`).toISOString(),
+        startDate: getGuestChallengeStartIso(startDate),
         selectedExercises,
         sessionDurationSeconds,
       })

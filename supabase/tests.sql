@@ -228,6 +228,12 @@ begin
     raise exception 'Guest challenge lookup did not return created challenge';
   end if;
 
+  if (now() + interval '1 hour')::date = current_date then
+    update guest_challenges
+    set start_date = now() + interval '1 hour'
+    where code = v_code;
+  end if;
+
   perform submit_guest_attempt(
     v_code,
     'Maya',
