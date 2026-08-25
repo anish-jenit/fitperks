@@ -1237,6 +1237,13 @@ textarea {
   pointer-events: none;
 }
 
+.workout-positioning-message-valid {
+  border-color: rgba(94, 234, 212, 0.82);
+  color: #042f2e;
+  background: rgba(94, 234, 212, 0.94);
+  animation: valid-rep-flash 0.9s ease-out both;
+}
+
 .workout-intel-icons {
   position: absolute;
   left: 1rem;
@@ -2425,6 +2432,42 @@ th {
   }
   100% {
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes valid-rep-flash {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.92);
+    box-shadow: 0 0 0 0 rgba(94, 234, 212, 0.6);
+  }
+  24% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.04);
+    box-shadow: 0 0 0 12px rgba(94, 234, 212, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scale(1);
+    box-shadow: 0 0 0 0 rgba(94, 234, 212, 0);
+  }
+}
+
+@keyframes valid-rep-flash-mobile {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+    box-shadow: 0 0 0 0 rgba(94, 234, 212, 0.6);
+  }
+  24% {
+    opacity: 1;
+    transform: scale(1.03);
+    box-shadow: 0 0 0 10px rgba(94, 234, 212, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(94, 234, 212, 0);
   }
 }
 
@@ -4418,6 +4461,10 @@ select:focus {
     border-radius: var(--radius);
     font-size: 0.78rem;
     transform: none;
+  }
+
+  .workout-positioning-message-valid {
+    animation-name: valid-rep-flash-mobile;
   }
 
   .workout-intel-icons {

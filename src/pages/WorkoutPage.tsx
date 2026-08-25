@@ -533,6 +533,7 @@ export function WorkoutPage() {
   const [saveResult, setSaveResult] = useState<{ message: string; leaderboardPath: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [paceFeedback, setPaceFeedback] = useState<PaceFeedback | null>(null)
+  const [validRepFeedback, setValidRepFeedback] = useState<PaceFeedback | null>(null)
   const lastRepAtRef = useRef<number | null>(null)
   const lastRepIntervalRef = useRef<number | null>(null)
   const repHistoryRef = useRef<RepHistoryEntry[]>([])
@@ -828,6 +829,18 @@ export function WorkoutPage() {
   }, [isSessionComplete, isTrialWorkout, sessionId])
 
   useEffect(() => {
+    if (!validRepFeedback) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      setValidRepFeedback(null)
+    }, 900)
+
+    return () => window.clearTimeout(timeout)
+  }, [validRepFeedback])
+
+  useEffect(() => {
     setSecondsLeft(guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds)
   }, [guestChallenge?.sessionDurationSeconds, settings.sessionDurationSeconds])
 
@@ -856,12 +869,15 @@ export function WorkoutPage() {
     }
     repHistoryRef.current = [...repHistoryRef.current, { completedAt: now, intervalMs: nextInterval }].slice(-20)
 
-    setRepCount((value) => value + 1)
-    setPaceFeedback({
+    const nextFeedback = {
       id: now,
       tone: isSteadyOrFaster ? 'fast' : 'slow',
       label: isSteadyOrFaster ? '+1 ↑' : '+1',
-    })
+    } satisfies PaceFeedback
+
+    setRepCount((value) => value + 1)
+    setPaceFeedback(nextFeedback)
+    setValidRepFeedback(nextFeedback)
   }, [])
 
   const handleRepDetection = useCallback(
@@ -1154,6 +1170,7 @@ export function WorkoutPage() {
             setTrialJumpingJackScore(pointsRef.current)
             setRepCount(0)
             setPaceFeedback(null)
+            setValidRepFeedback(null)
             setTrialTransitionSecondsLeft(15)
             setTrialDemoStage('transition')
             squatStageRef.current = 'standing'
@@ -1316,6 +1333,7 @@ export function WorkoutPage() {
     setIsWorkoutRunning(false)
     setCountdown(3)
     setPaceFeedback(null)
+    setValidRepFeedback(null)
     setMovementQuality(null)
     setLiveCoachMessage(null)
     setLiveCoachError(null)
@@ -1348,6 +1366,7 @@ export function WorkoutPage() {
     }
     setRepCount(0)
     setPaceFeedback(null)
+    setValidRepFeedback(null)
     setTrialBestScore(null)
     setTrialBestTeamScore(null)
     setSecondsLeft(challenge?.id === 'plank' ? 0 : guestChallenge?.sessionDurationSeconds ?? settings.sessionDurationSeconds)
@@ -1387,6 +1406,7 @@ export function WorkoutPage() {
     setError(null)
     setCountdown(null)
     setPaceFeedback(null)
+    setValidRepFeedback(null)
     setWasFinishedEarly(true)
     setIsWorkoutRunning(false)
     if (isTrialWorkout && trialDemoStage === 'jumping-jacks') {
@@ -1467,6 +1487,7 @@ export function WorkoutPage() {
     setIsPlankPostureValid(false)
     setRepCount(0)
     setPaceFeedback(null)
+    setValidRepFeedback(null)
     setTrialBestScore(null)
     setTrialBestTeamScore(null)
     setSecondsLeft(challenge?.id === 'plank' ? 0 : totalSessionSeconds)
@@ -1845,7 +1866,11 @@ export function WorkoutPage() {
                   </button>
                 ))}
               </div>
-              {positioningMessage ? (
+              {isWorkoutRunning && validRepFeedback ? (
+                <div className="workout-positioning-message workout-positioning-message-valid" aria-live="polite" key={validRepFeedback.id}>
+                  Valid rep +1
+                </div>
+              ) : isWorkoutRunning && positioningMessage ? (
                 <div className="workout-positioning-message" aria-live="polite">
                   {positioningMessage}
                 </div>
