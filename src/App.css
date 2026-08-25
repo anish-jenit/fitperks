@@ -1148,26 +1148,50 @@ textarea {
   width: auto;
 }
 
-.video-size-toggle {
+.camera-zoom-toggle {
   position: absolute;
   left: 0.8rem;
   bottom: 0.75rem;
   z-index: 6;
-  min-height: 1.95rem;
-  max-width: min(13rem, calc(100% - 2rem));
-  padding: 0.34rem 0.56rem;
+  display: inline-flex;
+  gap: 0.2rem;
+  padding: 0.2rem;
   border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: var(--radius);
+  border-radius: 999px;
   color: #f8fafc;
   background: rgba(3, 7, 18, 0.78);
-  font: inherit;
-  font-size: 0.68rem;
-  font-weight: 700;
-  cursor: pointer;
   backdrop-filter: blur(8px);
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.camera-zoom-toggle button {
+  min-width: 2.9rem;
+  min-height: 1.95rem;
+  padding: 0.3rem 0.45rem;
+  border: 0;
+  border-radius: 999px;
+  color: rgba(248, 250, 252, 0.76);
+  background: transparent;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 900;
+  cursor: pointer;
   white-space: nowrap;
+}
+
+.camera-zoom-toggle button.active {
+  color: #06111f;
+  background: #67e8f9;
+}
+
+.camera-zoom-toggle button:hover,
+.camera-zoom-toggle button:focus-visible {
+  color: #67e8f9;
+  outline: none;
+}
+
+.camera-zoom-toggle button.active:hover,
+.camera-zoom-toggle button.active:focus-visible {
+  color: #06111f;
 }
 
 .workout-start-actions {
@@ -3245,12 +3269,13 @@ select:focus {
     inset: auto 0.7rem 0.7rem;
   }
 
-  .video-size-toggle {
+  .camera-zoom-toggle {
     left: 0.7rem;
     bottom: 0.7rem;
-    max-width: calc(100% - 4.5rem);
+  }
+
+  .camera-zoom-toggle button {
     min-height: 2rem;
-    padding: 0.35rem 0.55rem;
     font-size: 0.68rem;
   }
 
@@ -4470,8 +4495,10 @@ select:focus {
     line-height: 1;
   }
 
-  .video-size-toggle {
-    display: none;
+  .camera-zoom-toggle {
+    left: 0.75rem;
+    bottom: calc(env(safe-area-inset-bottom) + 0.75rem);
+    z-index: 8;
   }
 }
 

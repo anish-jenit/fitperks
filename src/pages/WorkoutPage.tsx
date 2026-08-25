@@ -35,6 +35,8 @@ type CameraInstance = {
   stop: () => void
 }
 
+type CameraZoomMode = 'wide' | 'standard'
+
 type PoseResults = {
   image: CanvasImageSource
   poseLandmarks?: NormalizedLandmark[]
@@ -63,6 +65,17 @@ type DrawLandmarksFn = (
 ) => void
 
 type PoseConnection = [number, number]
+
+type ZoomMediaTrackCapabilities = MediaTrackCapabilities & {
+  zoom?: {
+    min?: number
+    max?: number
+  }
+}
+
+type ZoomMediaTrackConstraintSet = MediaTrackConstraintSet & {
+  zoom?: number
+}
 
 type SquatStage = 'standing' | 'down'
 
@@ -115,6 +128,10 @@ const JUMPING_JACK_CONFIRM_FRAMES = 2
 const JUMPING_JACK_MIN_REP_INTERVAL_MS = 360
 const MEDIAPIPE_POSE_ASSET_BASE = '/vendor/mediapipe/pose'
 const FIRST_BODY_LANDMARK_INDEX = 11
+const CAMERA_ZOOM_LABELS: Record<CameraZoomMode, string> = {
+  wide: '0.5x',
+  standard: '1x',
+}
 
 const PLANK_CHALLENGE: Omit<ChallengeConfig, 'id'> & { id: 'plank' } = {
   id: 'plank',
@@ -276,7 +293,38 @@ function getCameraVideoConstraints(): MediaTrackConstraints {
   }
 }
 
-function createNativePoseCamera(video: HTMLVideoElement, onFrame: () => Promise<void>): CameraInstance {
+async function applyCameraZoomPreference(stream: MediaStream, mode: CameraZoomMode): Promise<boolean> {
+  const [track] = stream.getVideoTracks()
+  if (!track?.getCapabilities || !track.applyConstraints) {
+    return false
+  }
+
+  const capabilities = track.getCapabilities() as ZoomMediaTrackCapabilities
+  const zoom = capabilities.zoom
+  if (!zoom || typeof zoom.min !== 'number' || typeof zoom.max !== 'number') {
+    return false
+  }
+
+  const targetZoom = mode === 'wide'
+    ? zoom.min
+    : Math.min(zoom.max, Math.max(zoom.min, 1))
+
+  try {
+    await track.applyConstraints({
+      advanced: [{ zoom: targetZoom } as ZoomMediaTrackConstraintSet],
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+function createNativePoseCamera(
+  video: HTMLVideoElement,
+  onFrame: () => Promise<void>,
+  zoomMode: CameraZoomMode,
+  onZoomSupport: (isSupported: boolean) => void,
+): CameraInstance {
   let stream: MediaStream | null = null
   let frameId = 0
   let stopped = false
@@ -306,6 +354,8 @@ function createNativePoseCamera(video: HTMLVideoElement, onFrame: () => Promise<
         audio: false,
         video: getCameraVideoConstraints(),
       })
+      const isZoomSupported = await applyCameraZoomPreference(stream, zoomMode)
+      onZoomSupport(isZoomSupported)
       video.srcObject = stream
       video.setAttribute('playsinline', 'true')
       video.muted = true
@@ -467,7 +517,8 @@ export function WorkoutPage() {
   const [isSessionComplete, setIsSessionComplete] = useState(false)
   const [wasFinishedEarly, setWasFinishedEarly] = useState(false)
   const [isCameraReady, setIsCameraReady] = useState(false)
-  const [isVideoMaximized, setIsVideoMaximized] = useState(false)
+  const [cameraZoomMode, setCameraZoomMode] = useState<CameraZoomMode>('wide')
+  const [isCameraZoomSupported, setIsCameraZoomSupported] = useState<boolean | null>(null)
   const [showInstructionVideo, setShowInstructionVideo] = useState(true)
   const [cameraAttempt, setCameraAttempt] = useState(0)
   const [hasRequestedCamera, setHasRequestedCamera] = useState(false)
@@ -1024,12 +1075,17 @@ export function WorkoutPage() {
 
       poseRef.current = pose
 
-      const camera = createNativePoseCamera(videoRef.current, async () => {
-        if (!active || !videoRef.current || isSessionComplete) {
-          return
-        }
-        await pose.send({ image: videoRef.current })
-      })
+      const camera = createNativePoseCamera(
+        videoRef.current,
+        async () => {
+          if (!active || !videoRef.current || isSessionComplete) {
+            return
+          }
+          await pose.send({ image: videoRef.current })
+        },
+        cameraZoomMode,
+        setIsCameraZoomSupported,
+      )
 
       cameraRef.current = camera
       setError(null)
@@ -1051,7 +1107,7 @@ export function WorkoutPage() {
       poseRef.current = null
       setIsCameraReady(false)
     }
-  }, [isSessionComplete, cameraAttempt, captureRequested])
+  }, [isSessionComplete, cameraAttempt, captureRequested, cameraZoomMode])
 
   useEffect(() => {
     if (!captureRequested || !isCameraReady) {
@@ -1373,6 +1429,8 @@ export function WorkoutPage() {
         audio: false,
         video: getCameraVideoConstraints(),
       })
+      const isZoomSupported = await applyCameraZoomPreference(stream, cameraZoomMode)
+      setIsCameraZoomSupported(isZoomSupported)
       stream.getTracks().forEach((track) => track.stop())
     } catch (err) {
       setError(getCameraErrorHint(err))
@@ -1767,17 +1825,26 @@ export function WorkoutPage() {
 
         <div className="workout-grid">
           <div className="workout-live-view">
-            <div className={`camera-wrapper ${isVideoMaximized ? 'camera-wrapper-maximized' : ''}`}>
+            <div className="camera-wrapper">
               <video ref={videoRef} className="camera-feed" playsInline muted autoPlay />
               <canvas ref={canvasRef} className="camera-overlay" />
-              <button
-                className="video-size-toggle"
-                type="button"
-                onClick={() => setIsVideoMaximized((value) => !value)}
-                aria-pressed={isVideoMaximized}
-              >
-                {isVideoMaximized ? 'Minimize self view' : 'Maximize self view'}
-              </button>
+              <div className="camera-zoom-toggle" aria-label="Camera zoom">
+                {(['wide', 'standard'] as CameraZoomMode[]).map((mode) => (
+                  <button
+                    className={cameraZoomMode === mode ? 'active' : ''}
+                    type="button"
+                    onClick={() => {
+                      setIsCameraZoomSupported(null)
+                      setCameraZoomMode(mode)
+                    }}
+                    aria-pressed={cameraZoomMode === mode}
+                    title={isCameraZoomSupported === false ? 'Camera zoom control is not supported on this browser/device.' : `${CAMERA_ZOOM_LABELS[mode]} camera view`}
+                    key={mode}
+                  >
+                    {CAMERA_ZOOM_LABELS[mode]}
+                  </button>
+                ))}
+              </div>
               {positioningMessage ? (
                 <div className="workout-positioning-message" aria-live="polite">
                   {positioningMessage}
