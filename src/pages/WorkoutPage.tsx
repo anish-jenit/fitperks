@@ -62,6 +62,8 @@ type DrawLandmarksFn = (
   options: Record<string, unknown>,
 ) => void
 
+type PoseConnection = [number, number]
+
 type SquatStage = 'standing' | 'down'
 
 type JumpingJackStage = 'closed' | 'open'
@@ -112,6 +114,7 @@ const DEFAULT_MIN_REP_INTERVAL_MS = 650
 const JUMPING_JACK_CONFIRM_FRAMES = 2
 const JUMPING_JACK_MIN_REP_INTERVAL_MS = 360
 const MEDIAPIPE_POSE_ASSET_BASE = '/vendor/mediapipe/pose'
+const FIRST_BODY_LANDMARK_INDEX = 11
 
 const PLANK_CHALLENGE: Omit<ChallengeConfig, 'id'> & { id: 'plank' } = {
   id: 'plank',
@@ -959,6 +962,10 @@ export function WorkoutPage() {
         throw new Error('MediaPipe scripts did not load. Refresh and try again.')
       }
 
+      const bodyPoseConnections = (POSE_CONNECTIONS as PoseConnection[]).filter(
+        ([start, end]) => start >= FIRST_BODY_LANDMARK_INDEX && end >= FIRST_BODY_LANDMARK_INDEX,
+      )
+
       const pose = new Pose({
         locateFile: (file) => `${MEDIAPIPE_POSE_ASSET_BASE}/${file}`,
       })
@@ -996,11 +1003,13 @@ export function WorkoutPage() {
         }
 
         if (results.poseLandmarks) {
-          drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
+          const bodyLandmarks = results.poseLandmarks.filter((_, index) => index >= FIRST_BODY_LANDMARK_INDEX)
+
+          drawConnectors(ctx, results.poseLandmarks, bodyPoseConnections, {
             color: '#0f766e',
             lineWidth: 4,
           })
-          drawLandmarks(ctx, results.poseLandmarks, {
+          drawLandmarks(ctx, bodyLandmarks, {
             color: '#f97316',
             lineWidth: 2,
             radius: 3,
