@@ -14,6 +14,9 @@ export function LandingPage() {
           <Link className="button ghost" to="/solo">
             Play Solo
           </Link>
+          <Link className="button ghost" to="/multiplayer">
+            Local Multiplayer
+          </Link>
           <Link className="button ghost" to="/guest-challenge">
             Create / Join Challenge
           </Link>

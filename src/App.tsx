@@ -5,6 +5,7 @@ import { ChallengeSelectPage } from './pages/ChallengeSelectPage'
 import { OrganizationRequestPage } from './pages/OrganizationRequestPage'
 import { GuestChallengeLandingPage, GuestChallengePage, GuestScoreboardPage, JoinChallengePage } from './pages/GuestChallengePage'
 import { LandingPage } from './pages/LandingPage'
+import { LocalMultiplayerPage } from './pages/LocalMultiplayerPage'
 import { SoloPlayerPage } from './pages/SoloPlayerPage'
 import { LeaderboardPage } from './pages/LeaderboardPage'
 import { PublicLaunchPage } from './pages/PublicLaunchPage'
@@ -30,6 +31,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="/home" element={<LandingPage />} />
+        <Route path="/multiplayer" element={<LocalMultiplayerPage />} />
         <Route path="/solo" element={<SoloPlayerPage />} />
         <Route path="/solo/workout/:exercise" element={<WorkoutPage />} />
         <Route path="/join-challenge" element={<JoinChallengePage />} />

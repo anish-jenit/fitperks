@@ -400,6 +400,7 @@ test('launch start, challenge list, leaderboards, and admin login render correct
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Every Move Deserves a Perk.' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Play Solo' })).toHaveAttribute('href', '/solo')
+  await expect(page.getByRole('link', { name: 'Local Multiplayer' })).toHaveAttribute('href', '/multiplayer')
   await expect(page.getByRole('link', { name: 'Create / Join Challenge' })).toHaveAttribute('href', '/guest-challenge')
   await expect(page.getByRole('link', { name: 'Org Demo' })).toHaveAttribute('href', '/demo')
 
@@ -428,8 +429,23 @@ test('mobile home shows all primary actions without scrolling', async ({ page })
   await page.goto('/')
 
   await expect(page.getByRole('link', { name: 'Play Solo' })).toBeInViewport()
+  await expect(page.getByRole('link', { name: 'Local Multiplayer' })).toBeInViewport()
   await expect(page.getByRole('link', { name: 'Create / Join Challenge' })).toBeInViewport()
   await expect(page.getByRole('link', { name: 'Org Demo' })).toBeInViewport()
+})
+
+test('local multiplayer game exposes two-player jump and squat controls', async ({ page }) => {
+  await page.goto('/multiplayer')
+
+  await expect(page.getByRole('heading', { name: 'Jump & Squat Duel' })).toBeVisible()
+  await expect(page.locator('.multiplayer-scoreboard article').filter({ hasText: 'Player 1' })).toBeVisible()
+  await expect(page.locator('.multiplayer-scoreboard article').filter({ hasText: 'Player 2' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Jump' })).toHaveCount(2)
+  await expect(page.getByRole('button', { name: 'Squat' })).toHaveCount(2)
+
+  await page.getByRole('button', { name: 'Jump' }).first().click()
+  await expect(page.locator('.multiplayer-lane').first()).toHaveClass(/is-jumping/)
 })
 
 test('solo mode exposes push-ups and period high scorers', async ({ page }) => {
