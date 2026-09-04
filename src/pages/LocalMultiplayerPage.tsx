@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from '../router'
 
 type PlayerId = 'p1' | 'p2'
 type PlayerAction = 'idle' | 'jump' | 'duck'
 type ObstacleMode = 'jump' | 'squat'
+type MultiplayerMode = 'split' | 'together' | 'turns'
 
 type RoundState = {
   id: number
@@ -25,6 +26,12 @@ const ACTION_LABELS: Record<PlayerAction, string> = {
   duck: 'Squat',
 }
 
+const MULTIPLAYER_MODE_LABELS: Record<MultiplayerMode, string> = {
+  split: 'Split screen',
+  together: 'Together',
+  turns: 'Turns',
+}
+
 function nextObstacle(id: number): RoundState {
   return {
     id,
@@ -38,6 +45,8 @@ function requiredAction(mode: ObstacleMode): PlayerAction {
 }
 
 export function LocalMultiplayerPage() {
+  const [mode, setMode] = useState<MultiplayerMode>('split')
+  const [activeTurnPlayer, setActiveTurnPlayer] = useState<PlayerId>('p1')
   const [isRunning, setIsRunning] = useState(false)
   const [round, setRound] = useState<RoundState>(() => nextObstacle(1))
   const [scores, setScores] = useState<PlayerScores>({ p1: 0, p2: 0 })
@@ -61,7 +70,11 @@ export function LocalMultiplayerPage() {
     }
   }, [])
 
-  function triggerAction(player: PlayerId, action: Exclude<PlayerAction, 'idle'>) {
+  const triggerAction = useCallback((player: PlayerId, action: Exclude<PlayerAction, 'idle'>) => {
+    if (mode === 'turns' && player !== activeTurnPlayer) {
+      return
+    }
+
     setActions((current) => {
       const next = { ...current, [player]: action }
       actionsRef.current = next
@@ -80,7 +93,7 @@ export function LocalMultiplayerPage() {
         return next
       })
     }, action === 'jump' ? 520 : 680)
-  }
+  }, [activeTurnPlayer, mode])
 
   function resetGame() {
     setIsRunning(false)
@@ -88,8 +101,34 @@ export function LocalMultiplayerPage() {
     setScores({ p1: 0, p2: 0 })
     setActions({ p1: 'idle', p2: 'idle' })
     actionsRef.current = { p1: 'idle', p2: 'idle' }
+    setActiveTurnPlayer('p1')
     setFlashPlayers([])
-    setMessage('Start the round, then jump over trains and squat under flying bars.')
+    setMessage(mode === 'turns' ? 'Player 1 starts. Switch turns when ready.' : 'Start the round, then jump over trains and squat under flying bars.')
+  }
+
+  function selectMode(nextMode: MultiplayerMode) {
+    setMode(nextMode)
+    setIsRunning(false)
+    setRound(nextObstacle(1))
+    setScores({ p1: 0, p2: 0 })
+    setActions({ p1: 'idle', p2: 'idle' })
+    actionsRef.current = { p1: 'idle', p2: 'idle' }
+    setActiveTurnPlayer('p1')
+    setFlashPlayers([])
+    setMessage(nextMode === 'split'
+      ? 'Two lanes. Both players react at the same time.'
+      : nextMode === 'together'
+        ? 'One shared lane. Both players play at the same time.'
+        : 'One shared lane. Player 1 goes first, then switch turns.')
+  }
+
+  function switchTurnPlayer() {
+    setActiveTurnPlayer((current) => current === 'p1' ? 'p2' : 'p1')
+    setActions({ p1: 'idle', p2: 'idle' })
+    actionsRef.current = { p1: 'idle', p2: 'idle' }
+    setIsRunning(false)
+    setRound(nextObstacle(round.id + 1))
+    setMessage(`${PLAYER_LABELS[activeTurnPlayer === 'p1' ? 'p2' : 'p1']} is up next.`)
   }
 
   useEffect(() => {
@@ -102,7 +141,7 @@ export function LocalMultiplayerPage() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [triggerAction])
 
   useEffect(() => {
     if (!isRunning) {
@@ -125,7 +164,8 @@ export function LocalMultiplayerPage() {
         }
 
         const expected = requiredAction(current.mode)
-        const winners = (['p1', 'p2'] as PlayerId[]).filter((player) => actionsRef.current[player] === expected)
+        const scoringPlayers: PlayerId[] = mode === 'turns' ? [activeTurnPlayer] : ['p1', 'p2']
+        const winners = scoringPlayers.filter((player) => actionsRef.current[player] === expected)
 
         if (winners.length) {
           setScores((currentScores) => ({
@@ -147,10 +187,14 @@ export function LocalMultiplayerPage() {
 
     animationFrame = window.requestAnimationFrame(tick)
     return () => window.cancelAnimationFrame(animationFrame)
-  }, [isRunning])
+  }, [activeTurnPlayer, isRunning, mode])
 
   const obstacleLeft = `${Math.min(round.progress, 100)}%`
   const cue = round.mode === 'jump' ? 'Jump now' : 'Squat now'
+  const visibleLanes = mode === 'split' ? (['p1', 'p2'] as PlayerId[]) : ['shared' as const]
+  const lanePlayers = mode === 'split'
+    ? (player: PlayerId | 'shared') => [player as PlayerId]
+    : () => mode === 'turns' ? [activeTurnPlayer] : (['p1', 'p2'] as PlayerId[])
 
   return (
     <main className="page multiplayer-page">
@@ -165,11 +209,25 @@ export function LocalMultiplayerPage() {
 
         <div className="multiplayer-scoreboard" aria-live="polite">
           {(['p1', 'p2'] as PlayerId[]).map((player) => (
-            <article className={flashPlayers.includes(player) ? 'scored' : ''} key={player}>
+            <article className={`${flashPlayers.includes(player) ? 'scored' : ''} ${mode === 'turns' && activeTurnPlayer === player ? 'active-turn' : ''}`} key={player}>
               <span>{PLAYER_LABELS[player]}</span>
               <strong>{scores[player]}</strong>
               <em>{ACTION_LABELS[actions[player]]}</em>
             </article>
+          ))}
+        </div>
+
+        <div className="multiplayer-mode-picker" aria-label="Multiplayer format">
+          {(['split', 'together', 'turns'] as MultiplayerMode[]).map((item) => (
+            <button
+              className={mode === item ? 'active' : ''}
+              type="button"
+              onClick={() => selectMode(item)}
+              aria-pressed={mode === item}
+              key={item}
+            >
+              {MULTIPLAYER_MODE_LABELS[item]}
+            </button>
           ))}
         </div>
 
@@ -178,14 +236,16 @@ export function LocalMultiplayerPage() {
           <strong>{cue}</strong>
         </div>
 
-        <div className="multiplayer-track">
-          {(['p1', 'p2'] as PlayerId[]).map((player) => (
-            <div className={`multiplayer-lane ${actions[player] === 'jump' ? 'is-jumping' : ''} ${actions[player] === 'duck' ? 'is-ducking' : ''}`} key={player}>
-              <div className="multiplayer-player">
-                <span className="player-head" />
-                <span className="player-body" />
-                <span className="player-shadow" />
-              </div>
+        <div className={`multiplayer-track multiplayer-track-${mode}`}>
+          {visibleLanes.map((lane) => (
+            <div className="multiplayer-lane" key={lane}>
+              {lanePlayers(lane).map((player) => (
+                <div className={`multiplayer-player multiplayer-player-${player} ${actions[player] === 'jump' ? 'is-jumping' : ''} ${actions[player] === 'duck' ? 'is-ducking' : ''}`} key={player}>
+                  <span className="player-head" />
+                  <span className="player-body" />
+                  <span className="player-shadow" />
+                </div>
+              ))}
               <div className={`multiplayer-obstacle obstacle-${round.mode}`} style={{ left: obstacleLeft }} aria-hidden="true">
                 {round.mode === 'jump' ? (
                   <>
@@ -205,15 +265,16 @@ export function LocalMultiplayerPage() {
           <button className="button primary" type="button" onClick={() => setIsRunning((value) => !value)}>
             {isRunning ? 'Pause' : 'Start'}
           </button>
+          {mode === 'turns' ? <button className="button ghost" type="button" onClick={switchTurnPlayer}>Switch Player</button> : null}
           <button className="button ghost" type="button" onClick={resetGame}>Reset</button>
         </div>
 
         <div className="multiplayer-touch-controls">
           {(['p1', 'p2'] as PlayerId[]).map((player) => (
             <div className="multiplayer-pad" key={player}>
-              <span>{PLAYER_LABELS[player]}</span>
-              <button type="button" onPointerDown={() => triggerAction(player, 'jump')}>Jump</button>
-              <button type="button" onPointerDown={() => triggerAction(player, 'duck')}>Squat</button>
+              <span>{PLAYER_LABELS[player]}{mode === 'turns' && activeTurnPlayer === player ? ' Turn' : ''}</span>
+              <button type="button" onPointerDown={() => triggerAction(player, 'jump')} disabled={mode === 'turns' && activeTurnPlayer !== player}>Jump</button>
+              <button type="button" onPointerDown={() => triggerAction(player, 'duck')} disabled={mode === 'turns' && activeTurnPlayer !== player}>Squat</button>
             </div>
           ))}
         </div>

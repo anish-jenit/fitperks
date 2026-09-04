@@ -227,6 +227,11 @@
   animation: multiplayer-score-flash 0.42s ease-out both;
 }
 
+.multiplayer-scoreboard article.active-turn {
+  border-color: rgba(253, 230, 138, 0.82);
+  background: rgba(120, 53, 15, 0.42);
+}
+
 .multiplayer-scoreboard span,
 .multiplayer-scoreboard em,
 .multiplayer-keyboard-hints span,
@@ -275,6 +280,33 @@
   line-height: 1;
 }
 
+.multiplayer-mode-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  padding: 0.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.multiplayer-mode-picker button {
+  min-height: 2.4rem;
+  border: 0;
+  border-radius: 999px;
+  color: #cbd5e1;
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.multiplayer-mode-picker button.active {
+  color: #06111f;
+  background: #67e8f9;
+}
+
 .multiplayer-track {
   display: grid;
   gap: 0.7rem;
@@ -312,11 +344,19 @@
   transition: transform 0.16s ease, height 0.16s ease;
 }
 
-.multiplayer-lane.is-jumping .multiplayer-player {
+.multiplayer-track-together .multiplayer-player-p1 {
+  left: 76%;
+}
+
+.multiplayer-track-together .multiplayer-player-p2 {
+  left: 88%;
+}
+
+.multiplayer-player.is-jumping {
   transform: translate(-50%, -46%);
 }
 
-.multiplayer-lane.is-ducking .multiplayer-player {
+.multiplayer-player.is-ducking {
   height: 3.7rem;
   transform: translateX(-50%) scaleY(0.72);
   transform-origin: bottom;
@@ -450,6 +490,11 @@
 .multiplayer-pad button:active {
   color: #06111f;
   background: #67e8f9;
+}
+
+.multiplayer-pad button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
 }
 
 .multiplayer-keyboard-hints {
@@ -4530,6 +4575,15 @@ select:focus {
     border-radius: 10px;
   }
 
+  .multiplayer-mode-picker {
+    grid-template-columns: 1fr;
+    border-radius: 10px;
+  }
+
+  .multiplayer-mode-picker button {
+    border-radius: 8px;
+  }
+
   .multiplayer-lane {
     height: 8.1rem;
   }
@@ -4557,6 +4611,7 @@ select:focus {
   .multiplayer-controls .button {
     min-width: 0;
     flex: 1;
+    padding-inline: 0.55rem;
   }
 
   .multiplayer-touch-controls {

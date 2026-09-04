@@ -441,11 +441,18 @@ test('local multiplayer game exposes two-player jump and squat controls', async 
   await expect(page.locator('.multiplayer-scoreboard article').filter({ hasText: 'Player 1' })).toBeVisible()
   await expect(page.locator('.multiplayer-scoreboard article').filter({ hasText: 'Player 2' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Start' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Split screen' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Together' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Turns' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Jump' })).toHaveCount(2)
   await expect(page.getByRole('button', { name: 'Squat' })).toHaveCount(2)
 
   await page.getByRole('button', { name: 'Jump' }).first().click()
-  await expect(page.locator('.multiplayer-lane').first()).toHaveClass(/is-jumping/)
+  await expect(page.locator('.multiplayer-player').first()).toHaveClass(/is-jumping/)
+
+  await page.getByRole('button', { name: 'Turns' }).click()
+  await expect(page.getByRole('button', { name: 'Switch Player' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Jump' }).nth(1)).toBeDisabled()
 })
 
 test('solo mode exposes push-ups and period high scorers', async ({ page }) => {
